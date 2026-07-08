@@ -39,6 +39,12 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -68,6 +74,9 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
 
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.09.03"))
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

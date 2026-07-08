@@ -54,19 +54,33 @@ fun AndWeightApp() {
     }
 }
 
+/**
+ * Whether a profile exists, or null while still checking. Kept as Compose state (rather than
+ * navigating directly from inside the loading coroutine) so the actual `navigate()` call happens
+ * from its own effect, restarted cleanly on recomposition - not chained directly onto the
+ * continuation of a suspend database call, which is not guaranteed to resume on the main thread
+ * and previously crashed Navigation's main-thread-only lifecycle check.
+ */
 @Composable
 private fun RouterScreen(onNeedsOnboarding: () -> Unit, onHasProfile: () -> Unit) {
     val context = LocalContext.current
-    var checked by remember { mutableStateOf(false) }
+    var profileExists by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) {
         val app = context.applicationContext as AndWeightApplication
         val profile = app.repository.getProfileOnce()
-        checked = true
-        if (profile == null) onNeedsOnboarding() else onHasProfile()
+        profileExists = profile != null
     }
 
-    if (!checked) {
+    LaunchedEffect(profileExists) {
+        when (profileExists) {
+            true -> onHasProfile()
+            false -> onNeedsOnboarding()
+            null -> Unit
+        }
+    }
+
+    if (profileExists == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }

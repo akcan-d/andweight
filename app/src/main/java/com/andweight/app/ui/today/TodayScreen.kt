@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -112,9 +110,7 @@ private fun StatRow(label: String, value: String) {
 private fun CheckInCard(form: CheckInFormState, viewModel: TodayViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier
-                .padding(20.dp)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Today's check-in", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

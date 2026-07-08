@@ -24,6 +24,7 @@ data class OnboardingUiState(
     val activityLevel: ActivityLevel = ActivityLevel.LIGHT,
     val showAdvanced: Boolean = false,
     val errorMessage: String? = null,
+    val didSave: Boolean = false,
 )
 
 class OnboardingViewModel(private val repository: AndWeightRepository) : ViewModel() {
@@ -67,7 +68,7 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
         uiState = uiState.copy(showAdvanced = !uiState.showAdvanced)
     }
 
-    fun save(onSaved: () -> Unit) {
+    fun save() {
         val startWeight = uiState.startWeightText.toDoubleOrNull()
         val goalWeight = uiState.goalWeightText.toDoubleOrNull()
         val goalRate = uiState.goalRateText.toDoubleOrNull()
@@ -104,7 +105,10 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
 
         viewModelScope.launch {
             repository.saveProfile(profile)
-            onSaved()
+            // Trigger navigation via a state change observed in its own effect (see OnboardingScreen),
+            // rather than calling a navigation callback directly off this coroutine - navigating right
+            // after a suspend database call resumes is not guaranteed to land back on the main thread.
+            uiState = uiState.copy(didSave = true)
         }
     }
 }
