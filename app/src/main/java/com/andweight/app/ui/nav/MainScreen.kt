@@ -2,6 +2,7 @@ package com.andweight.app.ui.nav
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -18,10 +19,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.ui.history.HistoryScreen
+import com.andweight.app.ui.tips.TipsScreen
 import com.andweight.app.ui.today.TodayScreen
 
 private const val TODAY_ROUTE = "today"
 private const val HISTORY_ROUTE = "history"
+private const val TIPS_ROUTE = "tips"
 
 @Composable
 fun MainScreen() {
@@ -45,12 +48,19 @@ fun MainScreen() {
                     icon = { Icon(Icons.Filled.History, contentDescription = null) },
                     label = { Text("History") },
                 )
+                NavigationBarItem(
+                    selected = currentRoute?.hierarchy?.any { it.route == TIPS_ROUTE } == true,
+                    onClick = { navController.navigateToTab(TIPS_ROUTE) },
+                    icon = { Icon(Icons.Filled.Lightbulb, contentDescription = null) },
+                    label = { Text("Tips") },
+                )
             }
         },
     ) { padding ->
         NavHost(navController = navController, startDestination = TODAY_ROUTE) {
             composable(TODAY_ROUTE) { TodayScreen(contentPadding = padding) }
             composable(HISTORY_ROUTE) { HistoryScreen(contentPadding = padding) }
+            composable(TIPS_ROUTE) { TipsScreen(contentPadding = padding) }
         }
     }
 }

@@ -80,4 +80,6 @@ private fun DailyLogEntity.toDomain(): DailyLog = DailyLog(
     date = dateEpochDay.toLocalDate(),
     weightKg = weightKg,
     calories = calories,
+    intakeLevel = intakeLevel?.let { runCatching { IntakeLevel.valueOf(it) }.getOrNull() },
+    wasExactEntry = wasExactEntry,
 )

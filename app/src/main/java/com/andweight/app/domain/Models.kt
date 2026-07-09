@@ -26,6 +26,9 @@ data class DailyLog(
     val date: LocalDate,
     val weightKg: Double?,
     val calories: Double?,
+    /** Which quick-pick answer produced [calories], or null if [wasExactEntry] is true. */
+    val intakeLevel: IntakeLevel? = null,
+    val wasExactEntry: Boolean = false,
 )
 
 data class WeekSummary(

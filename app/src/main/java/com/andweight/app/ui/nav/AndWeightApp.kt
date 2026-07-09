@@ -17,8 +17,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.AndWeightApplication
 import com.andweight.app.ui.onboarding.OnboardingScreen
+import com.andweight.app.ui.tutorial.TutorialScreen
 
 private const val ROUTER_ROUTE = "router"
+private const val TUTORIAL_ROUTE = "tutorial"
 private const val ONBOARDING_ROUTE = "onboarding"
 private const val MAIN_ROUTE = "main"
 
@@ -30,13 +32,22 @@ fun AndWeightApp() {
         composable(ROUTER_ROUTE) {
             RouterScreen(
                 onNeedsOnboarding = {
-                    navController.navigate(ONBOARDING_ROUTE) {
+                    navController.navigate(TUTORIAL_ROUTE) {
                         popUpTo(ROUTER_ROUTE) { inclusive = true }
                     }
                 },
                 onHasProfile = {
                     navController.navigate(MAIN_ROUTE) {
                         popUpTo(ROUTER_ROUTE) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(TUTORIAL_ROUTE) {
+            TutorialScreen(
+                onDone = {
+                    navController.navigate(ONBOARDING_ROUTE) {
+                        popUpTo(TUTORIAL_ROUTE) { inclusive = true }
                     }
                 },
             )

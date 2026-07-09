@@ -6,8 +6,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
+import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.IntakeLevel
 import com.andweight.app.domain.IntakeResolver
+import com.andweight.app.domain.TdeeEngine
 import com.andweight.app.domain.TdeeState
 import com.andweight.app.domain.UserProfile
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,89 +24,160 @@ data class CheckInFormState(
     val useExact: Boolean = false,
     val exactCaloriesText: String = "",
     val errorMessage: String? = null,
-    val justSaved: Boolean = false,
     val floorWasApplied: Boolean = false,
 )
 
 class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() {
 
-    private val today: LocalDate = LocalDate.now()
+    /** Fixed for the lifetime of this screen - the actual current date, used for the stats card
+     * and as the latest day you're allowed to browse to. */
+    val actualToday: LocalDate = LocalDate.now()
 
     val profile: StateFlow<UserProfile?> = repository.profileFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val tdeeState: StateFlow<TdeeState?> = repository.tdeeStateFlow(today)
+    val tdeeState: StateFlow<TdeeState?> = repository.tdeeStateFlow(actualToday)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val logs: StateFlow<List<DailyLog>> = repository.logsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The day the check-in card is currently showing - may differ from [actualToday] once the
+     * person has paged backwards to fill in a missed day. */
+    var selectedDate by mutableStateOf(actualToday)
+        private set
+
+    var existingLog by mutableStateOf<DailyLog?>(null)
+        private set
+
+    /** True while the input form is showing; false when displaying a saved day as a summary. */
+    var isEditing by mutableStateOf(true)
+        private set
 
     var formState by mutableStateOf(CheckInFormState())
         private set
 
+    /** True right after a save whose resolved calories were clamped up to the safety floor -
+     * shown once on the summary view, then cleared as soon as the day changes or is re-edited. */
+    var lastSaveHitFloor by mutableStateOf(false)
+        private set
+
     init {
-        viewModelScope.launch {
-            val existingProfile = repository.getProfileOnce()
-            val existing = repository.getLogForDate(today)
-            if (existingProfile != null && existing != null) {
-                formState = formState.copy(
-                    weightText = existing.weightKg?.let { kg ->
-                        formatWeight(existingProfile.weightUnit.fromKg(kg))
-                    } ?: "",
-                    justSaved = true,
-                )
-            }
-        }
+        loadDay(selectedDate)
+    }
+
+    fun canGoToPreviousDay(): Boolean {
+        val minDate = profile.value?.startDate ?: return false
+        return selectedDate > minDate
+    }
+
+    fun canGoToNextDay(): Boolean = selectedDate < actualToday
+
+    fun goToPreviousDay() {
+        if (!canGoToPreviousDay()) return
+        selectedDate = selectedDate.minusDays(1)
+        lastSaveHitFloor = false
+        loadDay(selectedDate)
+    }
+
+    fun goToNextDay() {
+        if (!canGoToNextDay()) return
+        selectedDate = selectedDate.plusDays(1)
+        lastSaveHitFloor = false
+        loadDay(selectedDate)
+    }
+
+    fun onStartEditing() {
+        lastSaveHitFloor = false
+        isEditing = true
+    }
+
+    fun onCancelEditing() {
+        if (existingLog == null) return // nothing to go back to
+        isEditing = false
+        formState = CheckInFormState()
     }
 
     fun onWeightChange(text: String) {
-        formState = formState.copy(weightText = text, justSaved = false)
+        formState = formState.copy(weightText = text, errorMessage = null)
     }
 
     fun onIntakeSelected(level: IntakeLevel) {
-        formState = formState.copy(selectedIntake = level, useExact = false, justSaved = false)
+        formState = formState.copy(selectedIntake = level, useExact = false, errorMessage = null)
     }
 
     fun onToggleExact() {
-        formState = formState.copy(useExact = !formState.useExact, justSaved = false)
+        formState = formState.copy(useExact = !formState.useExact, errorMessage = null)
     }
 
     fun onExactCaloriesChange(text: String) {
-        formState = formState.copy(exactCaloriesText = text, justSaved = false)
+        formState = formState.copy(exactCaloriesText = text, errorMessage = null)
     }
 
     fun saveCheckIn() {
         val currentProfile = profile.value ?: return
-        val currentTdee = tdeeState.value?.currentTdee ?: return
+        val dateBeingSaved = selectedDate
+
+        // Resolve against the TDEE estimate excluding this day's own (about to be replaced) entry,
+        // so re-editing the same day repeatedly is idempotent instead of drifting - the previous
+        // save must not feed into the basis used to compute the new one.
+        val baselineTdee = TdeeEngine.compute(
+            currentProfile,
+            logs.value.filterNot { it.date == dateBeingSaved },
+            actualToday,
+        ).currentTdee
 
         val weightKg = formState.weightText.toDoubleOrNull()?.let { currentProfile.weightUnit.toKg(it) }
 
         val resolution = if (formState.useExact) {
             val exact = formState.exactCaloriesText.toDoubleOrNull()
             if (exact == null) {
-                formState = formState.copy(errorMessage = "Enter today's calories, or switch back to the quick pick.")
+                formState = formState.copy(errorMessage = "Enter that day's calories, or switch back to the quick pick.")
                 return
             }
             IntakeResolver.resolveExact(exact, currentProfile.sex)
         } else {
             val level = formState.selectedIntake
             if (level == null) {
-                formState = formState.copy(errorMessage = "Choose how much you felt like you ate today.")
+                formState = formState.copy(errorMessage = "Choose how much you felt like you ate that day.")
                 return
             }
-            IntakeResolver.resolveQuickPick(level, currentTdee, currentProfile.sex)
+            IntakeResolver.resolveQuickPick(level, baselineTdee, currentProfile.sex)
         }
 
         viewModelScope.launch {
             repository.saveLog(
-                date = today,
+                date = dateBeingSaved,
                 weightKg = weightKg,
                 calories = resolution.calories,
                 intakeLevel = if (formState.useExact) null else formState.selectedIntake,
                 wasExact = formState.useExact,
             )
-            formState = formState.copy(
-                errorMessage = null,
-                justSaved = true,
-                floorWasApplied = resolution.floorApplied,
-            )
+            if (dateBeingSaved == selectedDate) {
+                lastSaveHitFloor = resolution.floorApplied
+                loadDay(selectedDate)
+            }
+        }
+    }
+
+    private fun loadDay(date: LocalDate) {
+        viewModelScope.launch {
+            val unit = profile.value?.weightUnit ?: repository.getProfileOnce()?.weightUnit
+            val saved = repository.getLogForDate(date)
+            if (selectedDate != date) return@launch // a later navigation superseded this load
+
+            existingLog = saved
+            isEditing = saved == null
+            formState = if (saved == null || unit == null) {
+                CheckInFormState()
+            } else {
+                CheckInFormState(
+                    weightText = saved.weightKg?.let { kg -> formatWeight(unit.fromKg(kg)) } ?: "",
+                    selectedIntake = saved.intakeLevel,
+                    useExact = saved.wasExactEntry,
+                    exactCaloriesText = if (saved.wasExactEntry) saved.calories?.toInt()?.toString() ?: "" else "",
+                )
+            }
         }
     }
 
