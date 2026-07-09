@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.domain.ActivityLevel
 import com.andweight.app.domain.GoalDirection
+import com.andweight.app.domain.HeightConversion
 import com.andweight.app.domain.PaceGuidance
 import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
@@ -19,28 +20,31 @@ import java.time.LocalDate
 data class OnboardingUiState(
     val weightUnit: WeightUnit = WeightUnit.KG,
     val startWeightText: String = "",
+    /** Explicitly chosen by the person, rather than inferred from the two weight fields - so the
+     * stated intent ("I want to lose weight") is always the source of truth, and a goal weight
+     * that doesn't match it is treated as a typo to correct rather than a silent reinterpretation. */
+    val goalDirection: GoalDirection? = null,
     val goalWeightText: String = "",
     val selectedPace: PaceOption? = null,
     val sex: Sex = Sex.UNSPECIFIED,
     val heightCmText: String = "",
+    val heightFeetText: String = "",
+    val heightInchesText: String = "",
     val ageText: String = "",
     val activityLevel: ActivityLevel = ActivityLevel.LIGHT,
     val showAdvanced: Boolean = false,
     val errorMessage: String? = null,
     val didSave: Boolean = false,
 ) {
-    /** Best-effort direction based on whatever's currently typed, used to decide whether to show
-     * the pace picker at all and to preview each option's resulting rate. Null until both weights
-     * are valid numbers. */
-    val previewDirection: GoalDirection?
-        get() {
-            val start = startWeightText.toDoubleOrNull() ?: return null
-            val goal = goalWeightText.toDoubleOrNull() ?: return null
-            return when {
-                goal > start + 0.01 -> GoalDirection.GAIN
-                goal < start - 0.01 -> GoalDirection.LOSE
-                else -> GoalDirection.MAINTAIN
-            }
+    /** Height in cm from whichever field(s) are active for the current [weightUnit] - metric
+     * uses the single cm field, imperial combines feet + inches. */
+    val heightCm: Double?
+        get() = if (weightUnit.isMetric) {
+            heightCmText.toDoubleOrNull()
+        } else {
+            val feet = heightFeetText.toDoubleOrNull() ?: 0.0
+            val inches = heightInchesText.toDoubleOrNull() ?: 0.0
+            if (heightFeetText.isBlank() && heightInchesText.isBlank()) null else HeightConversion.feetInchesToCm(feet, inches)
         }
 }
 
@@ -52,11 +56,27 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
     fun onWeightUnitChange(unit: WeightUnit) {
         val previousUnit = uiState.weightUnit
         if (unit == previousUnit) return
+        val previousHeightCm = uiState.heightCm
         uiState = uiState.copy(
             weightUnit = unit,
             startWeightText = convertText(uiState.startWeightText, previousUnit, unit),
             goalWeightText = convertText(uiState.goalWeightText, previousUnit, unit),
         )
+        // Re-derive the height fields for the newly selected unit, so switching Metric/Imperial
+        // carries over whatever height was already entered instead of silently blanking it.
+        uiState = if (previousHeightCm == null) {
+            uiState
+        } else if (unit.isMetric) {
+            uiState.copy(heightCmText = formatOneDecimal(previousHeightCm), heightFeetText = "", heightInchesText = "")
+        } else {
+            val (feet, inches) = HeightConversion.cmToFeetAndInches(previousHeightCm)
+            uiState.copy(heightCmText = "", heightFeetText = feet.toString(), heightInchesText = formatOneDecimal(inches))
+        }
+    }
+
+    private fun formatOneDecimal(value: Double): String {
+        val rounded = Math.round(value * 10.0) / 10.0
+        return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
     }
 
     /** Converts whatever number is already typed into a field to the newly selected unit, so
@@ -76,6 +96,10 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
         uiState = uiState.copy(goalWeightText = text, errorMessage = null)
     }
 
+    fun onGoalDirectionChange(direction: GoalDirection) {
+        uiState = uiState.copy(goalDirection = direction, errorMessage = null)
+    }
+
     fun onPaceSelected(option: PaceOption) {
         uiState = uiState.copy(selectedPace = option, errorMessage = null)
     }
@@ -84,8 +108,16 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
         uiState = uiState.copy(sex = sex)
     }
 
-    fun onHeightChange(text: String) {
+    fun onHeightCmChange(text: String) {
         uiState = uiState.copy(heightCmText = text)
+    }
+
+    fun onHeightFeetChange(text: String) {
+        uiState = uiState.copy(heightFeetText = text)
+    }
+
+    fun onHeightInchesChange(text: String) {
+        uiState = uiState.copy(heightInchesText = text)
     }
 
     fun onAgeChange(text: String) {
@@ -103,23 +135,40 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
     fun save() {
         val unit = uiState.weightUnit
         val startWeight = uiState.startWeightText.toDoubleOrNull()
-        val goalWeight = uiState.goalWeightText.toDoubleOrNull()
 
         if (startWeight == null || startWeight <= 0.0) {
             uiState = uiState.copy(errorMessage = "Enter your current weight.")
             return
         }
-        if (goalWeight == null || goalWeight <= 0.0) {
-            uiState = uiState.copy(errorMessage = "Enter your goal weight.")
+        val startWeightKg = unit.toKg(startWeight)
+
+        val direction = uiState.goalDirection
+        if (direction == null) {
+            uiState = uiState.copy(errorMessage = "Choose whether you want to lose, maintain, or gain weight.")
             return
         }
 
-        val startWeightKg = unit.toKg(startWeight)
-        val goalWeightKg = unit.toKg(goalWeight)
-        val direction = when {
-            goalWeightKg > startWeightKg + 0.01 -> GoalDirection.GAIN
-            goalWeightKg < startWeightKg - 0.01 -> GoalDirection.LOSE
-            else -> GoalDirection.MAINTAIN
+        val goalWeightKg: Double
+        if (direction == GoalDirection.MAINTAIN) {
+            goalWeightKg = startWeightKg
+        } else {
+            val goalWeight = uiState.goalWeightText.toDoubleOrNull()
+            if (goalWeight == null || goalWeight <= 0.0) {
+                uiState = uiState.copy(errorMessage = "Enter your goal weight.")
+                return
+            }
+            val candidateKg = unit.toKg(goalWeight)
+            val matchesDirection = if (direction == GoalDirection.LOSE) {
+                candidateKg < startWeightKg - 0.01
+            } else {
+                candidateKg > startWeightKg + 0.01
+            }
+            if (!matchesDirection) {
+                val hint = if (direction == GoalDirection.LOSE) "lower" else "higher"
+                uiState = uiState.copy(errorMessage = "Your goal weight should be $hint than your current weight to ${direction.name.lowercase()} weight.")
+                return
+            }
+            goalWeightKg = candidateKg
         }
 
         val pace = uiState.selectedPace
@@ -134,7 +183,6 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             PaceGuidance.rateForOption(pace!!, startWeightKg, direction)
         }
 
-        val height = uiState.heightCmText.toDoubleOrNull()
         val age = uiState.ageText.toIntOrNull()
 
         val profile = UserProfile(
@@ -144,7 +192,7 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             goalWeightKg = goalWeightKg,
             goalRateKgPerWeek = goalRateKgPerWeek,
             sex = uiState.sex,
-            heightCm = height,
+            heightCm = uiState.heightCm,
             age = age,
             activityLevel = uiState.activityLevel,
         )

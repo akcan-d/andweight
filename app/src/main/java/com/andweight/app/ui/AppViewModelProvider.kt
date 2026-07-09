@@ -9,6 +9,7 @@ import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
 import com.andweight.app.ui.history.HistoryViewModel
 import com.andweight.app.ui.onboarding.OnboardingViewModel
+import com.andweight.app.ui.settings.EditProfileViewModel
 import com.andweight.app.ui.settings.SettingsViewModel
 import com.andweight.app.ui.settings.TipOfTheDayViewModel
 import com.andweight.app.ui.today.TodayViewModel
@@ -25,6 +26,7 @@ object AppViewModelProvider {
         initializer { HistoryViewModel(repository()) }
         initializer { SettingsViewModel(settingsRepository()) }
         initializer { TipOfTheDayViewModel(settingsRepository()) }
+        initializer { EditProfileViewModel(repository()) }
     }
 }
 

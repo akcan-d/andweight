@@ -1,0 +1,5 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Matches the system's dark-mode window background before Compose has painted anything,
+         so a system-dark device doesn't flash white for a frame on launch. -->
+    <style name="Theme.AndWeight" parent="android:Theme.Material.NoActionBar" />
+</resources>

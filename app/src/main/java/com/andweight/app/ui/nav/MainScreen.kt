@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
@@ -30,6 +30,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.history.HistoryScreen
+import com.andweight.app.ui.settings.EditProfileScreen
 import com.andweight.app.ui.settings.SettingsScreen
 import com.andweight.app.ui.settings.TipOfTheDayViewModel
 import com.andweight.app.ui.tips.TipsScreen
@@ -41,6 +42,7 @@ private const val HISTORY_ROUTE = "history"
 private const val SETTINGS_ROUTE = "settings"
 private const val SETTINGS_TIPS_ROUTE = "settings/tips"
 private const val SETTINGS_TUTORIAL_ROUTE = "settings/tutorial"
+private const val SETTINGS_EDIT_PROFILE_ROUTE = "settings/profile"
 
 @Composable
 fun MainScreen() {
@@ -63,8 +65,8 @@ fun MainScreen() {
                 NavigationBarItem(
                     selected = currentRoute?.hierarchy?.any { it.route == HISTORY_ROUTE } == true,
                     onClick = { navController.navigateToTab(HISTORY_ROUTE) },
-                    icon = { Icon(Icons.Filled.History, contentDescription = null) },
-                    label = { Text("History") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null) },
+                    label = { Text("Stats") },
                 )
                 NavigationBarItem(
                     selected = currentRoute?.hierarchy?.any { it.route == SETTINGS_ROUTE } == true,
@@ -83,11 +85,17 @@ fun MainScreen() {
                     contentPadding = padding,
                     onViewAllTips = { navController.navigate(SETTINGS_TIPS_ROUTE) },
                     onShowTutorial = { navController.navigate(SETTINGS_TUTORIAL_ROUTE) },
+                    onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
                 )
             }
-            composable(SETTINGS_TIPS_ROUTE) { TipsScreen(contentPadding = padding) }
+            composable(SETTINGS_TIPS_ROUTE) {
+                TipsScreen(contentPadding = padding, onBack = { navController.popBackStack() })
+            }
             composable(SETTINGS_TUTORIAL_ROUTE) {
                 TutorialScreen(contentPadding = padding, onDone = { navController.popBackStack() })
+            }
+            composable(SETTINGS_EDIT_PROFILE_ROUTE) {
+                EditProfileScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             }
         }
     }

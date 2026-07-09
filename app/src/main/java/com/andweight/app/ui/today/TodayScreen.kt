@@ -1,6 +1,9 @@
 package com.andweight.app.ui.today
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,13 +11,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -26,7 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,18 +45,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.AdviceSentiment
 import com.andweight.app.domain.CoachingAdvisor
+import com.andweight.app.domain.ConfidenceAssessment
+import com.andweight.app.domain.ConfidenceLevel
+import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.GoalDirection
 import com.andweight.app.domain.IntakeLevel
 import com.andweight.app.domain.Phrasing
 import com.andweight.app.domain.TdeeState
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.ui.AppViewModelProvider
+import com.andweight.app.ui.common.IntakeChip
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -65,9 +76,10 @@ fun TodayScreen(
 ) {
     val profile by viewModel.profile.collectAsState()
     val tdeeState by viewModel.tdeeState.collectAsState()
+    val confidence by viewModel.confidence.collectAsState()
 
     val items = buildList<@Composable () -> Unit> {
-        add { StatusCard(profile, tdeeState) }
+        add { StatusCard(profile, tdeeState, confidence) }
         add { CheckInCard(viewModel, profile) }
     }
 
@@ -85,7 +97,7 @@ fun TodayScreen(
 }
 
 @Composable
-private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
+private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence: ConfidenceAssessment?) {
     var showDetails by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -96,19 +108,28 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
             }
             val unit = profile.weightUnit
 
+            if (confidence != null) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    ConfidenceBadge(confidence)
+                }
+            }
+
             HeroSection(profile, tdeeState)
 
-            val advice = CoachingAdvisor.advise(profile, tdeeState)
-            Text(
-                advice.message,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = when (advice.sentiment) {
-                    AdviceSentiment.POSITIVE -> MaterialTheme.colorScheme.primary
-                    AdviceSentiment.CAUTION -> MaterialTheme.colorScheme.error
-                    AdviceSentiment.NEUTRAL -> MaterialTheme.colorScheme.onSurface
-                },
-            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                val advice = CoachingAdvisor.advise(profile, tdeeState)
+                Text(
+                    advice.message,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = when (advice.sentiment) {
+                        AdviceSentiment.POSITIVE -> MaterialTheme.colorScheme.primary
+                        AdviceSentiment.CAUTION -> MaterialTheme.colorScheme.error
+                        AdviceSentiment.NEUTRAL -> MaterialTheme.colorScheme.onSurface
+                    },
+                )
+            }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = { showDetails = !showDetails }) {
@@ -202,21 +223,37 @@ private fun StatRow(label: String, value: String) {
 
 @Composable
 private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
-    val form = viewModel.formState
-
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             DayPager(viewModel)
 
-            if (viewModel.isEditing) {
-                CheckInForm(form, viewModel, canCancel = viewModel.existingLog != null)
-            } else {
-                DaySummary(viewModel, profile)
+            if (viewModel.isDayComplete && viewModel.selectedDate == viewModel.actualToday) {
+                AllSetBanner()
+            }
+
+            WeightSection(viewModel, profile)
+            MealSection(viewModel)
+
+            if (viewModel.existingLog != null) {
+                DeleteDayButton(viewModel)
             }
         }
+    }
+}
+
+@Composable
+private fun AllSetBanner() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Text(
+            "You're all set for today - don't forget to check in again tomorrow!",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
@@ -257,21 +294,58 @@ private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
 }
 
 @Composable
-private fun DaySummary(viewModel: TodayViewModel, profile: UserProfile?) {
-    val log = viewModel.existingLog ?: return
-    val unit = profile?.weightUnit
-    var showDeleteConfirm by remember { mutableStateOf(false) }
+private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Weight", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (log.weightKg != null && unit != null) {
-            StatRow("Weight logged", Phrasing.formatWeight(log.weightKg, unit))
+        if (viewModel.isEditingWeight) {
+            val state = viewModel.weightState
+            OutlinedTextField(
+                value = state.text,
+                onValueChange = viewModel::onWeightTextChange,
+                label = { Text("Weight (${profile?.weightUnit?.name?.lowercase() ?: "kg"})") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = viewModel::saveWeight) { Text("Save") }
+                if (viewModel.existingLog?.weightKg != null) {
+                    TextButton(onClick = viewModel::onCancelEditingWeight) { Text("Cancel") }
+                }
+            }
+        } else {
+            val log = viewModel.existingLog
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (log?.weightKg != null && profile != null) Phrasing.formatWeight(log.weightKg, profile.weightUnit) else "-",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                IconButton(onClick = viewModel::onStartEditingWeight) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit weight")
+                }
+            }
         }
-        val intakeDescription = when {
-            log.wasExactEntry -> "You logged an exact amount: ${log.calories?.roundToInt()} kcal"
-            log.intakeLevel != null -> "You said: \"${log.intakeLevel.label}\""
-            else -> "You haven't logged what you ate yet - tap Edit to add it."
+    }
+}
+
+@Composable
+private fun MealSection(viewModel: TodayViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Meals", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+
+        if (viewModel.isEditingMeal) {
+            MealForm(viewModel)
+        } else {
+            val log = viewModel.existingLog
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                if (log != null) IntakeChip(log) else Text("-")
+                IconButton(onClick = viewModel::onStartEditingMeal) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit meal info")
+                }
+            }
         }
-        Text(intakeDescription, style = MaterialTheme.typography.bodyMedium)
 
         if (viewModel.lastSaveHitFloor) {
             Text(
@@ -280,18 +354,68 @@ private fun DaySummary(viewModel: TodayViewModel, profile: UserProfile?) {
                 color = MaterialTheme.colorScheme.error,
             )
         }
+    }
+}
 
-        OutlinedButton(onClick = viewModel::onStartEditing, modifier = Modifier.fillMaxWidth()) {
-            Text("Edit this day")
+@Composable
+private fun MealForm(viewModel: TodayViewModel) {
+    val state = viewModel.mealState
+
+    if (!state.useExact) {
+        Text(
+            "Compared to what's typical for you lately - not an exact calorie count.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            IntakeLevel.entries.forEach { level ->
+                FilterChip(
+                    selected = state.selectedIntake == level,
+                    onClick = { viewModel.onIntakeSelected(level) },
+                    label = { Text(level.label) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
-
-        TextButton(
-            onClick = { showDeleteConfirm = true },
+        TextButton(onClick = viewModel::onToggleExact) {
+            Text("I'd rather enter my exact calories")
+        }
+    } else {
+        OutlinedTextField(
+            value = state.exactCaloriesText,
+            onValueChange = viewModel::onExactCaloriesChange,
+            label = { Text("Calories eaten that day") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-        ) {
-            Text("Delete this day's record")
+        )
+        TextButton(onClick = viewModel::onToggleExact) {
+            Text("Use the quick pick instead")
         }
+    }
+
+    state.errorMessage?.let {
+        Text(it, color = MaterialTheme.colorScheme.error)
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = viewModel::saveMeal) { Text("Save") }
+        if (viewModel.existingLog?.calories != null) {
+            TextButton(onClick = viewModel::onCancelEditingMeal) { Text("Cancel") }
+        }
+    }
+}
+
+@Composable
+private fun DeleteDayButton(viewModel: TodayViewModel) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    TextButton(
+        onClick = { showDeleteConfirm = true },
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+    ) {
+        Text("Delete this day's record")
     }
 
     if (showDeleteConfirm) {
@@ -317,62 +441,39 @@ private fun DaySummary(viewModel: TodayViewModel, profile: UserProfile?) {
 }
 
 @Composable
-private fun CheckInForm(form: CheckInFormState, viewModel: TodayViewModel, canCancel: Boolean) {
-    OutlinedTextField(
-        value = form.weightText,
-        onValueChange = viewModel::onWeightChange,
-        label = { Text("Weight that day (optional)") },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
+private fun ConfidenceBadge(confidence: ConfidenceAssessment) {
+    var showExplanation by remember { mutableStateOf(false) }
+    val color = when (confidence.level) {
+        ConfidenceLevel.LOW -> Color(0xFFE53935)
+        ConfidenceLevel.MEDIUM -> Color(0xFFF9A825)
+        ConfidenceLevel.HIGH -> Color(0xFF43A047)
+    }
 
-    if (!form.useExact) {
-        Text("How much did you eat that day?", style = MaterialTheme.typography.labelLarge)
-        Text(
-            "Compared to what's typical for you lately - not an exact calorie count.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.clickable { showExplanation = true },
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(color),
         )
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            IntakeLevel.entries.forEach { level ->
-                FilterChip(
-                    selected = form.selectedIntake == level,
-                    onClick = { viewModel.onIntakeSelected(level) },
-                    label = { Text(level.label) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-        TextButton(onClick = viewModel::onToggleExact) {
-            Text("I'd rather enter my exact calories")
-        }
-    } else {
-        OutlinedTextField(
-            value = form.exactCaloriesText,
-            onValueChange = viewModel::onExactCaloriesChange,
-            label = { Text("Calories eaten that day") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+        Text(confidence.level.label, style = MaterialTheme.typography.labelSmall, color = color)
+    }
+
+    if (showExplanation) {
+        AlertDialog(
+            onDismissRequest = { showExplanation = false },
+            title = { Text(confidence.level.label) },
+            text = { Text(confidence.message) },
+            confirmButton = {
+                TextButton(onClick = { showExplanation = false }) {
+                    Text("Got it")
+                }
+            },
         )
-        TextButton(onClick = viewModel::onToggleExact) {
-            Text("Use the quick pick instead")
-        }
-    }
-
-    form.errorMessage?.let {
-        Text(it, color = MaterialTheme.colorScheme.error)
-    }
-
-    Button(onClick = viewModel::saveCheckIn, modifier = Modifier.fillMaxWidth()) {
-        Text("Save")
-    }
-
-    if (canCancel) {
-        TextButton(onClick = viewModel::onCancelEditing, modifier = Modifier.fillMaxWidth()) {
-            Text("Cancel")
-        }
     }
 }
 

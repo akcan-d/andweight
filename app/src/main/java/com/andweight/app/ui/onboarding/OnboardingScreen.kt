@@ -81,17 +81,39 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
-                value = state.goalWeightText,
-                onValueChange = viewModel::onGoalWeightChange,
-                label = { Text("Goal weight (${state.weightUnit.name.lowercase()})") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Text("What's your goal?", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = state.goalDirection == GoalDirection.LOSE,
+                    onClick = { viewModel.onGoalDirectionChange(GoalDirection.LOSE) },
+                    label = { Text("Lose weight") },
+                )
+                FilterChip(
+                    selected = state.goalDirection == GoalDirection.MAINTAIN,
+                    onClick = { viewModel.onGoalDirectionChange(GoalDirection.MAINTAIN) },
+                    label = { Text("Maintain") },
+                )
+                FilterChip(
+                    selected = state.goalDirection == GoalDirection.GAIN,
+                    onClick = { viewModel.onGoalDirectionChange(GoalDirection.GAIN) },
+                    label = { Text("Gain weight") },
+                )
+            }
 
-            val direction = state.previewDirection
+            val direction = state.goalDirection
             val startWeightKg = state.startWeightText.toDoubleOrNull()?.let { state.weightUnit.toKg(it) }
+
+            if (direction == GoalDirection.LOSE || direction == GoalDirection.GAIN) {
+                OutlinedTextField(
+                    value = state.goalWeightText,
+                    onValueChange = viewModel::onGoalWeightChange,
+                    label = { Text("Goal weight (${state.weightUnit.name.lowercase()})") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             if (direction != null && direction != GoalDirection.MAINTAIN && startWeightKg != null) {
                 Text("Pace", style = MaterialTheme.typography.labelLarge)
                 Text(
@@ -122,7 +144,7 @@ fun OnboardingScreen(
                 }
             } else if (direction == GoalDirection.MAINTAIN) {
                 Text(
-                    "Your goal matches your current weight, so we'll help you hold steady rather than lose or gain.",
+                    "We'll help you hold steady around your current weight rather than lose or gain.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -151,14 +173,35 @@ fun OnboardingScreen(
                     )
                 }
 
-                OutlinedTextField(
-                    value = state.heightCmText,
-                    onValueChange = viewModel::onHeightChange,
-                    label = { Text("Height (cm)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (state.weightUnit.isMetric) {
+                    OutlinedTextField(
+                        value = state.heightCmText,
+                        onValueChange = viewModel::onHeightCmChange,
+                        label = { Text("Height (cm)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = state.heightFeetText,
+                            onValueChange = viewModel::onHeightFeetChange,
+                            label = { Text("Height (ft)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedTextField(
+                            value = state.heightInchesText,
+                            onValueChange = viewModel::onHeightInchesChange,
+                            label = { Text("Height (in)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
 
                 OutlinedTextField(
                     value = state.ageText,

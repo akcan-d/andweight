@@ -7,11 +7,11 @@ import org.junit.Test
 class PaceGuidanceTest {
 
     @Test
-    fun `max safe loss rate is 1 percent of body weight, capped at 2kg per week`() {
-        // 1% of 90kg = 0.9, well under the 2kg cap.
-        assertEquals(0.9, PaceGuidance.maxSafeWeeklyRateKg(90.0, GoalDirection.LOSE), 1e-9)
-        // 1% of 250kg = 2.5, which must be clamped down to the absolute 2kg/week cap.
-        assertEquals(2.0, PaceGuidance.maxSafeWeeklyRateKg(250.0, GoalDirection.LOSE), 1e-9)
+    fun `max safe loss rate is 1point5 percent of body weight, capped at 2kg per week`() {
+        // 1.5% of 90kg = 1.35, well under the 2kg cap.
+        assertEquals(1.35, PaceGuidance.maxSafeWeeklyRateKg(90.0, GoalDirection.LOSE), 1e-9)
+        // 1.5% of 200kg = 3.0, which must be clamped down to the absolute 2kg/week cap.
+        assertEquals(2.0, PaceGuidance.maxSafeWeeklyRateKg(200.0, GoalDirection.LOSE), 1e-9)
     }
 
     @Test

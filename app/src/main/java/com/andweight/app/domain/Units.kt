@@ -7,6 +7,29 @@ enum class WeightUnit {
 
     fun toKg(value: Double): Double = if (this == KG) value else value / 2.20462
     fun fromKg(kg: Double): Double = if (this == KG) kg else kg * 2.20462
+
+    /** There's deliberately no separate height-unit setting - picking Kg or Lb doubles as the
+     * app's one Metric/Imperial choice, and height follows it (cm for Kg, feet/inches for Lb). */
+    val isMetric: Boolean
+        get() = this == KG
+}
+
+/** All heights are stored and computed internally in centimeters; this is only for display/input
+ * conversion, mirroring how [WeightUnit] handles kilograms. */
+object HeightConversion {
+    private const val CM_PER_INCH = 2.54
+
+    fun cmToInches(cm: Double): Double = cm / CM_PER_INCH
+    fun inchesToCm(inches: Double): Double = inches * CM_PER_INCH
+    fun feetInchesToCm(feet: Double, inches: Double): Double = inchesToCm(feet * 12.0 + inches)
+
+    /** Splits a height in cm into whole feet plus remaining inches, for display in an imperial field pair. */
+    fun cmToFeetAndInches(cm: Double): Pair<Int, Double> {
+        val totalInches = cmToInches(cm)
+        val feet = (totalInches / 12.0).toInt()
+        val remainingInches = totalInches - feet * 12.0
+        return feet to remainingInches
+    }
 }
 
 enum class Sex {
@@ -53,10 +76,14 @@ object SafetyLimits {
 // Enum constant names are persisted in the database (see DailyLogEntity.intakeLevel), so they
 // stay fixed even as the user-facing label wording is refined - renaming a constant here would
 // orphan any already-saved records referencing the old name.
-enum class IntakeLevel(val offsetKcal: Double, val label: String) {
-    STARVING(-750.0, "Much less than usual"),
-    LESS_THAN_NORMAL(-350.0, "A bit less than usual"),
-    AVERAGE(0.0, "About my usual amount"),
-    MORE_THAN_AVERAGE(350.0, "A bit more than usual"),
-    BURSTED(750.0, "Much more than usual"),
+//
+// [direction] is -1/0/+1 (less/usual/more) and [intensity] is 0-2 (how far from usual) - both
+// plain data so the UI layer can derive an icon and a neutral (non-judgmental - this app
+// deliberately doesn't code "ate more" as bad) visual weight without a parallel when-chain.
+enum class IntakeLevel(val offsetKcal: Double, val label: String, val shortLabel: String, val direction: Int, val intensity: Int) {
+    STARVING(-750.0, "Much less than usual", "Much less", -1, 2),
+    LESS_THAN_NORMAL(-350.0, "A bit less than usual", "A bit less", -1, 1),
+    AVERAGE(0.0, "About my usual amount", "Usual", 0, 0),
+    MORE_THAN_AVERAGE(350.0, "A bit more than usual", "A bit more", 1, 1),
+    BURSTED(750.0, "Much more than usual", "Much more", 1, 2),
 }

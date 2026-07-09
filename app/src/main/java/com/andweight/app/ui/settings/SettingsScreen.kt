@@ -31,6 +31,7 @@ fun SettingsScreen(
     contentPadding: PaddingValues,
     onViewAllTips: () -> Unit,
     onShowTutorial: () -> Unit,
+    onEditProfile: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val tipsEnabled by viewModel.tipsEnabled.collectAsState()
@@ -48,6 +49,18 @@ fun SettingsScreen(
             ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Text("Your profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Update your goal, pace, height, age, activity level, units, or start date any time.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
+            Text("Edit profile")
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
         Text("Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ThemeMode.entries.forEach { mode ->

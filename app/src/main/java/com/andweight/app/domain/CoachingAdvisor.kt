@@ -27,16 +27,20 @@ object CoachingAdvisor {
 
     fun advise(profile: UserProfile, state: TdeeState): Advice {
         val completedWeeks = state.weeklyHistory.filter { it.hasWeightData && it.hasCalorieData }
+        val targetSentence = Phrasing.calorieTargetSentence(state.recommendedCalories, state.currentTdee)
+
         if (completedWeeks.size < MIN_WEEKS_FOR_ADVICE) {
+            // Being upfront that the number shown is a rough starting guess, rather than telling
+            // people not to worry about a target while a specific (lower, if losing) one is still
+            // sitting right there in the details view - that combination read as contradictory.
             return Advice(
-                "Keep logging every day you can. Until we have a couple of weeks of data, just eat " +
-                    "close to what feels normal for you - there's no need to restrict anything yet.",
+                "Keep logging every day you can - the target below is just a rough starting estimate " +
+                    "based on formulas, not your real results yet. It'll get more accurate the more you log.",
                 AdviceSentiment.NEUTRAL,
             )
         }
 
         val recentDeltaKg = completedWeeks.last().weightDeltaKg ?: 0.0
-        val targetSentence = Phrasing.calorieTargetSentence(state.recommendedCalories, state.currentTdee)
 
         if (profile.goalDirection == GoalDirection.MAINTAIN) {
             return when {
