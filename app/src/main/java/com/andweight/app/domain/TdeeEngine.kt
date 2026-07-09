@@ -40,7 +40,7 @@ object TdeeEngine {
             null
         }
         val guess = mifflinStJeor ?: (profile.startWeightKg * EnergyConstants.MAINTENANCE_KCAL_PER_KG)
-        return mround(guess, 5.0)
+        return mround(guess, 5.0).coerceAtLeast(0.0)
     }
 
     fun compute(profile: UserProfile, logs: List<DailyLog>, today: LocalDate): TdeeState {
@@ -49,6 +49,8 @@ object TdeeEngine {
 
         var lastKnownAvgWeight = profile.startWeightKg
         var lastKnownAvgCalories = initialGuess
+        var earliestKnownWeightKg = profile.startWeightKg
+        var sawWeightData = false
         val finalizedTdees = mutableListOf<Double>()
         val weekSummaries = mutableListOf<WeekSummary>()
 
@@ -96,12 +98,17 @@ object TdeeEngine {
             val avgCalories = if (hasCalories) sumC / 7.0 else null
             val weightDelta = if (hasWeight) avgWeight!! - lastKnownAvgWeight else null
 
+            if (hasWeight && !sawWeightData) {
+                earliestKnownWeightKg = avgWeight!!
+                sawWeightData = true
+            }
+
             var tdeeThisWeek: Double? = null
             if (hasWeight && hasCalories) {
                 val naiveTdee = avgCalories!! + (-weightDelta!! * EnergyConstants.KCAL_PER_KG_BODYWEIGHT) / 7.0
                 val window = (listOf(naiveTdee) + finalizedTdees.asReversed()).take(6)
                 val rolling = window.sum() / window.size
-                tdeeThisWeek = mround(rolling, 5.0)
+                tdeeThisWeek = mround(rolling, 5.0).coerceAtLeast(0.0)
                 finalizedTdees.add(tdeeThisWeek)
             }
 
@@ -151,6 +158,7 @@ object TdeeEngine {
         return TdeeState(
             initialTdeeGuess = initialGuess,
             currentWeightKg = currentWeight,
+            earliestKnownWeightKg = earliestKnownWeightKg,
             currentTdee = currentTdee,
             targetDailyDeficit = targetDailyDeficit,
             recommendedCalories = recommended,

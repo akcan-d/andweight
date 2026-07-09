@@ -3,6 +3,7 @@ package com.andweight.app
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeightUnit
 import com.andweight.app.ui.onboarding.OnboardingViewModel
@@ -62,7 +63,7 @@ class CrashReproTest {
         val viewModel = OnboardingViewModel(app.repository)
         viewModel.onStartWeightChange("80")
         viewModel.onGoalWeightChange("70")
-        viewModel.onGoalRateChange("0.5")
+        viewModel.onPaceSelected(PaceOption.MODERATE)
 
         viewModel.save()
 

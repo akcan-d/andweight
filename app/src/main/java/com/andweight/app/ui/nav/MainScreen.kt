@@ -87,7 +87,7 @@ fun MainScreen() {
             }
             composable(SETTINGS_TIPS_ROUTE) { TipsScreen(contentPadding = padding) }
             composable(SETTINGS_TUTORIAL_ROUTE) {
-                TutorialScreen(onDone = { navController.popBackStack() })
+                TutorialScreen(contentPadding = padding, onDone = { navController.popBackStack() })
             }
         }
     }

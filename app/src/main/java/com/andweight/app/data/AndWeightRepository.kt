@@ -39,6 +39,10 @@ class AndWeightRepository(context: Context) {
     suspend fun getLogForDate(date: LocalDate): DailyLog? =
         logDao.getByDate(date.toEpochDayLong())?.toDomain()
 
+    suspend fun deleteLog(date: LocalDate) {
+        logDao.deleteByDate(date.toEpochDayLong())
+    }
+
     suspend fun saveLog(date: LocalDate, weightKg: Double?, calories: Double?, intakeLevel: IntakeLevel?, wasExact: Boolean) {
         logDao.upsert(
             DailyLogEntity(

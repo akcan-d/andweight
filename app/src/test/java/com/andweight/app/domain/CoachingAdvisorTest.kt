@@ -29,6 +29,7 @@ class CoachingAdvisorTest {
     private fun stateWithWeeks(weeks: List<WeekSummary>) = TdeeState(
         initialTdeeGuess = 2500.0,
         currentWeightKg = 88.0,
+        earliestKnownWeightKg = 90.0,
         currentTdee = 2200.0,
         targetDailyDeficit = 500.0,
         recommendedCalories = 1700.0,

@@ -14,15 +14,20 @@ object Phrasing {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
 
-    /** How today's recommended intake compares to the person's current TDEE. */
+    /**
+     * How today's recommended intake compares to the person's current TDEE - which is itself an
+     * estimate of what they've actually been eating and burning over the past several weeks, not
+     * a fixed baseline from before they started. So "usual" here means "what you've genuinely
+     * been eating lately", and it updates as that changes.
+     */
     fun calorieTargetSentence(recommendedCalories: Double, tdee: Double): String {
         val delta = recommendedCalories - tdee
         return when {
-            delta <= -600 -> "Eat noticeably less than usual today."
-            delta <= -150 -> "Eat a little less than usual today."
-            delta < 150 -> "Eat a normal, average amount today."
-            delta < 600 -> "Eat a little more than usual today."
-            else -> "Eat noticeably more than usual today."
+            delta <= -600 -> "Eat noticeably less than you've been eating these past few weeks."
+            delta <= -150 -> "Eat a little less than you've been eating these past few weeks."
+            delta < 150 -> "Eat about what you've been eating these past few weeks."
+            delta < 600 -> "Eat a little more than you've been eating these past few weeks."
+            else -> "Eat noticeably more than you've been eating these past few weeks."
         }
     }
 

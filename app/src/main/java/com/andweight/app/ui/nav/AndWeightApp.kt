@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,13 +61,16 @@ fun AndWeightApp() {
                     )
                 }
                 composable(TUTORIAL_ROUTE) {
-                    TutorialScreen(
-                        onDone = {
-                            navController.navigate(ONBOARDING_ROUTE) {
-                                popUpTo(TUTORIAL_ROUTE) { inclusive = true }
-                            }
-                        },
-                    )
+                    Scaffold { padding ->
+                        TutorialScreen(
+                            contentPadding = padding,
+                            onDone = {
+                                navController.navigate(ONBOARDING_ROUTE) {
+                                    popUpTo(TUTORIAL_ROUTE) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
                 }
                 composable(ONBOARDING_ROUTE) {
                     OnboardingScreen(

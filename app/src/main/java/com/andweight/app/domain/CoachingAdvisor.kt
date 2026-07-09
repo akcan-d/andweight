@@ -12,8 +12,14 @@ data class Advice(val message: String, val sentiment: AdviceSentiment)
 
 /**
  * Compares how the person has actually been trending against their stated goal and produces a
- * short, honest nudge. Deliberately conservative early on - with only a week or two of data the
- * TDEE estimate is still finding its footing, so advice before then would just be noise.
+ * single, self-contained piece of guidance - deliberately the *only* "what should I eat today"
+ * message shown, so it can never contradict a separately-computed line. When trend and static
+ * target agree, this folds the target phrase in; when they don't (e.g. already ahead of pace),
+ * the trend-aware guidance takes over instead of also stating the static "eat less" delta, which
+ * would otherwise read as conflicting advice.
+ *
+ * Deliberately conservative early on - with only a week or two of data the TDEE estimate is
+ * still finding its footing, so advice before then would just be noise.
  */
 object CoachingAdvisor {
 
@@ -23,21 +29,23 @@ object CoachingAdvisor {
         val completedWeeks = state.weeklyHistory.filter { it.hasWeightData && it.hasCalorieData }
         if (completedWeeks.size < MIN_WEEKS_FOR_ADVICE) {
             return Advice(
-                "Keep logging every day you can. Once you've got a couple of weeks of data, " +
-                    "we'll be able to tell you how you're really doing.",
+                "Keep logging every day you can. Until we have a couple of weeks of data, just eat " +
+                    "close to what feels normal for you - there's no need to restrict anything yet.",
                 AdviceSentiment.NEUTRAL,
             )
         }
 
         val recentDeltaKg = completedWeeks.last().weightDeltaKg ?: 0.0
+        val targetSentence = Phrasing.calorieTargetSentence(state.recommendedCalories, state.currentTdee)
 
         if (profile.goalDirection == GoalDirection.MAINTAIN) {
-            return if (abs(recentDeltaKg) < 0.3) {
-                Advice("You're holding steady - exactly what you're aiming for.", AdviceSentiment.POSITIVE)
-            } else if (recentDeltaKg > 0) {
-                Advice("You've been drifting upward. Try scaling back your portions a little.", AdviceSentiment.CAUTION)
-            } else {
-                Advice("You've been drifting downward. Try eating a little more to hold steady.", AdviceSentiment.CAUTION)
+            return when {
+                abs(recentDeltaKg) < 0.3 ->
+                    Advice("You're holding steady - exactly what you're aiming for. Keep eating about what feels normal for you.", AdviceSentiment.POSITIVE)
+                recentDeltaKg > 0 ->
+                    Advice("You've been drifting upward lately. Try scaling back your portions a little.", AdviceSentiment.CAUTION)
+                else ->
+                    Advice("You've been drifting downward lately. Try adding a little more to your meals.", AdviceSentiment.CAUTION)
             }
         }
 
@@ -47,7 +55,7 @@ object CoachingAdvisor {
             GoalDirection.MAINTAIN -> 0.0
         }
         if (targetWeeklyDeltaKg == 0.0) {
-            return Advice("You're on track.", AdviceSentiment.POSITIVE)
+            return Advice("You're on track. $targetSentence", AdviceSentiment.POSITIVE)
         }
 
         val progressRatio = recentDeltaKg / targetWeeklyDeltaKg
@@ -55,13 +63,17 @@ object CoachingAdvisor {
         return when {
             progressRatio < 0.3 -> {
                 val verb = if (profile.goalDirection == GoalDirection.LOSE) "eating a bit less" else "eating a bit more"
-                Advice("Progress has been slow lately. Try $verb than you have been.", AdviceSentiment.CAUTION)
+                Advice("Progress has been slow lately. Try $verb than you have been the past couple of weeks.", AdviceSentiment.CAUTION)
             }
             progressRatio > 1.8 -> {
                 val verb = if (profile.goalDirection == GoalDirection.LOSE) "eating a little more" else "eating a little less"
-                Advice("You're moving faster than planned. Consider $verb to keep it sustainable.", AdviceSentiment.CAUTION)
+                Advice(
+                    "You're moving faster than planned, which isn't necessarily healthier - consider $verb " +
+                        "to keep it sustainable and protect your energy and muscle mass.",
+                    AdviceSentiment.CAUTION,
+                )
             }
-            else -> Advice("You're doing great - right on pace for your goal. Keep it up!", AdviceSentiment.POSITIVE)
+            else -> Advice("You're doing great - right on pace for your goal. $targetSentence", AdviceSentiment.POSITIVE)
         }
     }
 }

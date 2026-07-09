@@ -16,7 +16,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -108,8 +110,6 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
                 },
             )
 
-            Text(Phrasing.calorieTargetSentence(tdeeState.recommendedCalories, tdeeState.currentTdee), style = MaterialTheme.typography.bodyMedium)
-
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = { showDetails = !showDetails }) {
                     Text(if (showDetails) "Hide details" else "Show details")
@@ -129,7 +129,7 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
                     },
                 )
             } else {
-                Text(Phrasing.weightTrendSentence(tdeeState.currentWeightKg - profile.startWeightKg, unit), style = MaterialTheme.typography.bodyMedium)
+                Text(Phrasing.weightTrendSentence(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit), style = MaterialTheme.typography.bodyMedium)
             }
 
             if (tdeeState.recommendedCaloriesFloorApplied) {
@@ -185,9 +185,10 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
 
 private fun goalProgress(profile: UserProfile, tdeeState: TdeeState): Float? {
     if (profile.goalDirection == GoalDirection.MAINTAIN) return null
-    val total = kotlin.math.abs(profile.goalWeightKg - profile.startWeightKg)
+    val start = tdeeState.earliestKnownWeightKg
+    val total = kotlin.math.abs(profile.goalWeightKg - start)
     if (total <= 0.0) return 1f
-    val done = kotlin.math.abs(tdeeState.currentWeightKg - profile.startWeightKg)
+    val done = kotlin.math.abs(tdeeState.currentWeightKg - start)
     return (done / total).toFloat().coerceIn(0f, 1f)
 }
 
@@ -259,6 +260,7 @@ private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
 private fun DaySummary(viewModel: TodayViewModel, profile: UserProfile?) {
     val log = viewModel.existingLog ?: return
     val unit = profile?.weightUnit
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (log.weightKg != null && unit != null) {
@@ -282,6 +284,35 @@ private fun DaySummary(viewModel: TodayViewModel, profile: UserProfile?) {
         OutlinedButton(onClick = viewModel::onStartEditing, modifier = Modifier.fillMaxWidth()) {
             Text("Edit this day")
         }
+
+        TextButton(
+            onClick = { showDeleteConfirm = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        ) {
+            Text("Delete this day's record")
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete this day?") },
+            text = { Text("This removes the weight and meal info logged for ${dayLabel(viewModel.selectedDate, viewModel.actualToday)}. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    viewModel.deleteDay()
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -297,7 +328,12 @@ private fun CheckInForm(form: CheckInFormState, viewModel: TodayViewModel, canCa
     )
 
     if (!form.useExact) {
-        Text("How much did you feel like you ate that day?", style = MaterialTheme.typography.labelLarge)
+        Text("How much did you eat that day?", style = MaterialTheme.typography.labelLarge)
+        Text(
+            "Compared to what's typical for you lately - not an exact calorie count.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             IntakeLevel.entries.forEach { level ->
                 FilterChip(

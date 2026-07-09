@@ -50,10 +50,13 @@ object SafetyLimits {
     }
 }
 
+// Enum constant names are persisted in the database (see DailyLogEntity.intakeLevel), so they
+// stay fixed even as the user-facing label wording is refined - renaming a constant here would
+// orphan any already-saved records referencing the old name.
 enum class IntakeLevel(val offsetKcal: Double, val label: String) {
-    STARVING(-750.0, "I was starving"),
-    LESS_THAN_NORMAL(-350.0, "I ate less than normal"),
-    AVERAGE(0.0, "I ate an average amount"),
-    MORE_THAN_AVERAGE(350.0, "I ate more than average"),
-    BURSTED(750.0, "I almost bursted"),
+    STARVING(-750.0, "Much less than usual"),
+    LESS_THAN_NORMAL(-350.0, "A bit less than usual"),
+    AVERAGE(0.0, "About my usual amount"),
+    MORE_THAN_AVERAGE(350.0, "A bit more than usual"),
+    BURSTED(750.0, "Much more than usual"),
 }

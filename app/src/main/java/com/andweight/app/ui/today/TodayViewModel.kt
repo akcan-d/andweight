@@ -100,6 +100,17 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         isEditing = true
     }
 
+    fun deleteDay() {
+        val dateBeingDeleted = selectedDate
+        viewModelScope.launch {
+            repository.deleteLog(dateBeingDeleted)
+            if (dateBeingDeleted == selectedDate) {
+                lastSaveHitFloor = false
+                loadDay(selectedDate)
+            }
+        }
+    }
+
     fun onCancelEditing() {
         if (existingLog == null) return // nothing to go back to
         isEditing = false

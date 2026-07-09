@@ -117,6 +117,34 @@ class TdeeEngineTest {
     }
 
     @Test
+    fun `earliestKnownWeightKg reflects the first week that actually had a weight entry`() {
+        val logs = buildLogs()
+        val state = TdeeEngine.compute(profile, logs, startDate.plusDays(27))
+        // Week 1's average weight (see the shared fixture above), not the profile's start weight.
+        assertEquals(121.5, state.earliestKnownWeightKg, 1e-9)
+    }
+
+    @Test
+    fun `earliestKnownWeightKg falls back to the profile's start weight when nothing is logged`() {
+        val state = TdeeEngine.compute(profile, emptyList(), startDate)
+        assertEquals(profile.startWeightKg, state.earliestKnownWeightKg, 0.0)
+    }
+
+    @Test
+    fun `estimated TDEE never goes negative even in an extreme scenario`() {
+        // Contrived: weight rising sharply while eating very little would, unclamped, imply a
+        // deeply negative maintenance calorie estimate. It must be floored at zero instead.
+        val logs = listOf(
+            DailyLog(startDate, weightKg = 90.0, calories = 500.0),
+            DailyLog(startDate.plusDays(6), weightKg = 140.0, calories = 500.0),
+        )
+        val extremeProfile = profile.copy(startWeightKg = 90.0)
+        val state = TdeeEngine.compute(extremeProfile, logs, startDate.plusDays(6))
+        assertTrue(state.currentTdee >= 0.0)
+        assertTrue(state.weeklyHistory.all { (it.tdee ?: 0.0) >= 0.0 })
+    }
+
+    @Test
     fun `quick-pick intake levels offset the current TDEE estimate`() {
         val resolution = IntakeResolver.resolveQuickPick(IntakeLevel.LESS_THAN_NORMAL, 2500.0, Sex.MALE)
         assertEquals(2150.0, resolution.calories, 0.0)

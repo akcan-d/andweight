@@ -7,6 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.domain.ActivityLevel
+import com.andweight.app.domain.GoalDirection
+import com.andweight.app.domain.PaceGuidance
+import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeightUnit
@@ -17,7 +20,7 @@ data class OnboardingUiState(
     val weightUnit: WeightUnit = WeightUnit.KG,
     val startWeightText: String = "",
     val goalWeightText: String = "",
-    val goalRateText: String = "",
+    val selectedPace: PaceOption? = null,
     val sex: Sex = Sex.UNSPECIFIED,
     val heightCmText: String = "",
     val ageText: String = "",
@@ -25,7 +28,21 @@ data class OnboardingUiState(
     val showAdvanced: Boolean = false,
     val errorMessage: String? = null,
     val didSave: Boolean = false,
-)
+) {
+    /** Best-effort direction based on whatever's currently typed, used to decide whether to show
+     * the pace picker at all and to preview each option's resulting rate. Null until both weights
+     * are valid numbers. */
+    val previewDirection: GoalDirection?
+        get() {
+            val start = startWeightText.toDoubleOrNull() ?: return null
+            val goal = goalWeightText.toDoubleOrNull() ?: return null
+            return when {
+                goal > start + 0.01 -> GoalDirection.GAIN
+                goal < start - 0.01 -> GoalDirection.LOSE
+                else -> GoalDirection.MAINTAIN
+            }
+        }
+}
 
 class OnboardingViewModel(private val repository: AndWeightRepository) : ViewModel() {
 
@@ -39,7 +56,6 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             weightUnit = unit,
             startWeightText = convertText(uiState.startWeightText, previousUnit, unit),
             goalWeightText = convertText(uiState.goalWeightText, previousUnit, unit),
-            goalRateText = convertText(uiState.goalRateText, previousUnit, unit),
         )
     }
 
@@ -53,15 +69,15 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
     }
 
     fun onStartWeightChange(text: String) {
-        uiState = uiState.copy(startWeightText = text)
+        uiState = uiState.copy(startWeightText = text, errorMessage = null)
     }
 
     fun onGoalWeightChange(text: String) {
-        uiState = uiState.copy(goalWeightText = text)
+        uiState = uiState.copy(goalWeightText = text, errorMessage = null)
     }
 
-    fun onGoalRateChange(text: String) {
-        uiState = uiState.copy(goalRateText = text)
+    fun onPaceSelected(option: PaceOption) {
+        uiState = uiState.copy(selectedPace = option, errorMessage = null)
     }
 
     fun onSexChange(sex: Sex) {
@@ -85,9 +101,9 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
     }
 
     fun save() {
+        val unit = uiState.weightUnit
         val startWeight = uiState.startWeightText.toDoubleOrNull()
         val goalWeight = uiState.goalWeightText.toDoubleOrNull()
-        val goalRate = uiState.goalRateText.toDoubleOrNull()
 
         if (startWeight == null || startWeight <= 0.0) {
             uiState = uiState.copy(errorMessage = "Enter your current weight.")
@@ -97,22 +113,36 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             uiState = uiState.copy(errorMessage = "Enter your goal weight.")
             return
         }
-        val needsRate = kotlin.math.abs(goalWeight - startWeight) > 0.01
-        if (needsRate && (goalRate == null || goalRate <= 0.0)) {
-            uiState = uiState.copy(errorMessage = "Enter your target weekly rate of change.")
+
+        val startWeightKg = unit.toKg(startWeight)
+        val goalWeightKg = unit.toKg(goalWeight)
+        val direction = when {
+            goalWeightKg > startWeightKg + 0.01 -> GoalDirection.GAIN
+            goalWeightKg < startWeightKg - 0.01 -> GoalDirection.LOSE
+            else -> GoalDirection.MAINTAIN
+        }
+
+        val pace = uiState.selectedPace
+        if (direction != GoalDirection.MAINTAIN && pace == null) {
+            uiState = uiState.copy(errorMessage = "Choose a pace for reaching your goal.")
             return
         }
 
-        val unit = uiState.weightUnit
+        val goalRateKgPerWeek = if (direction == GoalDirection.MAINTAIN) {
+            0.0
+        } else {
+            PaceGuidance.rateForOption(pace!!, startWeightKg, direction)
+        }
+
         val height = uiState.heightCmText.toDoubleOrNull()
         val age = uiState.ageText.toIntOrNull()
 
         val profile = UserProfile(
             startDate = LocalDate.now(),
             weightUnit = unit,
-            startWeightKg = unit.toKg(startWeight),
-            goalWeightKg = unit.toKg(goalWeight),
-            goalRateKgPerWeek = unit.toKg(goalRate ?: 0.0),
+            startWeightKg = startWeightKg,
+            goalWeightKg = goalWeightKg,
+            goalRateKgPerWeek = goalRateKgPerWeek,
             sex = uiState.sex,
             heightCm = height,
             age = age,
@@ -121,6 +151,17 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
 
         viewModelScope.launch {
             repository.saveProfile(profile)
+            // Seed today's weight from what was just entered, so the person lands on a filled-in
+            // summary rather than being asked to type the same number again immediately. No
+            // calories yet - onboarding never asked "how much did you eat today", so that stays
+            // open for them to fill in later the same way any other day's meal info is added.
+            repository.saveLog(
+                date = profile.startDate,
+                weightKg = profile.startWeightKg,
+                calories = null,
+                intakeLevel = null,
+                wasExact = false,
+            )
             // Trigger navigation via a state change observed in its own effect (see OnboardingScreen),
             // rather than calling a navigation callback directly off this coroutine - navigating right
             // after a suspend database call resumes is not guaranteed to land back on the main thread.

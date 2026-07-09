@@ -24,6 +24,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.ActivityLevel
+import com.andweight.app.domain.GoalDirection
+import com.andweight.app.domain.PaceGuidance
+import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
 import com.andweight.app.domain.WeightUnit
 import com.andweight.app.ui.AppViewModelProvider
@@ -50,7 +53,8 @@ fun OnboardingScreen(
         ) {
             Text("Let's set up AndWeight", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Just a few numbers to get started - you can adjust the plan anytime.",
+                "This is a health tool first, not a race to lose weight. We'll help you find a " +
+                    "sustainable pace that fits your body - you can always adjust the plan later.",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
@@ -86,14 +90,42 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
-                value = state.goalRateText,
-                onValueChange = viewModel::onGoalRateChange,
-                label = { Text("Target change per week (${state.weightUnit.name.lowercase()})") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            val direction = state.previewDirection
+            val startWeightKg = state.startWeightText.toDoubleOrNull()?.let { state.weightUnit.toKg(it) }
+            if (direction != null && direction != GoalDirection.MAINTAIN && startWeightKg != null) {
+                Text("Pace", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Even the fastest option is capped at a rate considered safe for your weight - " +
+                        "going faster tends to cost muscle, not just fat, and rarely stays off.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PaceOption.entries.forEach { option ->
+                        val rateKg = PaceGuidance.rateForOption(option, startWeightKg, direction)
+                        val rateInUnit = state.weightUnit.fromKg(rateKg)
+                        FilterChip(
+                            selected = state.selectedPace == option,
+                            onClick = { viewModel.onPaceSelected(option) },
+                            label = {
+                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                    Text(option.label)
+                                    Text(
+                                        "~${formatRate(rateInUnit)} ${state.weightUnit.name.lowercase()}/week",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            } else if (direction == GoalDirection.MAINTAIN) {
+                Text(
+                    "Your goal matches your current weight, so we'll help you hold steady rather than lose or gain.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
 
             TextButton(onClick = viewModel::onToggleAdvanced) {
                 Text(if (state.showAdvanced) "Hide optional details" else "Add optional details (sex, height, age) for a better starting estimate")
@@ -162,10 +194,19 @@ fun OnboardingScreen(
             }
 
             Text(
-                "Safety note: recommended daily calories will never be suggested below 1200 (women) or 1500 (men), regardless of your goal.",
+                "Recommended daily calories will never go below 1200 (women) or 1500 (men). But numbers " +
+                    "only tell part of the story: muscle mass and body composition matter as much as the " +
+                    "scale, and losing weight quickly raises the risk of losing muscle along with fat. If " +
+                    "you have any history of disordered eating, please talk to a doctor before using an " +
+                    "app like this one.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
     }
+}
+
+private fun formatRate(value: Double): String {
+    val rounded = Math.round(value * 100.0) / 100.0
+    return if (rounded == rounded.toInt().toDouble()) rounded.toInt().toString() else rounded.toString()
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +34,13 @@ private val pages = listOf(
             "needs your weight and a quick sense of how much you ate - a couple of taps, once a day.",
     ),
     TutorialPage(
+        "This is about health, not just a number",
+        "The scale doesn't tell the whole story - muscle mass and body composition matter just as " +
+            "much as weight, and AndWeight won't push you to lose faster than is healthy. If you " +
+            "have any history of disordered eating, please talk to a doctor before using a tool " +
+            "like this one.",
+    ),
+    TutorialPage(
         "It learns your real metabolism",
         "Everyone's calorie needs are a little different, and no formula gets it exactly right. " +
             "AndWeight watches what actually happens to your weight and adjusts its estimate to match " +
@@ -52,45 +59,43 @@ private val pages = listOf(
 )
 
 @Composable
-fun TutorialScreen(onDone: () -> Unit) {
+fun TutorialScreen(onDone: () -> Unit, contentPadding: PaddingValues = PaddingValues()) {
     var pageIndex by remember { mutableIntStateOf(0) }
     val page = pages[pageIndex]
     val isLastPage = pageIndex == pages.lastIndex
 
-    Scaffold { padding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column(
+            Text(page.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(page.body, style = MaterialTheme.typography.bodyLarge)
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            PageIndicator(count = pages.size, selectedIndex = pageIndex)
+
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = if (isLastPage) Arrangement.End else Arrangement.SpaceBetween,
             ) {
-                Text(page.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text(page.body, style = MaterialTheme.typography.bodyLarge)
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                PageIndicator(count = pages.size, selectedIndex = pageIndex)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (isLastPage) Arrangement.End else Arrangement.SpaceBetween,
-                ) {
-                    if (!isLastPage) {
-                        TextButton(onClick = onDone) {
-                            Text("Skip")
-                        }
+                if (!isLastPage) {
+                    TextButton(onClick = onDone) {
+                        Text("Skip")
                     }
+                }
 
-                    Button(onClick = {
-                        if (isLastPage) onDone() else pageIndex++
-                    }) {
-                        Text(if (isLastPage) "Let's get started" else "Next")
-                    }
+                Button(onClick = {
+                    if (isLastPage) onDone() else pageIndex++
+                }) {
+                    Text(if (isLastPage) "Let's get started" else "Next")
                 }
             }
         }

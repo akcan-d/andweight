@@ -11,7 +11,11 @@ import com.andweight.app.domain.Tips
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** Drives the once-a-day tip pop-up shown when the main screen first appears. */
+/**
+ * Drives the once-a-day tip pop-up shown when the main screen first appears. The first several
+ * times it fires, tips are shown in a fixed order (the most fundamental ones first, per
+ * [Tips.PRIORITY_COUNT]) rather than randomly, so new users see the basics before anything else.
+ */
 class TipOfTheDayViewModel(private val settingsRepository: SettingsRepository) : ViewModel() {
 
     var tipToShow by mutableStateOf<Tip?>(null)
@@ -25,7 +29,13 @@ class TipOfTheDayViewModel(private val settingsRepository: SettingsRepository) :
             val enabled = settingsRepository.isTipsEnabledOnce()
             val lastShown = settingsRepository.getLastTipShownDate()
             if (enabled && lastShown != LocalDate.now()) {
-                tipToShow = Tips.all.random()
+                val shownCount = settingsRepository.getTipShownCount()
+                tipToShow = if (shownCount < Tips.PRIORITY_COUNT) {
+                    Tips.all[shownCount]
+                } else {
+                    Tips.all.random()
+                }
+                settingsRepository.incrementTipShownCount()
             }
         }
     }

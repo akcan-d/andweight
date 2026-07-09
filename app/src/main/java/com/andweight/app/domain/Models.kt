@@ -46,6 +46,11 @@ data class WeekSummary(
 data class TdeeState(
     val initialTdeeGuess: Double,
     val currentWeightKg: Double,
+    /** The earliest weight actually known for this person - the first real logged entry if one
+     * exists (which may predate the profile's start date via backfilling), otherwise the weight
+     * entered at onboarding. Use this, not the onboarding snapshot, as the "since you started"
+     * reference point. */
+    val earliestKnownWeightKg: Double,
     val currentTdee: Double,
     val targetDailyDeficit: Double,
     val recommendedCalories: Double,
