@@ -33,7 +33,23 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
         private set
 
     fun onWeightUnitChange(unit: WeightUnit) {
-        uiState = uiState.copy(weightUnit = unit)
+        val previousUnit = uiState.weightUnit
+        if (unit == previousUnit) return
+        uiState = uiState.copy(
+            weightUnit = unit,
+            startWeightText = convertText(uiState.startWeightText, previousUnit, unit),
+            goalWeightText = convertText(uiState.goalWeightText, previousUnit, unit),
+            goalRateText = convertText(uiState.goalRateText, previousUnit, unit),
+        )
+    }
+
+    /** Converts whatever number is already typed into a field to the newly selected unit, so
+     * switching Kg/Lb doesn't silently leave stale digits behind in the wrong unit. */
+    private fun convertText(text: String, from: WeightUnit, to: WeightUnit): String {
+        val value = text.toDoubleOrNull() ?: return text
+        val converted = to.fromKg(from.toKg(value))
+        val rounded = Math.round(converted * 10.0) / 10.0
+        return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
     }
 
     fun onStartWeightChange(text: String) {

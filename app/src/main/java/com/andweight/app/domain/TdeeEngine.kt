@@ -52,14 +52,25 @@ object TdeeEngine {
         val finalizedTdees = mutableListOf<Double>()
         val weekSummaries = mutableListOf<WeekSummary>()
 
+        // Weekly windows are normally anchored to the profile's start date, but a person can
+        // browse backwards and log days from before they officially started - in that case the
+        // anchor moves earlier too, so that backfilled history is still folded into the weekly
+        // averages instead of silently falling outside every window.
+        val firstLoggedDate = logs.minOfOrNull { it.date }
+        val anchorDate = if (firstLoggedDate != null && firstLoggedDate.isBefore(profile.startDate)) {
+            firstLoggedDate
+        } else {
+            profile.startDate
+        }
+
         val lastLoggedDate = logs.maxOfOrNull { it.date }
-        val daysToToday = ChronoUnit.DAYS.between(profile.startDate, today)
-        val daysToLastLog = lastLoggedDate?.let { ChronoUnit.DAYS.between(profile.startDate, it) } ?: 0L
+        val daysToToday = ChronoUnit.DAYS.between(anchorDate, today)
+        val daysToLastLog = lastLoggedDate?.let { ChronoUnit.DAYS.between(anchorDate, it) } ?: 0L
         val daysSpan = maxOf(daysToToday, daysToLastLog, 0L)
         val weekCount = (daysSpan / 7 + 1).toInt()
 
         for (weekIndex in 0 until weekCount) {
-            val weekStart = profile.startDate.plusDays(weekIndex * 7L)
+            val weekStart = anchorDate.plusDays(weekIndex * 7L)
             val weekEnd = weekStart.plusDays(6)
 
             var hasWeight = false

@@ -73,6 +73,7 @@ fun OnboardingScreen(
                 onValueChange = viewModel::onStartWeightChange,
                 label = { Text("Current weight (${state.weightUnit.name.lowercase()})") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -81,6 +82,7 @@ fun OnboardingScreen(
                 onValueChange = viewModel::onGoalWeightChange,
                 label = { Text("Goal weight (${state.weightUnit.name.lowercase()})") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -89,6 +91,7 @@ fun OnboardingScreen(
                 onValueChange = viewModel::onGoalRateChange,
                 label = { Text("Target change per week (${state.weightUnit.name.lowercase()})") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -121,6 +124,7 @@ fun OnboardingScreen(
                     onValueChange = viewModel::onHeightChange,
                     label = { Text("Height (cm)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -129,6 +133,7 @@ fun OnboardingScreen(
                     onValueChange = viewModel::onAgeChange,
                     label = { Text("Age") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
 

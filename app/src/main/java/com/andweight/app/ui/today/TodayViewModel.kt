@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
+import com.andweight.app.domain.CalorieResolution
 import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.IntakeLevel
 import com.andweight.app.domain.IntakeResolver
@@ -66,15 +67,15 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         loadDay(selectedDate)
     }
 
-    fun canGoToPreviousDay(): Boolean {
-        val minDate = profile.value?.startDate ?: return false
-        return selectedDate > minDate
-    }
+    /** No lower bound - people should be able to back-fill history from before they started
+     * using the app, e.g. weight they tracked elsewhere. */
+    fun canGoToPreviousDay(): Boolean = true
 
     fun canGoToNextDay(): Boolean = selectedDate < actualToday
 
+    fun canJumpToToday(): Boolean = selectedDate != actualToday
+
     fun goToPreviousDay() {
-        if (!canGoToPreviousDay()) return
         selectedDate = selectedDate.minusDays(1)
         lastSaveHitFloor = false
         loadDay(selectedDate)
@@ -83,6 +84,13 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     fun goToNextDay() {
         if (!canGoToNextDay()) return
         selectedDate = selectedDate.plusDays(1)
+        lastSaveHitFloor = false
+        loadDay(selectedDate)
+    }
+
+    fun jumpToToday() {
+        if (!canJumpToToday()) return
+        selectedDate = actualToday
         lastSaveHitFloor = false
         loadDay(selectedDate)
     }
@@ -114,47 +122,61 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         formState = formState.copy(exactCaloriesText = text, errorMessage = null)
     }
 
+    /**
+     * Weight and meal info are independent - you can save just one and add the other later.
+     * This is what makes "weigh in the morning, log what you ate at night" work: the morning
+     * save carries only a weight, and editing that same day at night adds the meal info without
+     * touching (or requiring you to re-enter) the weight that's already there.
+     */
     fun saveCheckIn() {
         val currentProfile = profile.value ?: return
         val dateBeingSaved = selectedDate
 
-        // Resolve against the TDEE estimate excluding this day's own (about to be replaced) entry,
-        // so re-editing the same day repeatedly is idempotent instead of drifting - the previous
-        // save must not feed into the basis used to compute the new one.
-        val baselineTdee = TdeeEngine.compute(
-            currentProfile,
-            logs.value.filterNot { it.date == dateBeingSaved },
-            actualToday,
-        ).currentTdee
-
         val weightKg = formState.weightText.toDoubleOrNull()?.let { currentProfile.weightUnit.toKg(it) }
-
-        val resolution = if (formState.useExact) {
-            val exact = formState.exactCaloriesText.toDoubleOrNull()
-            if (exact == null) {
-                formState = formState.copy(errorMessage = "Enter that day's calories, or switch back to the quick pick.")
-                return
-            }
-            IntakeResolver.resolveExact(exact, currentProfile.sex)
+        val hasCalorieAnswer = if (formState.useExact) {
+            formState.exactCaloriesText.isNotBlank()
         } else {
-            val level = formState.selectedIntake
-            if (level == null) {
-                formState = formState.copy(errorMessage = "Choose how much you felt like you ate that day.")
-                return
+            formState.selectedIntake != null
+        }
+
+        if (weightKg == null && !hasCalorieAnswer) {
+            formState = formState.copy(errorMessage = "Enter your weight, how much you ate, or both.")
+            return
+        }
+
+        var resolution: CalorieResolution? = null
+        if (hasCalorieAnswer) {
+            // Resolve against the TDEE estimate excluding this day's own (about to be replaced)
+            // entry, so re-editing the same day repeatedly is idempotent instead of drifting -
+            // the previous save must not feed into the basis used to compute the new one.
+            val baselineTdee = TdeeEngine.compute(
+                currentProfile,
+                logs.value.filterNot { it.date == dateBeingSaved },
+                actualToday,
+            ).currentTdee
+
+            resolution = if (formState.useExact) {
+                val exact = formState.exactCaloriesText.toDoubleOrNull()
+                if (exact == null) {
+                    formState = formState.copy(errorMessage = "That doesn't look like a number - enter that day's calories.")
+                    return
+                }
+                IntakeResolver.resolveExact(exact, currentProfile.sex)
+            } else {
+                IntakeResolver.resolveQuickPick(formState.selectedIntake!!, baselineTdee, currentProfile.sex)
             }
-            IntakeResolver.resolveQuickPick(level, baselineTdee, currentProfile.sex)
         }
 
         viewModelScope.launch {
             repository.saveLog(
                 date = dateBeingSaved,
                 weightKg = weightKg,
-                calories = resolution.calories,
+                calories = resolution?.calories,
                 intakeLevel = if (formState.useExact) null else formState.selectedIntake,
-                wasExact = formState.useExact,
+                wasExact = formState.useExact && hasCalorieAnswer,
             )
             if (dateBeingSaved == selectedDate) {
-                lastSaveHitFloor = resolution.floorApplied
+                lastSaveHitFloor = resolution?.floorApplied == true
                 loadDay(selectedDate)
             }
         }

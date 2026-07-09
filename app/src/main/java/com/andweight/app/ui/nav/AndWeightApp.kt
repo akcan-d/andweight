@@ -1,10 +1,13 @@
 package com.andweight.app.ui.nav
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,7 +19,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.AndWeightApplication
+import com.andweight.app.domain.ThemeMode
 import com.andweight.app.ui.onboarding.OnboardingScreen
+import com.andweight.app.ui.theme.AndWeightTheme
 import com.andweight.app.ui.tutorial.TutorialScreen
 
 private const val ROUTER_ROUTE = "router"
@@ -26,42 +31,55 @@ private const val MAIN_ROUTE = "main"
 
 @Composable
 fun AndWeightApp() {
-    val navController = rememberNavController()
+    val context = LocalContext.current
+    val app = context.applicationContext as AndWeightApplication
+    val themeMode by app.settingsRepository.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
+    val useDarkTheme = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
 
-    NavHost(navController = navController, startDestination = ROUTER_ROUTE) {
-        composable(ROUTER_ROUTE) {
-            RouterScreen(
-                onNeedsOnboarding = {
-                    navController.navigate(TUTORIAL_ROUTE) {
-                        popUpTo(ROUTER_ROUTE) { inclusive = true }
-                    }
-                },
-                onHasProfile = {
-                    navController.navigate(MAIN_ROUTE) {
-                        popUpTo(ROUTER_ROUTE) { inclusive = true }
-                    }
-                },
-            )
+    AndWeightTheme(darkTheme = useDarkTheme) {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            val navController = rememberNavController()
+
+            NavHost(navController = navController, startDestination = ROUTER_ROUTE) {
+                composable(ROUTER_ROUTE) {
+                    RouterScreen(
+                        onNeedsOnboarding = {
+                            navController.navigate(TUTORIAL_ROUTE) {
+                                popUpTo(ROUTER_ROUTE) { inclusive = true }
+                            }
+                        },
+                        onHasProfile = {
+                            navController.navigate(MAIN_ROUTE) {
+                                popUpTo(ROUTER_ROUTE) { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                composable(TUTORIAL_ROUTE) {
+                    TutorialScreen(
+                        onDone = {
+                            navController.navigate(ONBOARDING_ROUTE) {
+                                popUpTo(TUTORIAL_ROUTE) { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                composable(ONBOARDING_ROUTE) {
+                    OnboardingScreen(
+                        onDone = {
+                            navController.navigate(MAIN_ROUTE) {
+                                popUpTo(ONBOARDING_ROUTE) { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                composable(MAIN_ROUTE) { MainScreen() }
+            }
         }
-        composable(TUTORIAL_ROUTE) {
-            TutorialScreen(
-                onDone = {
-                    navController.navigate(ONBOARDING_ROUTE) {
-                        popUpTo(TUTORIAL_ROUTE) { inclusive = true }
-                    }
-                },
-            )
-        }
-        composable(ONBOARDING_ROUTE) {
-            OnboardingScreen(
-                onDone = {
-                    navController.navigate(MAIN_ROUTE) {
-                        popUpTo(ONBOARDING_ROUTE) { inclusive = true }
-                    }
-                },
-            )
-        }
-        composable(MAIN_ROUTE) { MainScreen() }
     }
 }
 

@@ -4,20 +4,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -31,12 +36,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.AdviceSentiment
 import com.andweight.app.domain.CoachingAdvisor
+import com.andweight.app.domain.GoalDirection
 import com.andweight.app.domain.IntakeLevel
 import com.andweight.app.domain.Phrasing
 import com.andweight.app.domain.TdeeState
@@ -44,6 +51,7 @@ import com.andweight.app.domain.UserProfile
 import com.andweight.app.ui.AppViewModelProvider
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
 
 private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
@@ -79,19 +87,14 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
     var showDetails by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (profile == null || tdeeState == null) {
                 CircularProgressIndicator()
                 return@Column
             }
             val unit = profile.weightUnit
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Your current stats", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { showDetails = !showDetails }) {
-                    Text(if (showDetails) "Hide details" else "Show details")
-                }
-            }
+            HeroSection(profile, tdeeState)
 
             val advice = CoachingAdvisor.advise(profile, tdeeState)
             Text(
@@ -104,6 +107,14 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
                     AdviceSentiment.NEUTRAL -> MaterialTheme.colorScheme.onSurface
                 },
             )
+
+            Text(Phrasing.calorieTargetSentence(tdeeState.recommendedCalories, tdeeState.currentTdee), style = MaterialTheme.typography.bodyMedium)
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { showDetails = !showDetails }) {
+                    Text(if (showDetails) "Hide details" else "Show details")
+                }
+            }
 
             if (showDetails) {
                 StatRow("Current weight", "${oneDecimal(unit.fromKg(tdeeState.currentWeightKg))} ${unit.name.lowercase()}")
@@ -119,8 +130,6 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
                 )
             } else {
                 Text(Phrasing.weightTrendSentence(tdeeState.currentWeightKg - profile.startWeightKg, unit), style = MaterialTheme.typography.bodyMedium)
-                Text(Phrasing.calorieTargetSentence(tdeeState.recommendedCalories, tdeeState.currentTdee), style = MaterialTheme.typography.bodyMedium)
-                Text(Phrasing.forecastSentence(tdeeState.weeksToGoal, tdeeState.goalDate), style = MaterialTheme.typography.bodyMedium)
             }
 
             if (tdeeState.recommendedCaloriesFloorApplied) {
@@ -132,6 +141,54 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?) {
             }
         }
     }
+}
+
+@Composable
+private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        when {
+            tdeeState.weeksToGoal == null -> {
+                Text("Maintaining", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Aiming to hold steady at your current weight", style = MaterialTheme.typography.bodyMedium)
+            }
+            tdeeState.weeksToGoal <= 0.0 -> {
+                Text("Goal reached!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Nice work getting here.", style = MaterialTheme.typography.bodyMedium)
+            }
+            else -> {
+                val days = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
+                Text("$days", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    if (days == 1L) "day until you reach your goal" else "days until you reach your goal",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+
+        val progress = goalProgress(profile, tdeeState)
+        if (progress != null) {
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+            )
+        }
+    }
+}
+
+private fun goalProgress(profile: UserProfile, tdeeState: TdeeState): Float? {
+    if (profile.goalDirection == GoalDirection.MAINTAIN) return null
+    val total = kotlin.math.abs(profile.goalWeightKg - profile.startWeightKg)
+    if (total <= 0.0) return 1f
+    val done = kotlin.math.abs(tdeeState.currentWeightKg - profile.startWeightKg)
+    return (done / total).toFloat().coerceIn(0f, 1f)
 }
 
 @Composable
@@ -172,11 +229,20 @@ private fun DayPager(viewModel: TodayViewModel) {
         IconButton(onClick = viewModel::goToPreviousDay, enabled = viewModel.canGoToPreviousDay()) {
             Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day")
         }
-        Text(
-            dayLabel(viewModel.selectedDate, viewModel.actualToday),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                dayLabel(viewModel.selectedDate, viewModel.actualToday),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            if (viewModel.canJumpToToday()) {
+                IconButton(onClick = viewModel::jumpToToday) {
+                    Icon(Icons.Filled.Today, contentDescription = "Jump to today")
+                }
+            }
+        }
+
         IconButton(onClick = viewModel::goToNextDay, enabled = viewModel.canGoToNextDay()) {
             Icon(Icons.Filled.ChevronRight, contentDescription = "Next day")
         }
@@ -201,7 +267,7 @@ private fun DaySummary(viewModel: TodayViewModel, profile: UserProfile?) {
         val intakeDescription = when {
             log.wasExactEntry -> "You logged an exact amount: ${log.calories?.roundToInt()} kcal"
             log.intakeLevel != null -> "You said: \"${log.intakeLevel.label}\""
-            else -> "No meal info logged"
+            else -> "You haven't logged what you ate yet - tap Edit to add it."
         }
         Text(intakeDescription, style = MaterialTheme.typography.bodyMedium)
 
@@ -226,6 +292,7 @@ private fun CheckInForm(form: CheckInFormState, viewModel: TodayViewModel, canCa
         onValueChange = viewModel::onWeightChange,
         label = { Text("Weight that day (optional)") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
 
@@ -250,6 +317,7 @@ private fun CheckInForm(form: CheckInFormState, viewModel: TodayViewModel, canCa
             onValueChange = viewModel::onExactCaloriesChange,
             label = { Text("Calories eaten that day") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         TextButton(onClick = viewModel::onToggleExact) {
