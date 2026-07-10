@@ -9,7 +9,6 @@ import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.domain.ActivityLevel
 import com.andweight.app.domain.GoalDirection
 import com.andweight.app.domain.HeightConversion
-import com.andweight.app.domain.PaceGuidance
 import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
 import com.andweight.app.domain.UserProfile
@@ -70,12 +69,19 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             uiState.copy(heightCmText = formatOneDecimal(previousHeightCm), heightFeetText = "", heightInchesText = "")
         } else {
             val (feet, inches) = HeightConversion.cmToFeetAndInches(previousHeightCm)
-            uiState.copy(heightCmText = "", heightFeetText = feet.toString(), heightInchesText = formatOneDecimal(inches))
+            uiState.copy(heightCmText = "", heightFeetText = feet.toString(), heightInchesText = formatInches(inches))
         }
     }
 
     private fun formatOneDecimal(value: Double): String {
         val rounded = Math.round(value * 10.0) / 10.0
+        return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
+    }
+
+    /** Inches need finer precision than the other one-decimal fields - at one decimal, a
+     * cm -> ft/in -> cm round trip loses enough to visibly drift (186 cm became 185.9 cm). */
+    private fun formatInches(value: Double): String {
+        val rounded = Math.round(value * 100.0) / 100.0
         return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
     }
 
@@ -177,20 +183,13 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             return
         }
 
-        val goalRateKgPerWeek = if (direction == GoalDirection.MAINTAIN) {
-            0.0
-        } else {
-            PaceGuidance.rateForOption(pace!!, startWeightKg, direction)
-        }
-
         val age = uiState.ageText.toIntOrNull()
 
         val profile = UserProfile(
-            startDate = LocalDate.now(),
             weightUnit = unit,
             startWeightKg = startWeightKg,
             goalWeightKg = goalWeightKg,
-            goalRateKgPerWeek = goalRateKgPerWeek,
+            pace = if (direction == GoalDirection.MAINTAIN) null else pace,
             sex = uiState.sex,
             heightCm = uiState.heightCm,
             age = age,
@@ -203,8 +202,10 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             // summary rather than being asked to type the same number again immediately. No
             // calories yet - onboarding never asked "how much did you eat today", so that stays
             // open for them to fill in later the same way any other day's meal info is added.
+            // Today's date also becomes the start date once logged - there's no separate stored
+            // "start date" field, it's just whichever day has the oldest logged weight.
             repository.saveLog(
-                date = profile.startDate,
+                date = LocalDate.now(),
                 weightKg = profile.startWeightKg,
                 calories = null,
                 intakeLevel = null,

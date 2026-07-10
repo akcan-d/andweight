@@ -53,9 +53,13 @@ object CoachingAdvisor {
             }
         }
 
+        // Re-derived against current weight, not a number fixed back at onboarding - the
+        // percentage-of-bodyweight pace tapers as you approach your goal, so "on track" has to
+        // mean on track for what the plan calls for *now*, not what it called for on day one.
+        val currentWeeklyRateKg = profile.pace?.let { PaceGuidance.rateForOption(it, state.currentWeightKg, profile.goalDirection) } ?: 0.0
         val targetWeeklyDeltaKg = when (profile.goalDirection) {
-            GoalDirection.LOSE -> -profile.goalRateKgPerWeek
-            GoalDirection.GAIN -> profile.goalRateKgPerWeek
+            GoalDirection.LOSE -> -currentWeeklyRateKg
+            GoalDirection.GAIN -> currentWeeklyRateKg
             GoalDirection.MAINTAIN -> 0.0
         }
         if (targetWeeklyDeltaKg == 0.0) {

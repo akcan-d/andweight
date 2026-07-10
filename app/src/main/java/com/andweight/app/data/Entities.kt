@@ -8,11 +8,11 @@ import java.time.LocalDate
 @Entity(tableName = "profile")
 data class ProfileEntity(
     @PrimaryKey val id: Int = 0,
-    val startDateEpochDay: Long,
     val weightUnit: String,
     val startWeightKg: Double,
     val goalWeightKg: Double,
-    val goalRateKgPerWeek: Double,
+    /** Null when maintaining - see [com.andweight.app.domain.UserProfile.pace]. */
+    val pace: String?,
     val sex: String,
     val heightCm: Double?,
     val age: Int?,

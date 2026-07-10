@@ -3,12 +3,14 @@ package com.andweight.app.domain
 import java.time.LocalDate
 
 data class UserProfile(
-    val startDate: LocalDate,
     val weightUnit: WeightUnit,
     val startWeightKg: Double,
     val goalWeightKg: Double,
-    /** Magnitude only (always positive); direction comes from [goalDirection]. */
-    val goalRateKgPerWeek: Double,
+    /** Null when maintaining. Kept as the qualitative choice rather than a fixed kg/week number,
+     * so the actual weekly rate can be re-derived against *current* weight (see [PaceGuidance])
+     * every time it's needed - a percentage-of-bodyweight pace naturally tapers as you approach
+     * your goal, instead of grinding on at the rate set back on day one. */
+    val pace: PaceOption? = null,
     val sex: Sex = Sex.UNSPECIFIED,
     val heightCm: Double? = null,
     val age: Int? = null,
@@ -63,5 +65,12 @@ data class TdeeState(
 
 data class CalorieResolution(
     val calories: Double,
+    /** True if [calories] was raised up to the safety floor - only ever happens for a quick-pick
+     * estimate, never for an exact manual entry (see [belowFloor]). */
     val floorApplied: Boolean,
+    /** True if [calories] sits below the safety floor for this person's sex. Quick-pick estimates
+     * are always clamped so this is never true for them; an exact entry is kept exactly as typed
+     * even when it's below the floor - a manual entry is a factual report of what someone ate,
+     * not a formula's guess to second-guess - so the UI just shows a caution instead. */
+    val belowFloor: Boolean = false,
 )

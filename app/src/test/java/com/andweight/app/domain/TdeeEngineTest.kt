@@ -17,11 +17,10 @@ class TdeeEngineTest {
     private val startDate = LocalDate.of(2019, 1, 22)
 
     private val profile = UserProfile(
-        startDate = startDate,
         weightUnit = WeightUnit.KG,
         startWeightKg = 122.7,
         goalWeightKg = 88.8,
-        goalRateKgPerWeek = 2.3,
+        pace = PaceOption.MODERATE,
     )
 
     private val week1Weight = listOf(122.7, 122.3, 121.9, 121.5, 121.1, 120.7, 120.3)
@@ -84,24 +83,29 @@ class TdeeEngineTest {
     }
 
     @Test
-    fun `target daily deficit converts goal rate to a daily kcal number`() {
-        val state = TdeeEngine.compute(profile, emptyList(), startDate)
-        // 2.3 kg/week * 7716.17 kcal/kg / 7 days, rounded to nearest 5
-        assertEquals(2535.0, state.targetDailyDeficit, 0.0)
+    fun `target daily deficit converts the pace's current weekly rate to a daily kcal number`() {
+        val fastestProfile = profile.copy(pace = PaceOption.FASTEST)
+        val state = TdeeEngine.compute(fastestProfile, emptyList(), startDate)
+        // FASTEST at 122.7 kg: 1.5% of bodyweight (1.8405, under the 2kg cap) * 7716.17 kcal/kg / 7,
+        // rounded to nearest 5.
+        assertEquals(2030.0, state.targetDailyDeficit, 0.0)
     }
 
     @Test
     fun `recommended calories is current TDEE minus deficit when losing`() {
-        // A modest 0.5 kg/week goal, so the deficit stays well clear of the safety floor.
-        val modestProfile = profile.copy(goalRateKgPerWeek = 0.5)
-        val state = TdeeEngine.compute(modestProfile, emptyList(), startDate)
+        // The slowest tier, so the deficit stays well clear of the safety floor.
+        val relaxedProfile = profile.copy(pace = PaceOption.RELAXED)
+        val state = TdeeEngine.compute(relaxedProfile, emptyList(), startDate)
         assertEquals(state.currentTdee - state.targetDailyDeficit, state.recommendedCalories, 0.0)
         assertTrue(!state.recommendedCaloriesFloorApplied)
     }
 
     @Test
     fun `recommended calories never drops below the safety floor for women`() {
-        val aggressiveProfile = profile.copy(goalRateKgPerWeek = 5.0, sex = Sex.FEMALE)
+        // A lighter starting weight keeps the initial maintenance guess low while the fastest
+        // safe deficit is still large relative to it, so it's enough to force flooring even
+        // though the weekly rate itself is capped for safety.
+        val aggressiveProfile = profile.copy(startWeightKg = 80.0, goalWeightKg = 60.0, pace = PaceOption.FASTEST, sex = Sex.FEMALE)
         val state = TdeeEngine.compute(aggressiveProfile, emptyList(), startDate)
         assertTrue(state.recommendedCalories >= SafetyLimits.FEMALE_FLOOR_KCAL)
         assertTrue(state.recommendedCaloriesFloorApplied)
@@ -109,11 +113,24 @@ class TdeeEngineTest {
 
     @Test
     fun `weeks to goal is null when goal is to maintain weight`() {
-        val maintainProfile = profile.copy(goalWeightKg = profile.startWeightKg, goalRateKgPerWeek = 0.0)
+        val maintainProfile = profile.copy(goalWeightKg = profile.startWeightKg, pace = null)
         val state = TdeeEngine.compute(maintainProfile, emptyList(), startDate)
         assertNull(state.weeksToGoal)
         assertNull(state.goalDate)
         assertEquals(state.currentTdee, state.recommendedCalories, 0.0)
+    }
+
+    @Test
+    fun `weeks to goal accounts for the weekly rate shrinking as weight approaches goal`() {
+        // A big enough gap that the percentage-of-bodyweight rate meaningfully tapers rather than
+        // staying flat at the cap the whole way, so a naive fixed-rate division would understate
+        // how long it actually takes.
+        val bigLossProfile = profile.copy(startWeightKg = 150.0, goalWeightKg = 100.0, pace = PaceOption.FASTEST)
+        val state = TdeeEngine.compute(bigLossProfile, emptyList(), startDate)
+        val weeksToGoal = requireNotNull(state.weeksToGoal)
+
+        val startingRateWeeks = (150.0 - 100.0) / PaceGuidance.rateForOption(PaceOption.FASTEST, 150.0, GoalDirection.LOSE)
+        assertTrue(weeksToGoal > startingRateWeeks)
     }
 
     @Test
@@ -160,9 +177,17 @@ class TdeeEngineTest {
     }
 
     @Test
-    fun `exact entry mode is also clamped to the safety floor`() {
+    fun `exact entry mode keeps the actual value and flags it instead of clamping`() {
         val resolution = IntakeResolver.resolveExact(900.0, Sex.MALE)
-        assertEquals(1500.0, resolution.calories, 0.0)
-        assertTrue(resolution.floorApplied)
+        assertEquals(900.0, resolution.calories, 0.0)
+        assertTrue(!resolution.floorApplied)
+        assertTrue(resolution.belowFloor)
+    }
+
+    @Test
+    fun `exact entry above the safety floor is not flagged`() {
+        val resolution = IntakeResolver.resolveExact(1800.0, Sex.MALE)
+        assertEquals(1800.0, resolution.calories, 0.0)
+        assertTrue(!resolution.belowFloor)
     }
 }

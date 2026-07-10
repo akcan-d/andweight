@@ -15,12 +15,13 @@ import java.time.LocalDate
  */
 class ReEntryIdempotencyTest {
 
+    private val referenceDate = LocalDate.of(2026, 1, 1)
+
     private val profile = UserProfile(
-        startDate = LocalDate.of(2026, 1, 1),
         weightUnit = WeightUnit.KG,
         startWeightKg = 90.0,
         goalWeightKg = 80.0,
-        goalRateKgPerWeek = 0.5,
+        pace = PaceOption.MODERATE,
     )
 
     private fun priorDaysLogs(): List<DailyLog> {
@@ -28,7 +29,7 @@ class ReEntryIdempotencyTest {
         for (i in 0 until 6) {
             logs.add(
                 DailyLog(
-                    date = profile.startDate.plusDays(i.toLong()),
+                    date = referenceDate.plusDays(i.toLong()),
                     weightKg = 90.0 - i * 0.1,
                     calories = 2200.0,
                 ),
@@ -39,7 +40,7 @@ class ReEntryIdempotencyTest {
 
     @Test
     fun `resolving the same intake level for a day gives the same result regardless of what was previously saved there`() {
-        val editedDate = profile.startDate.plusDays(6)
+        val editedDate = referenceDate.plusDays(6)
         val priorLogs = priorDaysLogs()
 
         // First save: the day has no entry yet.

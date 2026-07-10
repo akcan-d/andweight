@@ -15,26 +15,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -47,11 +38,6 @@ import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
 import com.andweight.app.domain.WeightUnit
 import com.andweight.app.ui.AppViewModelProvider
-import java.time.LocalDate
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-
-private val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -201,6 +187,16 @@ fun EditProfileScreen(
                 )
             }
 
+            Text(
+                "Height, age, and activity level below only feed your starting calorie estimate, " +
+                    "before we have any real results of yours to go on. Once you've logged enough " +
+                    "days, your target adapts from what's actually happened to your weight - so " +
+                    "there's no need to update activity level just because a week was busier or " +
+                    "quieter than usual.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             if (state.weightUnit.isMetric) {
                 OutlinedTextField(
                     value = state.heightCmText,
@@ -249,38 +245,6 @@ fun EditProfileScreen(
                         label = { Text(level.label) },
                         modifier = Modifier.widthIn(min = 0.dp),
                     )
-                }
-            }
-
-            Text("Start date", style = MaterialTheme.typography.labelLarge)
-            var showDatePicker by remember { mutableStateOf(false) }
-            OutlinedButton(onClick = { showDatePicker = true }) {
-                Text(state.startDate.format(dateFormatter))
-            }
-            if (showDatePicker) {
-                val datePickerState = rememberDatePickerState(
-                    initialSelectedDateMillis = state.startDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-                )
-                DatePickerDialog(
-                    onDismissRequest = { showDatePicker = false },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            datePickerState.selectedDateMillis?.let { millis ->
-                                val date = java.time.Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                                viewModel.onStartDateChange(date)
-                            }
-                            showDatePicker = false
-                        }) {
-                            Text("OK")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDatePicker = false }) {
-                            Text("Cancel")
-                        }
-                    },
-                ) {
-                    DatePicker(state = datePickerState)
                 }
             }
 

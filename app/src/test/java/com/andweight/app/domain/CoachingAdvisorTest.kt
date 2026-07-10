@@ -6,18 +6,21 @@ import java.time.LocalDate
 
 class CoachingAdvisorTest {
 
+    private val referenceDate = LocalDate.of(2026, 1, 1)
+
+    // RELAXED at 88 kg (the currentWeightKg used by stateWithWeeks below) gives a weekly rate of
+    // 0.528 kg - the ratios used by the individual tests below are chosen relative to that.
     private val loseProfile = UserProfile(
-        startDate = LocalDate.of(2026, 1, 1),
         weightUnit = WeightUnit.KG,
         startWeightKg = 90.0,
         goalWeightKg = 80.0,
-        goalRateKgPerWeek = 0.5,
+        pace = PaceOption.RELAXED,
     )
 
     private fun weekSummary(index: Int, deltaKg: Double?, hasData: Boolean = true) = WeekSummary(
         weekIndex = index,
-        startDate = loseProfile.startDate.plusDays((index - 1) * 7L),
-        endDate = loseProfile.startDate.plusDays((index - 1) * 7L + 6),
+        startDate = referenceDate.plusDays((index - 1) * 7L),
+        endDate = referenceDate.plusDays((index - 1) * 7L + 6),
         hasWeightData = hasData,
         hasCalorieData = hasData,
         avgWeightKg = 88.0,
@@ -35,7 +38,7 @@ class CoachingAdvisorTest {
         recommendedCalories = 1700.0,
         recommendedCaloriesFloorApplied = false,
         weeksToGoal = 10.0,
-        goalDate = loseProfile.startDate.plusWeeks(10),
+        goalDate = referenceDate.plusWeeks(10),
         weeklyHistory = weeks,
     )
 
@@ -69,7 +72,7 @@ class CoachingAdvisorTest {
 
     @Test
     fun `maintain goal holding steady is positive`() {
-        val maintainProfile = loseProfile.copy(goalWeightKg = loseProfile.startWeightKg, goalRateKgPerWeek = 0.0)
+        val maintainProfile = loseProfile.copy(goalWeightKg = loseProfile.startWeightKg, pace = null)
         val state = stateWithWeeks(listOf(weekSummary(1, 0.05), weekSummary(2, -0.05)))
         val advice = CoachingAdvisor.advise(maintainProfile, state)
         assertEquals(AdviceSentiment.POSITIVE, advice.sentiment)

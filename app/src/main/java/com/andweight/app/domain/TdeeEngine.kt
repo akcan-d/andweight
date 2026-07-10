@@ -2,7 +2,6 @@ package com.andweight.app.domain
 
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.roundToLong
 
@@ -54,16 +53,11 @@ object TdeeEngine {
         val finalizedTdees = mutableListOf<Double>()
         val weekSummaries = mutableListOf<WeekSummary>()
 
-        // Weekly windows are normally anchored to the profile's start date, but a person can
-        // browse backwards and log days from before they officially started - in that case the
-        // anchor moves earlier too, so that backfilled history is still folded into the weekly
-        // averages instead of silently falling outside every window.
+        // Weekly windows are anchored to the oldest logged day, rather than a separately stored
+        // "start date" - so backfilling history from before you started using the app just
+        // folds naturally into the weekly averages instead of needing a manually-adjusted anchor.
         val firstLoggedDate = logs.minOfOrNull { it.date }
-        val anchorDate = if (firstLoggedDate != null && firstLoggedDate.isBefore(profile.startDate)) {
-            firstLoggedDate
-        } else {
-            profile.startDate
-        }
+        val anchorDate = firstLoggedDate ?: today
 
         val lastLoggedDate = logs.maxOfOrNull { it.date }
         val daysToToday = ChronoUnit.DAYS.between(anchorDate, today)
@@ -133,8 +127,18 @@ object TdeeEngine {
         val currentWeight = lastKnownAvgWeight
         val currentTdee = finalizedTdees.lastOrNull() ?: initialGuess
 
+        // The weekly rate is a percentage of body weight, so it's re-derived against *current*
+        // weight rather than read back as a number fixed at onboarding - someone losing weight
+        // eats a little closer to maintenance each week as they get lighter, not the same fixed
+        // deficit forever.
+        val currentWeeklyRateKg = if (profile.goalDirection != GoalDirection.MAINTAIN && profile.pace != null) {
+            PaceGuidance.rateForOption(profile.pace, currentWeight, profile.goalDirection)
+        } else {
+            0.0
+        }
+
         val targetDailyDeficit = mround(
-            profile.goalRateKgPerWeek * EnergyConstants.KCAL_PER_KG_BODYWEIGHT / 7.0,
+            currentWeeklyRateKg * EnergyConstants.KCAL_PER_KG_BODYWEIGHT / 7.0,
             5.0,
         )
 
@@ -148,11 +152,13 @@ object TdeeEngine {
 
         var weeksToGoal: Double? = null
         var goalDate: LocalDate? = null
-        if (profile.goalDirection != GoalDirection.MAINTAIN && profile.goalRateKgPerWeek > 0.0) {
-            val remaining = abs(currentWeight - profile.goalWeightKg)
-            val weeks = ceilToHalf(remaining / profile.goalRateKgPerWeek)
-            weeksToGoal = weeks
-            goalDate = if (weeks <= 0.0) today else today.plusDays(Math.round(weeks * 7))
+        if (profile.goalDirection != GoalDirection.MAINTAIN && profile.pace != null) {
+            val weeks = simulateWeeksToGoal(currentWeight, profile.goalWeightKg, profile.pace, profile.goalDirection)
+            if (weeks != null) {
+                val rounded = ceilToHalf(weeks)
+                weeksToGoal = rounded
+                goalDate = if (rounded <= 0.0) today else today.plusDays(Math.round(rounded * 7))
+            }
         }
 
         return TdeeState(
@@ -168,22 +174,49 @@ object TdeeEngine {
             weeklyHistory = weekSummaries,
         )
     }
+
+    /**
+     * Projects a goal date week by week rather than with a single division, since the weekly
+     * rate is a percentage of body weight and shrinks (for loss) or grows (for gain) as the
+     * simulated weight moves - a fixed-rate division would over/underestimate how long it
+     * actually takes once you're no longer at your starting weight.
+     */
+    private fun simulateWeeksToGoal(
+        startWeightKg: Double,
+        goalWeightKg: Double,
+        pace: PaceOption,
+        direction: GoalDirection,
+    ): Double? {
+        var weight = startWeightKg
+        var weeks = 0.0
+        repeat(2000) {
+            val remaining = if (direction == GoalDirection.LOSE) weight - goalWeightKg else goalWeightKg - weight
+            if (remaining <= 0.0) return weeks
+            val rate = PaceGuidance.rateForOption(pace, weight, direction)
+            if (rate <= 0.0) return null
+            if (remaining <= rate) return weeks + remaining / rate
+            weight += if (direction == GoalDirection.LOSE) -rate else rate
+            weeks += 1.0
+        }
+        return null
+    }
 }
 
 object IntakeResolver {
 
+    /** A quick-pick answer is a formula-derived estimate, not a factual report - so it's safe (and
+     * intended) to clamp it up to the safety floor. */
     fun resolveQuickPick(level: IntakeLevel, currentTdeeEstimate: Double, sex: Sex): CalorieResolution {
         val raw = currentTdeeEstimate + level.offsetKcal
-        return applyFloor(raw, sex)
-    }
-
-    fun resolveExact(exactCalories: Double, sex: Sex): CalorieResolution {
-        return applyFloor(exactCalories, sex)
-    }
-
-    private fun applyFloor(raw: Double, sex: Sex): CalorieResolution {
         val floor = SafetyLimits.floorFor(sex)
         val floored = maxOf(raw, floor)
-        return CalorieResolution(floored, floored > raw + 0.01)
+        return CalorieResolution(floored, floorApplied = floored > raw + 0.01)
+    }
+
+    /** An exact entry is what someone actually ate, so it's kept as typed even if it's below the
+     * safety floor - the UI shows a caution instead of silently overriding a real number. */
+    fun resolveExact(exactCalories: Double, sex: Sex): CalorieResolution {
+        val floor = SafetyLimits.floorFor(sex)
+        return CalorieResolution(exactCalories, floorApplied = false, belowFloor = exactCalories < floor - 0.01)
     }
 }

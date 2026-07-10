@@ -347,9 +347,17 @@ private fun MealSection(viewModel: TodayViewModel) {
             }
         }
 
-        if (viewModel.lastSaveHitFloor) {
+        if (viewModel.lastSaveFloorApplied) {
             Text(
                 "Raised to a safe minimum for this day.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        if (viewModel.belowFloorWarning) {
+            Text(
+                "This is below the general safety minimum for a full day's eating. We've kept the " +
+                    "exact number you entered - if this wasn't a one-off, it's worth talking to a doctor.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )

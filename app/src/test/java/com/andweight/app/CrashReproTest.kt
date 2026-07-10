@@ -17,7 +17,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import java.time.LocalDate
 
 /**
  * Reproduces a user-reported crash: the app crashed right after onboarding ("Start tracking"),
@@ -43,11 +42,10 @@ class CrashReproTest {
         app.deleteDatabase("andweight.db")
         app.repository.saveProfile(
             UserProfile(
-                startDate = LocalDate.now(),
                 weightUnit = WeightUnit.KG,
                 startWeightKg = 80.0,
                 goalWeightKg = 70.0,
-                goalRateKgPerWeek = 0.5,
+                pace = PaceOption.MODERATE,
             ),
         )
 

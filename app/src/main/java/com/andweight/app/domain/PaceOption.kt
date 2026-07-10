@@ -19,14 +19,18 @@ enum class PaceOption(val label: String) {
  */
 object PaceGuidance {
 
-    fun maxSafeWeeklyRateKg(startWeightKg: Double, direction: GoalDirection): Double = when (direction) {
-        GoalDirection.LOSE -> minOf(2.0, startWeightKg * 0.015)
-        GoalDirection.GAIN -> minOf(1.0, startWeightKg * 0.005)
+    /** [weightKg] is whatever weight the rate should be evaluated against right now - current
+     * weight in day-to-day use, or the just-entered starting weight during onboarding before any
+     * of it is "current" yet. The percentage-of-bodyweight basis means this should always be
+     * re-evaluated against the latest known weight rather than cached from a single point in time. */
+    fun maxSafeWeeklyRateKg(weightKg: Double, direction: GoalDirection): Double = when (direction) {
+        GoalDirection.LOSE -> minOf(2.0, weightKg * 0.015)
+        GoalDirection.GAIN -> minOf(1.0, weightKg * 0.005)
         GoalDirection.MAINTAIN -> 0.0
     }
 
-    fun rateForOption(option: PaceOption, startWeightKg: Double, direction: GoalDirection): Double {
-        val max = maxSafeWeeklyRateKg(startWeightKg, direction)
+    fun rateForOption(option: PaceOption, weightKg: Double, direction: GoalDirection): Double {
+        val max = maxSafeWeeklyRateKg(weightKg, direction)
         val fraction = when (option) {
             PaceOption.RELAXED -> 0.4
             PaceOption.MODERATE -> 0.7
@@ -34,11 +38,4 @@ object PaceGuidance {
         }
         return max * fraction
     }
-
-    /** Reverse lookup for pre-selecting a pace chip against an already-stored rate (e.g. when
-     * re-opening the profile editor) - the rate itself isn't tagged with which named option
-     * produced it, so this just finds the option whose rate is currently closest. */
-    fun closestOption(rateKgPerWeek: Double, startWeightKg: Double, direction: GoalDirection): PaceOption =
-        PaceOption.entries.minByOrNull { kotlin.math.abs(rateForOption(it, startWeightKg, direction) - rateKgPerWeek) }
-            ?: PaceOption.MODERATE
 }

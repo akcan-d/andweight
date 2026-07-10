@@ -9,13 +9,11 @@ import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.domain.ActivityLevel
 import com.andweight.app.domain.GoalDirection
 import com.andweight.app.domain.HeightConversion
-import com.andweight.app.domain.PaceGuidance
 import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeightUnit
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 data class EditProfileUiState(
     /** False until the existing profile has loaded - the form has nothing sensible to show
@@ -32,7 +30,6 @@ data class EditProfileUiState(
     val heightInchesText: String = "",
     val ageText: String = "",
     val activityLevel: ActivityLevel = ActivityLevel.LIGHT,
-    val startDate: LocalDate = LocalDate.now(),
     val errorMessage: String? = null,
     val didSave: Boolean = false,
 ) {
@@ -71,7 +68,7 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
                 val (feet, inches) = HeightConversion.cmToFeetAndInches(heightCm)
                 heightCmText = ""
                 heightFeetText = feet.toString()
-                heightInchesText = formatOneDecimal(inches)
+                heightInchesText = formatInches(inches)
             }
 
             uiState = EditProfileUiState(
@@ -80,18 +77,13 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
                 startWeightText = formatOneDecimal(unit.fromKg(profile.startWeightKg)),
                 goalDirection = profile.goalDirection,
                 goalWeightText = formatOneDecimal(unit.fromKg(profile.goalWeightKg)),
-                selectedPace = if (profile.goalDirection == GoalDirection.MAINTAIN) {
-                    null
-                } else {
-                    PaceGuidance.closestOption(profile.goalRateKgPerWeek, profile.startWeightKg, profile.goalDirection)
-                },
+                selectedPace = profile.pace,
                 sex = profile.sex,
                 heightCmText = heightCmText,
                 heightFeetText = heightFeetText,
                 heightInchesText = heightInchesText,
                 ageText = profile.age?.toString() ?: "",
                 activityLevel = profile.activityLevel,
-                startDate = profile.startDate,
             )
         }
     }
@@ -111,7 +103,7 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
             uiState.copy(heightCmText = formatOneDecimal(previousHeightCm), heightFeetText = "", heightInchesText = "")
         } else {
             val (feet, inches) = HeightConversion.cmToFeetAndInches(previousHeightCm)
-            uiState.copy(heightCmText = "", heightFeetText = feet.toString(), heightInchesText = formatOneDecimal(inches))
+            uiState.copy(heightCmText = "", heightFeetText = feet.toString(), heightInchesText = formatInches(inches))
         }
     }
 
@@ -160,10 +152,6 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
         uiState = uiState.copy(activityLevel = level)
     }
 
-    fun onStartDateChange(date: LocalDate) {
-        uiState = uiState.copy(startDate = date)
-    }
-
     fun save() {
         val unit = uiState.weightUnit
         val startWeight = uiState.startWeightText.toDoubleOrNull()
@@ -208,20 +196,13 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
             return
         }
 
-        val goalRateKgPerWeek = if (direction == GoalDirection.MAINTAIN) {
-            0.0
-        } else {
-            PaceGuidance.rateForOption(pace!!, startWeightKg, direction)
-        }
-
         val age = uiState.ageText.toIntOrNull()
 
         val profile = UserProfile(
-            startDate = uiState.startDate,
             weightUnit = unit,
             startWeightKg = startWeightKg,
             goalWeightKg = goalWeightKg,
-            goalRateKgPerWeek = goalRateKgPerWeek,
+            pace = if (direction == GoalDirection.MAINTAIN) null else pace,
             sex = uiState.sex,
             heightCm = uiState.heightCm,
             age = age,
@@ -237,5 +218,12 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
 
 private fun formatOneDecimal(value: Double): String {
     val rounded = Math.round(value * 10.0) / 10.0
+    return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
+}
+
+/** Inches need finer precision than the other one-decimal fields - at one decimal, a
+ * cm -> ft/in -> cm round trip loses enough to visibly drift (186 cm became 185.9 cm). */
+private fun formatInches(value: Double): String {
+    val rounded = Math.round(value * 100.0) / 100.0
     return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
 }

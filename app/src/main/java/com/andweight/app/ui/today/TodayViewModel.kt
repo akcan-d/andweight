@@ -11,6 +11,7 @@ import com.andweight.app.domain.ConfidenceEvaluator
 import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.IntakeLevel
 import com.andweight.app.domain.IntakeResolver
+import com.andweight.app.domain.SafetyLimits
 import com.andweight.app.domain.TdeeEngine
 import com.andweight.app.domain.TdeeState
 import com.andweight.app.domain.UserProfile
@@ -48,8 +49,8 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     private val logs: StateFlow<List<DailyLog>> = repository.logsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val confidence: StateFlow<ConfidenceAssessment?> = combine(tdeeState, logs) { state, logList ->
-        state?.let { ConfidenceEvaluator.assess(it, logList, actualToday) }
+    val confidence: StateFlow<ConfidenceAssessment?> = combine(profile, tdeeState, logs) { userProfile, state, logList ->
+        if (userProfile == null || state == null) null else ConfidenceEvaluator.assess(userProfile, state, logList, actualToday)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The day the check-in card is currently showing - may differ from [actualToday] once the
@@ -72,14 +73,27 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     var mealState by mutableStateOf(MealEntryState())
         private set
 
-    /** True right after a save whose resolved calories were clamped up to the safety floor -
-     * shown once on the summary view, then cleared as soon as the day changes or is re-edited. */
-    var lastSaveHitFloor by mutableStateOf(false)
+    /** True right after a save whose resolved calories were clamped up to the safety floor (quick-
+     * pick only) - shown once on the summary view, then cleared as soon as the day changes or is
+     * re-edited. */
+    var lastSaveFloorApplied by mutableStateOf(false)
         private set
 
     init {
         loadDay(selectedDate)
     }
+
+    /** Unlike [lastSaveFloorApplied], this is derived from the saved log itself rather than a
+     * transient post-save flag - an exact entry's calories are kept exactly as typed, so whether
+     * it's below the safety floor can be (and should be) shown every time the day is viewed, not
+     * just right after saving. */
+    val belowFloorWarning: Boolean
+        get() {
+            val log = existingLog ?: return false
+            val currentProfile = profile.value ?: return false
+            if (!log.wasExactEntry || log.calories == null) return false
+            return log.calories < SafetyLimits.floorFor(currentProfile.sex) - 0.01
+        }
 
     val isDayComplete: Boolean
         get() = !isEditingWeight && !isEditingMeal
@@ -94,21 +108,21 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
     fun goToPreviousDay() {
         selectedDate = selectedDate.minusDays(1)
-        lastSaveHitFloor = false
+        lastSaveFloorApplied = false
         loadDay(selectedDate)
     }
 
     fun goToNextDay() {
         if (!canGoToNextDay()) return
         selectedDate = selectedDate.plusDays(1)
-        lastSaveHitFloor = false
+        lastSaveFloorApplied = false
         loadDay(selectedDate)
     }
 
     fun jumpToToday() {
         if (!canJumpToToday()) return
         selectedDate = actualToday
-        lastSaveHitFloor = false
+        lastSaveFloorApplied = false
         loadDay(selectedDate)
     }
 
@@ -117,7 +131,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         viewModelScope.launch {
             repository.deleteLog(dateBeingDeleted)
             if (dateBeingDeleted == selectedDate) {
-                lastSaveHitFloor = false
+                lastSaveFloorApplied = false
                 loadDay(selectedDate)
             }
         }
@@ -166,7 +180,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     // --- Meal ---
 
     fun onStartEditingMeal() {
-        lastSaveHitFloor = false
+        lastSaveFloorApplied = false
         isEditingMeal = true
     }
 
@@ -238,7 +252,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
                 wasExact = mealState.useExact,
             )
             if (dateBeingSaved == selectedDate) {
-                lastSaveHitFloor = resolution.floorApplied
+                lastSaveFloorApplied = resolution.floorApplied
                 loadDay(selectedDate)
             }
         }

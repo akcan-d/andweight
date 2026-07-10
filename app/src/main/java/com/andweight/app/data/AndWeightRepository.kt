@@ -4,6 +4,7 @@ import android.content.Context
 import com.andweight.app.domain.ActivityLevel
 import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.IntakeLevel
+import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
 import com.andweight.app.domain.TdeeEngine
 import com.andweight.app.domain.TdeeState
@@ -57,11 +58,10 @@ class AndWeightRepository(context: Context) {
 }
 
 private fun ProfileEntity.toDomain(): UserProfile = UserProfile(
-    startDate = startDateEpochDay.toLocalDate(),
     weightUnit = WeightUnit.valueOf(weightUnit),
     startWeightKg = startWeightKg,
     goalWeightKg = goalWeightKg,
-    goalRateKgPerWeek = goalRateKgPerWeek,
+    pace = pace?.let { runCatching { PaceOption.valueOf(it) }.getOrNull() },
     sex = Sex.valueOf(sex),
     heightCm = heightCm,
     age = age,
@@ -69,11 +69,10 @@ private fun ProfileEntity.toDomain(): UserProfile = UserProfile(
 )
 
 private fun UserProfile.toEntity(): ProfileEntity = ProfileEntity(
-    startDateEpochDay = startDate.toEpochDayLong(),
     weightUnit = weightUnit.name,
     startWeightKg = startWeightKg,
     goalWeightKg = goalWeightKg,
-    goalRateKgPerWeek = goalRateKgPerWeek,
+    pace = pace?.name,
     sex = sex.name,
     heightCm = heightCm,
     age = age,
