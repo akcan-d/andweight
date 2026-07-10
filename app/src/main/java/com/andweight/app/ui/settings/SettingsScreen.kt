@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,10 +47,13 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.ui.AppViewModelProvider
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+private val timeFormatter12h = DateTimeFormatter.ofPattern("h:mm a")
+private val timeFormatter24h = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
 fun SettingsScreen(
@@ -64,6 +68,7 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val reminderEnabled by viewModel.reminderEnabled.collectAsState()
     val reminderTime by viewModel.reminderTime.collectAsState()
+    val profile by viewModel.profile.collectAsState()
 
     LaunchedEffect(viewModel.didEraseData) {
         if (viewModel.didEraseData) onDataErased()
@@ -109,6 +114,7 @@ fun SettingsScreen(
         ReminderSection(
             reminderEnabled = reminderEnabled,
             reminderTime = reminderTime,
+            isMetric = profile?.weightUnit?.isMetric ?: true,
             onEnabledChange = viewModel::setReminderEnabled,
             onTimeChange = viewModel::setReminderTime,
         )
@@ -133,7 +139,38 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+        ExportDataSection(onBuildCsv = viewModel::buildCsvExport)
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
         EraseDataSection(onErase = viewModel::eraseAllData)
+    }
+}
+
+@Composable
+private fun ExportDataSection(onBuildCsv: suspend () -> String) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val csv = onBuildCsv()
+            context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
+        }
+    }
+
+    Text("Export", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Text(
+        "Save your full weight and calorie history as a CSV file you can open in a spreadsheet.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    OutlinedButton(
+        onClick = { createDocumentLauncher.launch("andweight_export_${LocalDate.now()}.csv") },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Export data as CSV")
     }
 }
 
@@ -141,6 +178,7 @@ fun SettingsScreen(
 private fun ReminderSection(
     reminderEnabled: Boolean,
     reminderTime: Pair<Int, Int>,
+    isMetric: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTimeChange: (Int, Int) -> Unit,
 ) {
@@ -169,6 +207,7 @@ private fun ReminderSection(
 
     if (reminderEnabled) {
         val (hour, minute) = reminderTime
+        val timeFormatter = if (isMetric) timeFormatter24h else timeFormatter12h
         TextButton(onClick = { showTimePicker = true }) {
             Text("Reminder time: ${LocalTime.of(hour, minute).format(timeFormatter)}")
         }
@@ -201,6 +240,7 @@ private fun ReminderSection(
         ReminderTimePickerDialog(
             initialHour = reminderTime.first,
             initialMinute = reminderTime.second,
+            is24Hour = isMetric,
             onConfirm = { hour, minute ->
                 onTimeChange(hour, minute)
                 showTimePicker = false
@@ -215,10 +255,11 @@ private fun ReminderSection(
 private fun ReminderTimePickerDialog(
     initialHour: Int,
     initialMinute: Int,
+    is24Hour: Boolean,
     onConfirm: (Int, Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val state = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = false)
+    val state = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = is24Hour)
 
     AlertDialog(
         onDismissRequest = onDismiss,

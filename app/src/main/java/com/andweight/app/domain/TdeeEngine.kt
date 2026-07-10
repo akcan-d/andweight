@@ -5,6 +5,16 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 import kotlin.math.roundToLong
 
+/** Reasonable population-average fallbacks for whichever of sex/height/age is still missing, so
+ * the Mifflin-St Jeor formula can be used - and genuinely sharpened by each detail actually
+ * provided - instead of an all-or-nothing switch to a much cruder bodyweight-only estimate. */
+private const val DEFAULT_AGE = 35.0
+private const val DEFAULT_HEIGHT_CM = 168.0
+
+/** Midpoint of Mifflin-St Jeor's male (+5) and female (-161) constants, used when sex is left
+ * unspecified rather than assuming either one. */
+private const val AVERAGE_SEX_TERM = -78.0
+
 /**
  * Reimplementation of the "TDEE 3.0" spreadsheet's adaptive-TDEE algorithm.
  *
@@ -31,14 +41,26 @@ object TdeeEngine {
     fun ceilToHalf(value: Double): Double = ceil(value * 2.0) / 2.0
 
     fun initialTdeeGuess(profile: UserProfile): Double {
-        val mifflinStJeor = if (profile.age != null && profile.heightCm != null && profile.sex != Sex.UNSPECIFIED) {
-            val sexTerm = if (profile.sex == Sex.MALE) 5.0 else -161.0
-            val bmr = 10.0 * profile.startWeightKg + 6.25 * profile.heightCm - 5.0 * profile.age + sexTerm
-            bmr * profile.activityLevel.multiplier
+        val hasAnyDemographicDetail = profile.age != null || profile.heightCm != null || profile.sex != Sex.UNSPECIFIED
+
+        val guess = if (!hasAnyDemographicDetail) {
+            // Nothing at all provided - matches the original spreadsheet's crude bodyweight-only
+            // estimate exactly (validated against real spreadsheet numbers - see TdeeEngineTest).
+            profile.startWeightKg * EnergyConstants.MAINTENANCE_KCAL_PER_KG
         } else {
-            null
+            // Mifflin-St Jeor, falling back to a population-average default for whichever detail
+            // is still missing - so providing even one of sex/height/age genuinely sharpens the
+            // estimate, rather than an all-or-nothing switch between two unrelated formulas.
+            val age = profile.age?.toDouble() ?: DEFAULT_AGE
+            val heightCm = profile.heightCm ?: DEFAULT_HEIGHT_CM
+            val sexTerm = when (profile.sex) {
+                Sex.MALE -> 5.0
+                Sex.FEMALE -> -161.0
+                Sex.UNSPECIFIED -> AVERAGE_SEX_TERM
+            }
+            val bmr = 10.0 * profile.startWeightKg + 6.25 * heightCm - 5.0 * age + sexTerm
+            bmr * profile.activityLevel.multiplier
         }
-        val guess = mifflinStJeor ?: (profile.startWeightKg * EnergyConstants.MAINTENANCE_KCAL_PER_KG)
         return mround(guess, 5.0).coerceAtLeast(0.0)
     }
 

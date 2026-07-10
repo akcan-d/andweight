@@ -31,13 +31,21 @@ object ConfidenceEvaluator {
     private const val MIN_RECENT_DAYS_LOGGED = 3
     private const val MIN_WEEKS_BEFORE_STALENESS_APPLIES = 2
 
+    /** Out of 3 - each is independently used (with a population-average fallback for whichever is
+     * missing) by [TdeeEngine.initialTdeeGuess], so a profile with 2 of 3 filled in is genuinely
+     * more accurate than one with none, not just "not fully done yet". */
+    private const val DETAILS_NEEDED_FOR_MEDIUM = 2
+
     fun assess(profile: UserProfile, state: TdeeState, logs: List<DailyLog>, today: LocalDate): ConfidenceAssessment {
         val completedWeeks = state.weeklyHistory.count { it.hasWeightData && it.hasCalorieData }
 
-        // Matches the exact condition TdeeEngine uses to pick the more accurate Mifflin-St Jeor
-        // formula over the crude bodyweight-only guess - so "more details help" here reflects a
-        // real effect on the estimate, not just a cosmetic bonus.
-        val hasFullProfileDetails = profile.age != null && profile.heightCm != null && profile.sex != Sex.UNSPECIFIED
+        val profileDetailCount = listOf(
+            profile.age != null,
+            profile.heightCm != null,
+            profile.sex != Sex.UNSPECIFIED,
+        ).count { it }
+        val hasFullProfileDetails = profileDetailCount == 3
+        val hasEnoughProfileDetails = profileDetailCount >= DETAILS_NEEDED_FOR_MEDIUM
 
         val recentWindowStart = today.minusDays(RECENT_WINDOW_DAYS - 1)
         val recentDaysLogged = logs.count {
@@ -60,8 +68,14 @@ object ConfidenceEvaluator {
             )
             hasFullProfileDetails -> ConfidenceAssessment(
                 ConfidenceLevel.MEDIUM,
-                "Starting estimate uses your sex, height, and age for a more personalized formula - it'll " +
+                "Starting estimate uses your sex, height, and age for a fully personalized formula - it'll " +
                     "get even more accurate once your own results start coming in.",
+            )
+            hasEnoughProfileDetails -> ConfidenceAssessment(
+                ConfidenceLevel.MEDIUM,
+                "Starting estimate uses most of what you've told us about yourself - filling in the last " +
+                    "detail (sex, height, or age) would sharpen it further.",
+                promptProfileDetails = true,
             )
             else -> ConfidenceAssessment(
                 ConfidenceLevel.LOW,

@@ -8,10 +8,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
+import com.andweight.app.domain.CsvExport
 import com.andweight.app.domain.ThemeMode
+import com.andweight.app.domain.UserProfile
 import com.andweight.app.notifications.ReminderScheduler
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -32,6 +35,9 @@ class SettingsViewModel(
 
     val reminderTime: StateFlow<Pair<Int, Int>> = settingsRepository.reminderTimeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 21 to 0)
+
+    val profile: StateFlow<UserProfile?> = repository.profileFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
@@ -73,4 +79,7 @@ class SettingsViewModel(
             didEraseData = true
         }
     }
+
+    suspend fun buildCsvExport(): String =
+        CsvExport.buildCsv(repository.getProfileOnce(), repository.logsFlow.first())
 }

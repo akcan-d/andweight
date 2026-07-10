@@ -7,6 +7,31 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-10
+
+### Changed
+- Unit-selection labels now read "Metric (kg, cm)" / "Imperial (lb, ft/in)"
+  instead of "Kg" / "Lb"
+- The reminder time picker now shows a 24-hour clock when Metric units are
+  selected, and a 12-hour am/pm clock for Imperial - matching the same
+  Metric/Imperial choice used everywhere else
+- Starting TDEE estimate and the accuracy badge now treat sex, height, and
+  age as independently useful: each one you provide sharpens the formula a
+  little (using a population-average fallback for whichever is still
+  missing), instead of only using the full formula once all three are
+  filled in - so leaving sex as "prefer not to say" no longer drops you all
+  the way back to the crude, bodyweight-only estimate if height and age are
+  already filled in
+
+### Added
+- Export your full weight/calorie history as a CSV file, from Settings
+- Reminder notification now has quick actions: log today's weight by
+  replying with a number, or log calories as "usual" with one tap - both
+  without opening the app
+- Home screen widget showing today's calorie target and whether weight/
+  meals are logged yet, with a matching "Ate usual" quick action and a
+  button to open the app
+
 ## [0.9.0] - 2026-07-10
 
 ### Changed

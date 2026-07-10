@@ -190,4 +190,35 @@ class TdeeEngineTest {
         assertEquals(1800.0, resolution.calories, 0.0)
         assertTrue(!resolution.belowFloor)
     }
+
+    @Test
+    fun `initial guess with no demographic details at all uses the crude bodyweight formula`() {
+        val bareProfile = profile.copy(sex = Sex.UNSPECIFIED, heightCm = null, age = null)
+        val guess = TdeeEngine.initialTdeeGuess(bareProfile)
+        assertEquals(3515.0, guess, 0.0) // same as the "no data at all" spreadsheet-matching test above
+    }
+
+    @Test
+    fun `a single demographic detail already sharpens the estimate away from the crude formula`() {
+        val bareGuess = TdeeEngine.initialTdeeGuess(profile.copy(sex = Sex.UNSPECIFIED, heightCm = null, age = null))
+        val heightOnlyGuess = TdeeEngine.initialTdeeGuess(profile.copy(sex = Sex.UNSPECIFIED, heightCm = 170.0, age = null))
+        assertTrue(heightOnlyGuess != bareGuess)
+    }
+
+    @Test
+    fun `sex left unspecified still uses Mifflin-St Jeor with an averaged sex term once other details are present`() {
+        val partialProfile = profile.copy(sex = Sex.UNSPECIFIED, heightCm = 170.0, age = 40)
+        // BMR = 10*122.7 + 6.25*170 - 5*40 + (-78), * LIGHT multiplier, rounded to nearest 5.
+        val expectedBmr = 10.0 * 122.7 + 6.25 * 170.0 - 5.0 * 40.0 - 78.0
+        val expected = TdeeEngine.mround(expectedBmr * ActivityLevel.LIGHT.multiplier, 5.0)
+        assertEquals(expected, TdeeEngine.initialTdeeGuess(partialProfile), 0.0)
+    }
+
+    @Test
+    fun `fully specified demographics match Mifflin-St Jeor exactly`() {
+        val fullProfile = profile.copy(sex = Sex.FEMALE, heightCm = 165.0, age = 30, activityLevel = ActivityLevel.MODERATE)
+        val expectedBmr = 10.0 * 122.7 + 6.25 * 165.0 - 5.0 * 30.0 - 161.0
+        val expected = TdeeEngine.mround(expectedBmr * ActivityLevel.MODERATE.multiplier, 5.0)
+        assertEquals(expected, TdeeEngine.initialTdeeGuess(fullProfile), 0.0)
+    }
 }

@@ -10,6 +10,7 @@ import com.andweight.app.domain.TdeeEngine
 import com.andweight.app.domain.TdeeState
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeightUnit
+import com.andweight.app.widget.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -17,6 +18,7 @@ import java.time.LocalDate
 
 class AndWeightRepository(context: Context) {
 
+    private val appContext = context.applicationContext
     private val db = AppDatabase.getInstance(context)
     private val profileDao = db.profileDao()
     private val logDao = db.dailyLogDao()
@@ -33,6 +35,7 @@ class AndWeightRepository(context: Context) {
 
     suspend fun saveProfile(profile: UserProfile) {
         profileDao.upsert(profile.toEntity())
+        WidgetUpdater.refresh(appContext)
     }
 
     suspend fun getProfileOnce(): UserProfile? = profileDao.getProfileOnce()?.toDomain()
@@ -42,6 +45,7 @@ class AndWeightRepository(context: Context) {
 
     suspend fun deleteLog(date: LocalDate) {
         logDao.deleteByDate(date.toEpochDayLong())
+        WidgetUpdater.refresh(appContext)
     }
 
     suspend fun saveLog(date: LocalDate, weightKg: Double?, calories: Double?, intakeLevel: IntakeLevel?, wasExact: Boolean) {
@@ -54,6 +58,7 @@ class AndWeightRepository(context: Context) {
                 wasExactEntry = wasExact,
             ),
         )
+        WidgetUpdater.refresh(appContext)
     }
 
     /** Wipes the profile and every logged day - a deliberate full reset, not to be confused with
@@ -61,6 +66,7 @@ class AndWeightRepository(context: Context) {
     suspend fun eraseAllData() {
         profileDao.deleteAll()
         logDao.deleteAll()
+        WidgetUpdater.refresh(appContext)
     }
 }
 

@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -163,7 +164,8 @@ private fun TipOfTheDayPopup(viewModel: TipOfTheDayViewModel) {
 @Composable
 private fun ReminderOptInPopup(viewModel: ReminderOptInViewModel) {
     val context = LocalContext.current
-    val timePickerState = rememberTimePickerState(initialHour = 21, initialMinute = 0, is24Hour = false)
+    val isMetric by viewModel.isMetric.collectAsState()
+    val timePickerState = rememberTimePickerState(initialHour = 21, initialMinute = 0, is24Hour = isMetric)
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         // Enable either way - if denied, the reminder is scheduled but silently won't show a

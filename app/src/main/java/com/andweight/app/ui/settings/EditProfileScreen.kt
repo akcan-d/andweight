@@ -83,17 +83,17 @@ fun EditProfileScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Weight unit", style = MaterialTheme.typography.labelLarge)
+            Text("Units", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = state.weightUnit == WeightUnit.KG,
                     onClick = { viewModel.onWeightUnitChange(WeightUnit.KG) },
-                    label = { Text("Kg") },
+                    label = { Text("Metric (kg, cm)") },
                 )
                 FilterChip(
                     selected = state.weightUnit == WeightUnit.LB,
                     onClick = { viewModel.onWeightUnitChange(WeightUnit.LB) },
-                    label = { Text("Lb") },
+                    label = { Text("Imperial (lb, ft/in)") },
                 )
             }
 

@@ -9,7 +9,11 @@ import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
 import com.andweight.app.notifications.ReminderScheduler
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -28,6 +32,10 @@ class ReminderOptInViewModel(
 
     var showPrompt by mutableStateOf(false)
         private set
+
+    val isMetric: StateFlow<Boolean> = repository.profileFlow
+        .map { it?.weightUnit?.isMetric ?: true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     init {
         viewModelScope.launch {
