@@ -1,4 +1,4 @@
-package com.andweight.app.ui.history
+package com.andweight.app.ui.journey
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -32,11 +36,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.DailyLog
+import com.andweight.app.domain.Milestone
+import com.andweight.app.domain.MilestoneCategory
 import com.andweight.app.domain.Phrasing
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeekSummary
@@ -48,20 +53,21 @@ import kotlin.math.roundToInt
 private val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
 
-private enum class HistoryViewMode(val label: String) {
+private enum class JourneyViewMode(val label: String) {
     DAILY("Daily"),
     WEEKLY("Weekly trend"),
 }
 
 @Composable
-fun HistoryScreen(
+fun JourneyScreen(
     contentPadding: PaddingValues,
-    viewModel: HistoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
     val tdeeState by viewModel.tdeeState.collectAsState()
     val logs by viewModel.logs.collectAsState()
-    var viewMode by remember { mutableStateOf(HistoryViewMode.DAILY) }
+    val milestones by viewModel.milestones.collectAsState()
+    var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
 
     val hasAnyData = logs.isNotEmpty()
 
@@ -72,7 +78,7 @@ fun HistoryScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "No entries yet - check in from the Today tab to start building your stats.",
+                    "No entries yet - check in from the Today tab to start your journey.",
                     modifier = Modifier.padding(32.dp),
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -90,6 +96,10 @@ fun HistoryScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (milestones.isNotEmpty()) {
+                item { MilestonesSection(milestones) }
+            }
+
             item { WeightTrendCard(logs, profile) }
 
             item {
@@ -97,7 +107,7 @@ fun HistoryScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    HistoryViewMode.entries.forEach { mode ->
+                    JourneyViewMode.entries.forEach { mode ->
                         FilterChip(
                             selected = viewMode == mode,
                             onClick = { viewMode = mode },
@@ -108,13 +118,71 @@ fun HistoryScreen(
             }
 
             when (viewMode) {
-                HistoryViewMode.DAILY -> {
+                JourneyViewMode.DAILY -> {
                     val sortedLogs = logs.sortedByDescending { it.date }
                     items(sortedLogs) { log -> DailyCard(log, profile, onDelete = { viewModel.deleteLog(log.date) }) }
                 }
-                HistoryViewMode.WEEKLY -> {
+                JourneyViewMode.WEEKLY -> {
                     val weeks = tdeeState?.weeklyHistory.orEmpty().reversed()
                     items(weeks) { week -> WeekCard(week, profile) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MilestonesSection(milestones: List<Milestone>) {
+    val grouped = MilestoneCategory.entries.mapNotNull { category ->
+        val items = milestones.filter { it.category == category }
+        if (items.isEmpty()) null else category to items
+    }
+    if (grouped.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Milestones", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(grouped) { (category, categoryMilestones) -> MilestoneCategoryCard(category, categoryMilestones) }
+        }
+    }
+}
+
+@Composable
+private fun MilestoneCategoryCard(category: MilestoneCategory, milestones: List<Milestone>) {
+    val achieved = milestones.filter { it.achieved }
+    val next = milestones.firstOrNull { !it.achieved }
+
+    Card(modifier = Modifier.width(220.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(category.label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    "${achieved.size}/${milestones.size}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (achieved.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(achieved.last().title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
+            } else {
+                Text("Nothing unlocked yet", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            if (next != null) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Next: ${next.title}", style = MaterialTheme.typography.bodySmall)
+                    next.hint?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }

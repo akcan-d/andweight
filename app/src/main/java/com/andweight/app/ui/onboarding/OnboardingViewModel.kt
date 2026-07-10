@@ -184,6 +184,14 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
         }
 
         val age = uiState.ageText.toIntOrNull()
+        if (age != null && age < 18) {
+            uiState = uiState.copy(
+                errorMessage = "This app isn't designed for people under 18 - growing bodies have " +
+                    "different nutritional needs than what it accounts for. Please talk to a doctor " +
+                    "before using a calorie-tracking app, or clear the age field to continue without it.",
+            )
+            return
+        }
 
         val profile = UserProfile(
             weightUnit = unit,

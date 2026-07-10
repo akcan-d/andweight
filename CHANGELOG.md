@@ -7,6 +7,21 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-10
+
+### Changed
+- The age-under-18 warning now only appears if you try to save with an age
+  under 18, and blocks saving until it's changed or cleared - instead of
+  showing live as you type
+- Stats renamed to Journey
+
+### Added
+- Journey now opens with a milestones section: time in the app, logging
+  streaks, and (for a lose/gain goal) progress toward your target and total
+  weight moved - each shown as unlocked achievements plus what's coming up
+  next, using generic, non-medical language rather than specific health
+  claims tied to exact weights or dates
+
 ## [0.8.0] - 2026-07-10
 
 ### Fixed

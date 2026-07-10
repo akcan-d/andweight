@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
@@ -39,7 +39,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.ui.AppViewModelProvider
-import com.andweight.app.ui.history.HistoryScreen
+import com.andweight.app.ui.journey.JourneyScreen
 import com.andweight.app.ui.settings.EditProfileScreen
 import com.andweight.app.ui.settings.ReminderOptInViewModel
 import com.andweight.app.ui.settings.SettingsScreen
@@ -49,7 +49,7 @@ import com.andweight.app.ui.today.TodayScreen
 import com.andweight.app.ui.tutorial.TutorialScreen
 
 private const val TODAY_ROUTE = "today"
-private const val HISTORY_ROUTE = "history"
+private const val JOURNEY_ROUTE = "journey"
 private const val SETTINGS_ROUTE = "settings"
 private const val SETTINGS_TIPS_ROUTE = "settings/tips"
 private const val SETTINGS_TUTORIAL_ROUTE = "settings/tutorial"
@@ -74,10 +74,10 @@ fun MainScreen(onDataErased: () -> Unit) {
                     label = { Text("Today") },
                 )
                 NavigationBarItem(
-                    selected = currentRoute?.hierarchy?.any { it.route == HISTORY_ROUTE } == true,
-                    onClick = { navController.navigateToTab(HISTORY_ROUTE) },
-                    icon = { Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null) },
-                    label = { Text("Stats") },
+                    selected = currentRoute?.hierarchy?.any { it.route == JOURNEY_ROUTE } == true,
+                    onClick = { navController.navigateToTab(JOURNEY_ROUTE) },
+                    icon = { Icon(Icons.Filled.EmojiEvents, contentDescription = null) },
+                    label = { Text("Journey") },
                 )
                 NavigationBarItem(
                     selected = currentRoute?.hierarchy?.any { it.route == SETTINGS_ROUTE } == true,
@@ -95,7 +95,7 @@ fun MainScreen(onDataErased: () -> Unit) {
                     onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
                 )
             }
-            composable(HISTORY_ROUTE) { HistoryScreen(contentPadding = padding) }
+            composable(JOURNEY_ROUTE) { JourneyScreen(contentPadding = padding) }
             composable(SETTINGS_ROUTE) {
                 SettingsScreen(
                     contentPadding = padding,

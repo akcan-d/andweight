@@ -7,7 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.andweight.app.AndWeightApplication
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
-import com.andweight.app.ui.history.HistoryViewModel
+import com.andweight.app.ui.journey.JourneyViewModel
 import com.andweight.app.ui.onboarding.OnboardingViewModel
 import com.andweight.app.ui.settings.EditProfileViewModel
 import com.andweight.app.ui.settings.ReminderOptInViewModel
@@ -24,7 +24,7 @@ object AppViewModelProvider {
     val Factory: ViewModelProvider.Factory = viewModelFactory {
         initializer { OnboardingViewModel(repository()) }
         initializer { TodayViewModel(repository()) }
-        initializer { HistoryViewModel(repository()) }
+        initializer { JourneyViewModel(repository()) }
         initializer { SettingsViewModel(settingsRepository(), repository(), application()) }
         initializer { TipOfTheDayViewModel(settingsRepository()) }
         initializer { EditProfileViewModel(repository()) }

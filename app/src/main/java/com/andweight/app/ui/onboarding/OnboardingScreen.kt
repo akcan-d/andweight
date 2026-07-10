@@ -30,7 +30,6 @@ import com.andweight.app.domain.PaceOption
 import com.andweight.app.domain.Sex
 import com.andweight.app.domain.WeightUnit
 import com.andweight.app.ui.AppViewModelProvider
-import com.andweight.app.ui.common.AgeWarningText
 
 @Composable
 fun OnboardingScreen(
@@ -212,7 +211,6 @@ fun OnboardingScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                AgeWarningText(state.ageText)
 
                 Text("Activity level", style = MaterialTheme.typography.labelLarge)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
