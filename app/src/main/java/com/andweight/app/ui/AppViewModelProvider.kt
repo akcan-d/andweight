@@ -24,7 +24,7 @@ object AppViewModelProvider {
         initializer { OnboardingViewModel(repository()) }
         initializer { TodayViewModel(repository()) }
         initializer { HistoryViewModel(repository()) }
-        initializer { SettingsViewModel(settingsRepository()) }
+        initializer { SettingsViewModel(settingsRepository(), repository(), application()) }
         initializer { TipOfTheDayViewModel(settingsRepository()) }
         initializer { EditProfileViewModel(repository()) }
     }
@@ -39,3 +39,6 @@ private fun CreationExtras.settingsRepository(): SettingsRepository {
     val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as AndWeightApplication
     return app.settingsRepository
 }
+
+private fun CreationExtras.application(): AndWeightApplication =
+    this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as AndWeightApplication

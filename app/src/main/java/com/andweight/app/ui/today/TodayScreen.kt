@@ -72,6 +72,7 @@ private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
 @Composable
 fun TodayScreen(
     contentPadding: PaddingValues,
+    onEditProfile: () -> Unit,
     viewModel: TodayViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -79,7 +80,7 @@ fun TodayScreen(
     val confidence by viewModel.confidence.collectAsState()
 
     val items = buildList<@Composable () -> Unit> {
-        add { StatusCard(profile, tdeeState, confidence) }
+        add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
         add { CheckInCard(viewModel, profile) }
     }
 
@@ -97,7 +98,7 @@ fun TodayScreen(
 }
 
 @Composable
-private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence: ConfidenceAssessment?) {
+private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence: ConfidenceAssessment?, onEditProfile: () -> Unit) {
     var showDetails by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -110,7 +111,7 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
 
             if (confidence != null) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    ConfidenceBadge(confidence)
+                    ConfidenceBadge(confidence, onEditProfile)
                 }
             }
 
@@ -234,8 +235,14 @@ private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
                 AllSetBanner()
             }
 
-            WeightSection(viewModel, profile)
-            MealSection(viewModel)
+            if (viewModel.existingLog == null) {
+                // Neither field has been saved yet - one combined form with a single Save button,
+                // rather than two separate per-field forms that would otherwise both show at once.
+                BlankDayForm(viewModel, profile)
+            } else {
+                WeightSection(viewModel, profile)
+                MealSection(viewModel)
+            }
 
             if (viewModel.existingLog != null) {
                 DeleteDayButton(viewModel)
@@ -294,21 +301,43 @@ private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
 }
 
 @Composable
+private fun BlankDayForm(viewModel: TodayViewModel, profile: UserProfile?) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Weight", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            WeightInputField(viewModel, profile)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Meals", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            MealInputFields(viewModel)
+        }
+        Button(onClick = viewModel::saveDay, modifier = Modifier.fillMaxWidth()) {
+            Text("Save")
+        }
+    }
+}
+
+@Composable
+private fun WeightInputField(viewModel: TodayViewModel, profile: UserProfile?) {
+    val state = viewModel.weightState
+    OutlinedTextField(
+        value = state.text,
+        onValueChange = viewModel::onWeightTextChange,
+        label = { Text("Weight (${profile?.weightUnit?.name?.lowercase() ?: "kg"})") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+}
+
+@Composable
 private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Weight", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
 
         if (viewModel.isEditingWeight) {
-            val state = viewModel.weightState
-            OutlinedTextField(
-                value = state.text,
-                onValueChange = viewModel::onWeightTextChange,
-                label = { Text("Weight (${profile?.weightUnit?.name?.lowercase() ?: "kg"})") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            WeightInputField(viewModel, profile)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = viewModel::saveWeight) { Text("Save") }
                 if (viewModel.existingLog?.weightKg != null) {
@@ -367,6 +396,18 @@ private fun MealSection(viewModel: TodayViewModel) {
 
 @Composable
 private fun MealForm(viewModel: TodayViewModel) {
+    MealInputFields(viewModel)
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = viewModel::saveMeal) { Text("Save") }
+        if (viewModel.existingLog?.calories != null) {
+            TextButton(onClick = viewModel::onCancelEditingMeal) { Text("Cancel") }
+        }
+    }
+}
+
+@Composable
+private fun MealInputFields(viewModel: TodayViewModel) {
     val state = viewModel.mealState
 
     if (!state.useExact) {
@@ -405,13 +446,6 @@ private fun MealForm(viewModel: TodayViewModel) {
     state.errorMessage?.let {
         Text(it, color = MaterialTheme.colorScheme.error)
     }
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = viewModel::saveMeal) { Text("Save") }
-        if (viewModel.existingLog?.calories != null) {
-            TextButton(onClick = viewModel::onCancelEditingMeal) { Text("Cancel") }
-        }
-    }
 }
 
 @Composable
@@ -449,7 +483,7 @@ private fun DeleteDayButton(viewModel: TodayViewModel) {
 }
 
 @Composable
-private fun ConfidenceBadge(confidence: ConfidenceAssessment) {
+private fun ConfidenceBadge(confidence: ConfidenceAssessment, onEditProfile: () -> Unit) {
     var showExplanation by remember { mutableStateOf(false) }
     val color = when (confidence.level) {
         ConfidenceLevel.LOW -> Color(0xFFE53935)
@@ -480,6 +514,18 @@ private fun ConfidenceBadge(confidence: ConfidenceAssessment) {
                 TextButton(onClick = { showExplanation = false }) {
                     Text("Got it")
                 }
+            },
+            dismissButton = if (confidence.promptProfileDetails) {
+                {
+                    TextButton(onClick = {
+                        showExplanation = false
+                        onEditProfile()
+                    }) {
+                        Text("Edit profile")
+                    }
+                }
+            } else {
+                null
             },
         )
     }

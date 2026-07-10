@@ -45,7 +45,7 @@ private const val SETTINGS_TUTORIAL_ROUTE = "settings/tutorial"
 private const val SETTINGS_EDIT_PROFILE_ROUTE = "settings/profile"
 
 @Composable
-fun MainScreen() {
+fun MainScreen(onDataErased: () -> Unit) {
     val navController = rememberNavController()
 
     TipOfTheDayPopup()
@@ -78,7 +78,12 @@ fun MainScreen() {
         },
     ) { padding ->
         NavHost(navController = navController, startDestination = TODAY_ROUTE) {
-            composable(TODAY_ROUTE) { TodayScreen(contentPadding = padding) }
+            composable(TODAY_ROUTE) {
+                TodayScreen(
+                    contentPadding = padding,
+                    onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
+                )
+            }
             composable(HISTORY_ROUTE) { HistoryScreen(contentPadding = padding) }
             composable(SETTINGS_ROUTE) {
                 SettingsScreen(
@@ -86,6 +91,7 @@ fun MainScreen() {
                     onViewAllTips = { navController.navigate(SETTINGS_TIPS_ROUTE) },
                     onShowTutorial = { navController.navigate(SETTINGS_TUTORIAL_ROUTE) },
                     onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
+                    onDataErased = onDataErased,
                 )
             }
             composable(SETTINGS_TIPS_ROUTE) {

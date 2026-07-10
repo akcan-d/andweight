@@ -55,6 +55,13 @@ class AndWeightRepository(context: Context) {
             ),
         )
     }
+
+    /** Wipes the profile and every logged day - a deliberate full reset, not to be confused with
+     * deleting a single day's record. */
+    suspend fun eraseAllData() {
+        profileDao.deleteAll()
+        logDao.deleteAll()
+    }
 }
 
 private fun ProfileEntity.toDomain(): UserProfile = UserProfile(

@@ -8,7 +8,13 @@ enum class ConfidenceLevel(val label: String) {
     HIGH("High accuracy"),
 }
 
-data class ConfidenceAssessment(val level: ConfidenceLevel, val message: String)
+data class ConfidenceAssessment(
+    val level: ConfidenceLevel,
+    val message: String,
+    /** True only for the specific message that suggests filling in profile details - lets the UI
+     * offer a direct link to the profile editor instead of just saying "in Settings". */
+    val promptProfileDetails: Boolean = false,
+)
 
 /**
  * How much to trust the current TDEE estimate and target - based on how much real data has gone
@@ -59,8 +65,9 @@ object ConfidenceEvaluator {
             )
             else -> ConfidenceAssessment(
                 ConfidenceLevel.LOW,
-                "This is still a rough, formula-based starting estimate. Add your sex, height, and age in " +
-                    "Settings, or just keep logging daily, to sharpen it up.",
+                "This is still a rough, formula-based starting estimate. Add your sex, height, and age, " +
+                    "or just keep logging daily, to sharpen it up.",
+                promptProfileDetails = true,
             )
         }
     }

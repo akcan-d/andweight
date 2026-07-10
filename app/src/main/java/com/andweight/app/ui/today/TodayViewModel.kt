@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
+import com.andweight.app.domain.CalorieResolution
 import com.andweight.app.domain.ConfidenceAssessment
 import com.andweight.app.domain.ConfidenceEvaluator
 import com.andweight.app.domain.DailyLog
@@ -253,6 +254,71 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
             )
             if (dateBeingSaved == selectedDate) {
                 lastSaveFloorApplied = resolution.floorApplied
+                loadDay(selectedDate)
+            }
+        }
+    }
+
+    // --- Combined save, for a day where neither weight nor meal has been saved yet ---
+
+    /** Used only while [existingLog] is null - a blank day shows a single combined form instead
+     * of two separate per-field forms, so this saves whichever of weight/meal has valid input
+     * (either, or both) in one write, rather than delegating to [saveWeight]/[saveMeal]
+     * independently, which could race against each other's read of [existingLog]. */
+    fun saveDay() {
+        val currentProfile = profile.value ?: return
+        val dateBeingSaved = selectedDate
+
+        val hasWeightInput = weightState.text.isNotBlank()
+        val parsedWeight = weightState.text.toDoubleOrNull()
+        if (hasWeightInput && (parsedWeight == null || parsedWeight <= 0.0)) {
+            weightState = weightState.copy(errorMessage = "Enter a valid weight.")
+            return
+        }
+
+        val hasMealInput = if (mealState.useExact) {
+            mealState.exactCaloriesText.isNotBlank()
+        } else {
+            mealState.selectedIntake != null
+        }
+
+        if (!hasWeightInput && !hasMealInput) {
+            mealState = mealState.copy(errorMessage = "Enter your weight, log a meal, or both.")
+            return
+        }
+
+        val weightKg = if (hasWeightInput) currentProfile.weightUnit.toKg(parsedWeight!!) else null
+
+        viewModelScope.launch {
+            var resolution: CalorieResolution? = null
+            if (hasMealInput) {
+                val baselineTdee = TdeeEngine.compute(
+                    currentProfile,
+                    logs.value.filterNot { it.date == dateBeingSaved },
+                    actualToday,
+                ).currentTdee
+
+                resolution = if (mealState.useExact) {
+                    val exact = mealState.exactCaloriesText.toDoubleOrNull()
+                    if (exact == null) {
+                        mealState = mealState.copy(errorMessage = "That doesn't look like a number.")
+                        return@launch
+                    }
+                    IntakeResolver.resolveExact(exact, currentProfile.sex)
+                } else {
+                    IntakeResolver.resolveQuickPick(mealState.selectedIntake!!, baselineTdee, currentProfile.sex)
+                }
+            }
+
+            repository.saveLog(
+                date = dateBeingSaved,
+                weightKg = weightKg,
+                calories = resolution?.calories,
+                intakeLevel = if (hasMealInput && !mealState.useExact) mealState.selectedIntake else null,
+                wasExact = hasMealInput && mealState.useExact,
+            )
+            if (dateBeingSaved == selectedDate) {
+                lastSaveFloorApplied = resolution?.floorApplied ?: false
                 loadDay(selectedDate)
             }
         }

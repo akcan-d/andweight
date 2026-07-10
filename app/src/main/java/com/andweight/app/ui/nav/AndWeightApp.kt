@@ -81,7 +81,15 @@ fun AndWeightApp() {
                         },
                     )
                 }
-                composable(MAIN_ROUTE) { MainScreen() }
+                composable(MAIN_ROUTE) {
+                    MainScreen(
+                        onDataErased = {
+                            navController.navigate(ONBOARDING_ROUTE) {
+                                popUpTo(MAIN_ROUTE) { inclusive = true }
+                            }
+                        },
+                    )
+                }
             }
         }
     }

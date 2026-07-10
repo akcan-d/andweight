@@ -17,6 +17,9 @@ import java.time.LocalDate
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
+private const val DEFAULT_REMINDER_HOUR = 21
+private const val DEFAULT_REMINDER_MINUTE = 0
+
 class SettingsRepository(private val context: Context) {
 
     private object Keys {
@@ -24,12 +27,22 @@ class SettingsRepository(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val LAST_TIP_SHOWN_EPOCH_DAY = longPreferencesKey("last_tip_shown_epoch_day")
         val TIP_SHOWN_COUNT = intPreferencesKey("tip_shown_count")
+        val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
+        val REMINDER_HOUR = intPreferencesKey("reminder_hour")
+        val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
 
     val themeModeFlow: Flow<ThemeMode> = context.settingsDataStore.data.map { prefs ->
         prefs[Keys.THEME_MODE]?.let { name -> runCatching { ThemeMode.valueOf(name) }.getOrNull() } ?: ThemeMode.SYSTEM
+    }
+
+    val reminderEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.REMINDER_ENABLED] ?: true }
+
+    /** Hour (0-23) and minute of the daily reminder - defaults to 9 PM. */
+    val reminderTimeFlow: Flow<Pair<Int, Int>> = context.settingsDataStore.data.map { prefs ->
+        (prefs[Keys.REMINDER_HOUR] ?: DEFAULT_REMINDER_HOUR) to (prefs[Keys.REMINDER_MINUTE] ?: DEFAULT_REMINDER_MINUTE)
     }
 
     suspend fun setTipsEnabled(enabled: Boolean) {
@@ -39,6 +52,21 @@ class SettingsRepository(private val context: Context) {
     suspend fun setThemeMode(mode: ThemeMode) {
         context.settingsDataStore.edit { it[Keys.THEME_MODE] = mode.name }
     }
+
+    suspend fun setReminderEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.REMINDER_ENABLED] = enabled }
+    }
+
+    suspend fun setReminderTime(hour: Int, minute: Int) {
+        context.settingsDataStore.edit {
+            it[Keys.REMINDER_HOUR] = hour
+            it[Keys.REMINDER_MINUTE] = minute
+        }
+    }
+
+    suspend fun isReminderEnabledOnce(): Boolean = reminderEnabledFlow.first()
+
+    suspend fun getReminderTimeOnce(): Pair<Int, Int> = reminderTimeFlow.first()
 
     suspend fun isTipsEnabledOnce(): Boolean = tipsEnabledFlow.first()
 

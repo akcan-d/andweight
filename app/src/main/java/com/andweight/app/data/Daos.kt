@@ -15,6 +15,9 @@ interface ProfileDao {
 
     @Upsert
     suspend fun upsert(profile: ProfileEntity)
+
+    @Query("DELETE FROM profile")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -30,4 +33,7 @@ interface DailyLogDao {
 
     @Query("DELETE FROM daily_log WHERE dateEpochDay = :dateEpochDay")
     suspend fun deleteByDate(dateEpochDay: Long)
+
+    @Query("DELETE FROM daily_log")
+    suspend fun deleteAll()
 }

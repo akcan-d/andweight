@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Legacy backup rules, used on API 23-30 (API 31+ uses data_extraction_rules.xml instead). -->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="datastore/" />
+</full-backup-content>
