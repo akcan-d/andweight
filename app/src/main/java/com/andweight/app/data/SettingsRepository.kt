@@ -30,6 +30,7 @@ class SettingsRepository(private val context: Context) {
         val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
+        val REMINDER_PROMPT_SHOWN = booleanPreferencesKey("reminder_prompt_shown")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -38,7 +39,10 @@ class SettingsRepository(private val context: Context) {
         prefs[Keys.THEME_MODE]?.let { name -> runCatching { ThemeMode.valueOf(name) }.getOrNull() } ?: ThemeMode.SYSTEM
     }
 
-    val reminderEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.REMINDER_ENABLED] ?: true }
+    // Defaults to off rather than on - it can only be meaningfully turned on through a path that
+    // actually requests the notification permission (the one-time opt-in prompt, or this toggle),
+    // never silently on a first launch nobody was asked about.
+    val reminderEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.REMINDER_ENABLED] ?: false }
 
     /** Hour (0-23) and minute of the daily reminder - defaults to 9 PM. */
     val reminderTimeFlow: Flow<Pair<Int, Int>> = context.settingsDataStore.data.map { prefs ->
@@ -67,6 +71,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun isReminderEnabledOnce(): Boolean = reminderEnabledFlow.first()
 
     suspend fun getReminderTimeOnce(): Pair<Int, Int> = reminderTimeFlow.first()
+
+    suspend fun hasShownReminderPromptOnce(): Boolean =
+        context.settingsDataStore.data.map { it[Keys.REMINDER_PROMPT_SHOWN] ?: false }.first()
+
+    suspend fun setReminderPromptShown(shown: Boolean) {
+        context.settingsDataStore.edit { it[Keys.REMINDER_PROMPT_SHOWN] = shown }
+    }
 
     suspend fun isTipsEnabledOnce(): Boolean = tipsEnabledFlow.first()
 

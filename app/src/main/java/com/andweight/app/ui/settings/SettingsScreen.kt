@@ -1,7 +1,12 @@
 package com.andweight.app.ui.settings
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -166,6 +171,29 @@ private fun ReminderSection(
         val (hour, minute) = reminderTime
         TextButton(onClick = { showTimePicker = true }) {
             Text("Reminder time: ${LocalTime.of(hour, minute).format(timeFormatter)}")
+        }
+
+        // Some phones (Samsung, Xiaomi, OnePlus and others layer their own battery management on
+        // top of stock Android's) will quietly kill the reminder unless the app is excluded from
+        // battery optimization - AlarmManager alone can't get around that, so the only real fix
+        // is asking the person to allow it.
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val ignoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+        if (!ignoringBatteryOptimizations) {
+            Text(
+                "Some phones delay or block reminders unless the app is excluded from battery optimization.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = {
+                val intent = Intent(
+                    AndroidSettings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:${context.packageName}"),
+                )
+                context.startActivity(intent)
+            }) {
+                Text("Allow reminders to run in the background")
+            }
         }
     }
 

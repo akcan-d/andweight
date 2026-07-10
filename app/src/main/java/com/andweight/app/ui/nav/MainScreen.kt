@@ -1,5 +1,10 @@
 package com.andweight.app.ui.nav
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -9,17 +14,22 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -31,6 +41,7 @@ import androidx.navigation.compose.rememberNavController
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.history.HistoryScreen
 import com.andweight.app.ui.settings.EditProfileScreen
+import com.andweight.app.ui.settings.ReminderOptInViewModel
 import com.andweight.app.ui.settings.SettingsScreen
 import com.andweight.app.ui.settings.TipOfTheDayViewModel
 import com.andweight.app.ui.tips.TipsScreen
@@ -48,7 +59,7 @@ private const val SETTINGS_EDIT_PROFILE_ROUTE = "settings/profile"
 fun MainScreen(onDataErased: () -> Unit) {
     val navController = rememberNavController()
 
-    TipOfTheDayPopup()
+    PopupHost()
 
     Scaffold(
         bottomBar = {
@@ -107,8 +118,22 @@ fun MainScreen(onDataErased: () -> Unit) {
     }
 }
 
+/** At most one of these shows at a time - if both would fire in the same session, the tip takes
+ * priority and the reminder prompt simply appears on the next recomposition once the tip is
+ * dismissed, rather than stacking two dialogs on top of each other. */
 @Composable
-private fun TipOfTheDayPopup(viewModel: TipOfTheDayViewModel = viewModel(factory = AppViewModelProvider.Factory)) {
+private fun PopupHost(
+    tipViewModel: TipOfTheDayViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    reminderViewModel: ReminderOptInViewModel = viewModel(factory = AppViewModelProvider.Factory),
+) {
+    when {
+        tipViewModel.tipToShow != null -> TipOfTheDayPopup(tipViewModel)
+        reminderViewModel.showPrompt -> ReminderOptInPopup(reminderViewModel)
+    }
+}
+
+@Composable
+private fun TipOfTheDayPopup(viewModel: TipOfTheDayViewModel) {
     val tip = viewModel.tipToShow ?: return
 
     AlertDialog(
@@ -129,6 +154,50 @@ private fun TipOfTheDayPopup(viewModel: TipOfTheDayViewModel = viewModel(factory
         confirmButton = {
             TextButton(onClick = viewModel::onDismiss) {
                 Text("Got it")
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderOptInPopup(viewModel: ReminderOptInViewModel) {
+    val context = LocalContext.current
+    val timePickerState = rememberTimePickerState(initialHour = 21, initialMinute = 0, is24Hour = false)
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        // Enable either way - if denied, the reminder is scheduled but silently won't show a
+        // notification until permission is granted later from Settings, same as elsewhere in the app.
+        viewModel.enableReminder(timePickerState.hour, timePickerState.minute)
+    }
+
+    AlertDialog(
+        onDismissRequest = viewModel::declineReminder,
+        title = { Text("Daily check-in reminder?") },
+        text = {
+            Column {
+                Text("We can remind you once a day if you haven't logged your weight or meals yet - never more than once a day.")
+                Row(modifier = Modifier.padding(top = 12.dp)) {
+                    TimePicker(state = timePickerState)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                if (needsPermission) {
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    viewModel.enableReminder(timePickerState.hour, timePickerState.minute)
+                }
+            }) {
+                Text("Turn on reminders")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::declineReminder) {
+                Text("No thanks")
             }
         },
     )
