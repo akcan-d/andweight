@@ -7,6 +7,26 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-13
+
+### Added
+- CSV import in Settings, matching the export format - merges by date
+  (imported days overwrite matching existing entries, other days are left
+  alone), converts kg/lb automatically, and reports any unreadable rows
+
+### Changed
+- Status tab (renamed from Today) is now more dashboard-like: target date
+  and today's calorie target are always visible instead of hidden behind
+  "Show details"
+- Goal countdown now shows months (>6 months out), weeks (60 days-6
+  months), or days (<60 days) - always a single unit, never mixed, and
+  never falsely precise about a many-months-out estimate
+- Removed the redundant "weeks to go" forecast row from the details view
+  (replaced by the always-visible target date)
+- Shortened the early-stage coaching message
+- Removed the "Raised to a safe minimum for this day." message after a
+  quick-pick meal save (the safety floor itself still applies)
+
 ## [0.13.0] - 2026-07-13
 
 ### Added
