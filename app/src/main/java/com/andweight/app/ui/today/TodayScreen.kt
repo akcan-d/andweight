@@ -37,6 +37,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,11 +74,16 @@ private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
 fun TodayScreen(
     contentPadding: PaddingValues,
     onEditProfile: () -> Unit,
+    initialDate: LocalDate? = null,
     viewModel: TodayViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
     val tdeeState by viewModel.tdeeState.collectAsState()
     val confidence by viewModel.confidence.collectAsState()
+
+    LaunchedEffect(initialDate) {
+        if (initialDate != null) viewModel.jumpToDate(initialDate)
+    }
 
     val items = buildList<@Composable () -> Unit> {
         add { StatusCard(profile, tdeeState, confidence, onEditProfile) }

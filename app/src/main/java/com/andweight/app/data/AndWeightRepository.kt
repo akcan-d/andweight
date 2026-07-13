@@ -79,6 +79,7 @@ private fun ProfileEntity.toDomain(): UserProfile = UserProfile(
     heightCm = heightCm,
     age = age,
     activityLevel = ActivityLevel.valueOf(activityLevel),
+    bodyFatPercent = bodyFatPercent,
 )
 
 private fun UserProfile.toEntity(): ProfileEntity = ProfileEntity(
@@ -90,6 +91,7 @@ private fun UserProfile.toEntity(): ProfileEntity = ProfileEntity(
     heightCm = heightCm,
     age = age,
     activityLevel = activityLevel.name,
+    bodyFatPercent = bodyFatPercent,
 )
 
 private fun DailyLogEntity.toDomain(): DailyLog = DailyLog(

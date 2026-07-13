@@ -7,6 +7,24 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-13
+
+### Added
+- Optional body fat % field in onboarding and Edit Profile - when known, it
+  drives the starting TDEE estimate on its own via the Katch-McArdle
+  formula (actual lean body mass, rather than approximating it from sex/
+  height/age), and counts as full accuracy in the confidence badge
+- Daily entries on the Journey tab are now editable - tapping the edit icon
+  jumps straight to that day on the Today tab
+- "What the research says" can now be expanded to show every upcoming
+  finding, not just the next one
+- "Reset tip history" option in Settings, to start the tip rotation and
+  seen-tip checkmarks over
+
+### Changed
+- Removed the "matching the original spreadsheet this app was built from"
+  line from the "How your estimate works" info screen
+
 ## [0.11.0] - 2026-07-13
 
 ### Added

@@ -221,4 +221,21 @@ class TdeeEngineTest {
         val expected = TdeeEngine.mround(expectedBmr * ActivityLevel.MODERATE.multiplier, 5.0)
         assertEquals(expected, TdeeEngine.initialTdeeGuess(fullProfile), 0.0)
     }
+
+    @Test
+    fun `body fat percent uses Katch-McArdle from lean body mass`() {
+        val bodyFatProfile = profile.copy(bodyFatPercent = 25.0, activityLevel = ActivityLevel.MODERATE)
+        // Lean mass = 122.7 * 0.75, BMR = 370 + 21.6 * leanMassKg, * MODERATE multiplier.
+        val leanMassKg = 122.7 * 0.75
+        val expectedBmr = 370.0 + 21.6 * leanMassKg
+        val expected = TdeeEngine.mround(expectedBmr * ActivityLevel.MODERATE.multiplier, 5.0)
+        assertEquals(expected, TdeeEngine.initialTdeeGuess(bodyFatProfile), 0.0)
+    }
+
+    @Test
+    fun `body fat percent takes priority over sex, height, and age when both are present`() {
+        val bothProfile = profile.copy(bodyFatPercent = 20.0, sex = Sex.MALE, heightCm = 180.0, age = 25)
+        val bodyFatOnly = profile.copy(bodyFatPercent = 20.0)
+        assertEquals(TdeeEngine.initialTdeeGuess(bodyFatOnly), TdeeEngine.initialTdeeGuess(bothProfile), 0.0)
+    }
 }

@@ -17,6 +17,7 @@ data class ProfileEntity(
     val heightCm: Double?,
     val age: Int?,
     val activityLevel: String,
+    val bodyFatPercent: Double? = null,
 )
 
 @Entity(tableName = "daily_log")

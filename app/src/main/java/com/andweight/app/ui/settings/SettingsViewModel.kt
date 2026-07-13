@@ -81,6 +81,10 @@ class SettingsViewModel(
         }
     }
 
+    fun resetTipHistory() {
+        viewModelScope.launch { settingsRepository.resetTipHistory() }
+    }
+
     fun eraseAllData() {
         viewModelScope.launch {
             repository.eraseAllData()

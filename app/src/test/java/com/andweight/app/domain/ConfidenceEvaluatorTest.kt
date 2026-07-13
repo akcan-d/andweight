@@ -58,4 +58,12 @@ class ConfidenceEvaluatorTest {
         val assessment = ConfidenceEvaluator.assess(profile.copy(sex = Sex.UNSPECIFIED), state, logs, today)
         assertEquals(ConfidenceLevel.MEDIUM, assessment.level)
     }
+
+    @Test
+    fun `body fat percent alone is enough for medium accuracy, no other details needed`() {
+        val bodyFatProfile = profile.copy(bodyFatPercent = 25.0, sex = Sex.UNSPECIFIED, heightCm = null, age = null)
+        val assessment = ConfidenceEvaluator.assess(bodyFatProfile, emptyState(), emptyList(), today)
+        assertEquals(ConfidenceLevel.MEDIUM, assessment.level)
+        assertTrue(!assessment.promptProfileDetails)
+    }
 }

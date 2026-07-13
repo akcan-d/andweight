@@ -6,8 +6,8 @@ import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.DataFillRate
 import com.andweight.app.domain.DataFillRateResult
+import com.andweight.app.domain.HealthBenefit
 import com.andweight.app.domain.HealthBenefits
-import com.andweight.app.domain.HealthBenefitsResult
 import com.andweight.app.domain.JourneyMilestones
 import com.andweight.app.domain.Milestone
 import com.andweight.app.domain.TdeeState
@@ -41,13 +41,13 @@ class JourneyViewModel(private val repository: AndWeightRepository) : ViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val healthBenefits: StateFlow<HealthBenefitsResult> = combine(profile, tdeeState) { userProfile, state ->
+    val healthBenefits: StateFlow<List<HealthBenefit>> = combine(profile, tdeeState) { userProfile, state ->
         if (userProfile == null || state == null) {
-            HealthBenefitsResult(emptyList(), null, null)
+            emptyList()
         } else {
             HealthBenefits.compute(userProfile, state)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HealthBenefitsResult(emptyList(), null, null))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val dataFillRate: StateFlow<DataFillRateResult?> = logs
         .map { DataFillRate.compute(it, today) }

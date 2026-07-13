@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
@@ -42,7 +43,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.DataFillRateResult
 import com.andweight.app.domain.HealthBenefit
-import com.andweight.app.domain.HealthBenefitsResult
 import com.andweight.app.domain.Milestone
 import com.andweight.app.domain.MilestoneCategory
 import com.andweight.app.domain.Phrasing
@@ -50,6 +50,7 @@ import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeekSummary
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.common.IntakeChip
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -64,13 +65,14 @@ private enum class JourneyViewMode(val label: String) {
 @Composable
 fun JourneyScreen(
     contentPadding: PaddingValues,
+    onEditDay: (LocalDate) -> Unit,
     viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
     val tdeeState by viewModel.tdeeState.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val milestones by viewModel.milestones.collectAsState()
-    val healthBenefits by viewModel.healthBenefits.collectAsState()
+    val healthBenefits: List<HealthBenefit> by viewModel.healthBenefits.collectAsState()
     val dataFillRate by viewModel.dataFillRate.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
 
@@ -109,7 +111,7 @@ fun JourneyScreen(
 
             item { WeightTrendCard(logs, profile) }
 
-            if (healthBenefits.achieved.isNotEmpty() || healthBenefits.next != null) {
+            if (healthBenefits.isNotEmpty()) {
                 item { HealthBenefitsSection(healthBenefits) }
             }
 
@@ -131,7 +133,9 @@ fun JourneyScreen(
             when (viewMode) {
                 JourneyViewMode.DAILY -> {
                     val sortedLogs = logs.sortedByDescending { it.date }
-                    items(sortedLogs) { log -> DailyCard(log, profile, onDelete = { viewModel.deleteLog(log.date) }) }
+                    items(sortedLogs) { log ->
+                        DailyCard(log, profile, onEdit = { onEditDay(log.date) }, onDelete = { viewModel.deleteLog(log.date) })
+                    }
                 }
                 JourneyViewMode.WEEKLY -> {
                     val weeks = tdeeState?.weeklyHistory.orEmpty().reversed()
@@ -215,7 +219,14 @@ private fun DataFillRateCard(fillRate: DataFillRateResult) {
 }
 
 @Composable
-private fun HealthBenefitsSection(result: HealthBenefitsResult) {
+private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
+    var expanded by remember { mutableStateOf(false) }
+    val achieved = benefits.filter { it.achieved }
+    val locked = benefits.filter { !it.achieved }
+    // Collapsed: every achieved fact, plus just the single soonest one still to unlock. Expanded:
+    // every remaining locked fact too, so the full road ahead is visible on request.
+    val lockedToShow = if (expanded) locked else locked.take(1)
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("What the research says", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Text(
@@ -225,20 +236,23 @@ private fun HealthBenefitsSection(result: HealthBenefitsResult) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        result.achieved.forEach { fact -> HealthBenefitCard(fact, locked = false) }
+        achieved.forEach { fact -> HealthBenefitCard(fact) }
+        lockedToShow.forEach { fact -> HealthBenefitCard(fact) }
 
-        result.next?.let { fact ->
-            HealthBenefitCard(fact, locked = true, hint = result.nextHint)
+        if (locked.size > 1) {
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(if (expanded) "Show less" else "Show all upcoming findings (${locked.size})")
+            }
         }
     }
 }
 
 @Composable
-private fun HealthBenefitCard(fact: HealthBenefit, locked: Boolean, hint: String? = null) {
+private fun HealthBenefitCard(fact: HealthBenefit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (!locked) {
+                if (fact.achieved) {
                     Icon(
                         Icons.Filled.CheckCircle,
                         contentDescription = null,
@@ -248,8 +262,12 @@ private fun HealthBenefitCard(fact: HealthBenefit, locked: Boolean, hint: String
                 }
                 Text(fact.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
             }
-            if (locked) {
-                Text(hint ?: "Locked", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!fact.achieved) {
+                Text(
+                    fact.hint ?: "Locked",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             } else {
                 Text(fact.body, style = MaterialTheme.typography.bodySmall)
                 Text(
@@ -337,7 +355,7 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?) {
 }
 
 @Composable
-private fun DailyCard(log: DailyLog, profile: UserProfile?, onDelete: () -> Unit) {
+private fun DailyCard(log: DailyLog, profile: UserProfile?, onEdit: () -> Unit, onDelete: () -> Unit) {
     val unit = profile?.weightUnit
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -353,6 +371,9 @@ private fun DailyCard(log: DailyLog, profile: UserProfile?, onDelete: () -> Unit
                     Text("Weight: ${Phrasing.formatWeight(log.weightKg, unit)}", style = MaterialTheme.typography.bodySmall)
                 }
                 IntakeChip(log, style = MaterialTheme.typography.bodySmall)
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = "Edit this day")
             }
             IconButton(onClick = { showDeleteConfirm = true }) {
                 Icon(Icons.Filled.Delete, contentDescription = "Delete this day", tint = MaterialTheme.colorScheme.error)

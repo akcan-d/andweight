@@ -35,10 +35,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.journey.JourneyScreen
 import com.andweight.app.ui.settings.EditProfileScreen
@@ -49,8 +51,11 @@ import com.andweight.app.ui.settings.TipOfTheDayViewModel
 import com.andweight.app.ui.tips.TipsScreen
 import com.andweight.app.ui.today.TodayScreen
 import com.andweight.app.ui.tutorial.TutorialScreen
+import java.time.LocalDate
 
-private const val TODAY_ROUTE = "today"
+private const val TODAY_ROUTE_BASE = "today"
+private const val TODAY_DATE_ARG = "date"
+private const val TODAY_ROUTE_PATTERN = "today?date={date}"
 private const val JOURNEY_ROUTE = "journey"
 private const val SETTINGS_ROUTE = "settings"
 private const val SETTINGS_TIPS_ROUTE = "settings/tips"
@@ -71,8 +76,8 @@ fun MainScreen(onDataErased: () -> Unit) {
 
             NavigationBar {
                 NavigationBarItem(
-                    selected = currentRoute?.hierarchy?.any { it.route == TODAY_ROUTE } == true,
-                    onClick = { navController.navigateToTab(TODAY_ROUTE) },
+                    selected = currentRoute?.hierarchy?.any { it.route == TODAY_ROUTE_PATTERN } == true,
+                    onClick = { navController.navigateToToday(null) },
                     icon = { Icon(Icons.Filled.Today, contentDescription = null) },
                     label = { Text("Today") },
                 )
@@ -91,14 +96,24 @@ fun MainScreen(onDataErased: () -> Unit) {
             }
         },
     ) { padding ->
-        NavHost(navController = navController, startDestination = TODAY_ROUTE) {
-            composable(TODAY_ROUTE) {
+        NavHost(navController = navController, startDestination = TODAY_ROUTE_PATTERN) {
+            composable(
+                route = TODAY_ROUTE_PATTERN,
+                arguments = listOf(navArgument(TODAY_DATE_ARG) { type = NavType.LongType; defaultValue = -1L }),
+            ) { backStackEntry ->
+                val epochDay = backStackEntry.arguments?.getLong(TODAY_DATE_ARG) ?: -1L
                 TodayScreen(
                     contentPadding = padding,
                     onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
+                    initialDate = if (epochDay >= 0) LocalDate.ofEpochDay(epochDay) else null,
                 )
             }
-            composable(JOURNEY_ROUTE) { JourneyScreen(contentPadding = padding) }
+            composable(JOURNEY_ROUTE) {
+                JourneyScreen(
+                    contentPadding = padding,
+                    onEditDay = { date -> navController.navigateToToday(date) },
+                )
+            }
             composable(SETTINGS_ROUTE) {
                 SettingsScreen(
                     contentPadding = padding,
@@ -217,4 +232,12 @@ private fun NavController.navigateToTab(route: String) {
         launchSingleTop = true
         restoreState = true
     }
+}
+
+/** Same tab-switch semantics as [navigateToTab], but for Today's optional date argument - null
+ * goes to the actual current day (the bottom-nav tab), a specific date jumps straight there (the
+ * "edit this day" action from Journey). */
+private fun NavController.navigateToToday(date: LocalDate?) {
+    val route = if (date != null) "$TODAY_ROUTE_BASE?$TODAY_DATE_ARG=${date.toEpochDay()}" else TODAY_ROUTE_BASE
+    navigateToTab(route)
 }

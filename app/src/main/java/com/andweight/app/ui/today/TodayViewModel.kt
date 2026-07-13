@@ -127,6 +127,15 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         loadDay(selectedDate)
     }
 
+    /** Jumps straight to an arbitrary date - used when arriving from the Journey tab's "edit this
+     * day" action, rather than stepping one day at a time via [goToPreviousDay]/[goToNextDay]. */
+    fun jumpToDate(date: LocalDate) {
+        if (date == selectedDate) return
+        selectedDate = date
+        lastSaveFloorApplied = false
+        loadDay(selectedDate)
+    }
+
     fun deleteDay() {
         val dateBeingDeleted = selectedDate
         viewModelScope.launch {

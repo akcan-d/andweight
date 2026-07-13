@@ -248,6 +248,20 @@ fun EditProfileScreen(
                 }
             }
 
+            OutlinedTextField(
+                value = state.bodyFatPercentText,
+                onValueChange = viewModel::onBodyFatPercentChange,
+                label = { Text("Body fat % (optional, if you know it)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "If you know this, it replaces sex/height/age for an even more accurate starting estimate.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             state.errorMessage?.let {
                 Text(it, color = MaterialTheme.colorScheme.error)
             }

@@ -144,6 +144,9 @@ fun SettingsScreen(
         TextButton(onClick = onViewAllTips) {
             Text("View all tips")
         }
+        TextButton(onClick = viewModel::resetTipHistory) {
+            Text("Reset tip history")
+        }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

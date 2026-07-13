@@ -150,7 +150,7 @@ fun OnboardingScreen(
             }
 
             TextButton(onClick = viewModel::onToggleAdvanced) {
-                Text(if (state.showAdvanced) "Hide optional details" else "Add optional details (sex, height, age) for a better starting estimate")
+                Text(if (state.showAdvanced) "Hide optional details" else "Add optional details (sex, height, age, body fat %) for a better starting estimate")
             }
 
             if (state.showAdvanced) {
@@ -223,6 +223,20 @@ fun OnboardingScreen(
                         )
                     }
                 }
+
+                OutlinedTextField(
+                    value = state.bodyFatPercentText,
+                    onValueChange = viewModel::onBodyFatPercentChange,
+                    label = { Text("Body fat % (optional, if you know it)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "If you know this, it replaces sex/height/age for an even more accurate starting estimate.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             state.errorMessage?.let {

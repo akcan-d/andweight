@@ -15,6 +15,9 @@ data class UserProfile(
     val heightCm: Double? = null,
     val age: Int? = null,
     val activityLevel: ActivityLevel = ActivityLevel.LIGHT,
+    /** When known, this alone drives the starting TDEE estimate (see [TdeeEngine.initialTdeeGuess])
+     * since actual lean body mass is a more direct measure than approximating it from sex/height/age. */
+    val bodyFatPercent: Double? = null,
 ) {
     val goalDirection: GoalDirection = when {
         goalWeightKg > startWeightKg + 0.01 -> GoalDirection.GAIN

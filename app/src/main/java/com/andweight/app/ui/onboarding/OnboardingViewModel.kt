@@ -31,6 +31,7 @@ data class OnboardingUiState(
     val heightInchesText: String = "",
     val ageText: String = "",
     val activityLevel: ActivityLevel = ActivityLevel.LIGHT,
+    val bodyFatPercentText: String = "",
     val showAdvanced: Boolean = false,
     val errorMessage: String? = null,
     val didSave: Boolean = false,
@@ -134,6 +135,10 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
         uiState = uiState.copy(activityLevel = level)
     }
 
+    fun onBodyFatPercentChange(text: String) {
+        uiState = uiState.copy(bodyFatPercentText = text, errorMessage = null)
+    }
+
     fun onToggleAdvanced() {
         uiState = uiState.copy(showAdvanced = !uiState.showAdvanced)
     }
@@ -193,6 +198,13 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             return
         }
 
+        val bodyFatText = uiState.bodyFatPercentText
+        val bodyFatPercent = if (bodyFatText.isBlank()) null else bodyFatText.toDoubleOrNull()
+        if (bodyFatText.isNotBlank() && (bodyFatPercent == null || bodyFatPercent < 3.0 || bodyFatPercent > 70.0)) {
+            uiState = uiState.copy(errorMessage = "Enter a body fat percentage between 3 and 70, or clear the field.")
+            return
+        }
+
         val profile = UserProfile(
             weightUnit = unit,
             startWeightKg = startWeightKg,
@@ -202,6 +214,7 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             heightCm = uiState.heightCm,
             age = age,
             activityLevel = uiState.activityLevel,
+            bodyFatPercent = bodyFatPercent,
         )
 
         viewModelScope.launch {

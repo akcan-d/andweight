@@ -39,13 +39,17 @@ object ConfidenceEvaluator {
     fun assess(profile: UserProfile, state: TdeeState, logs: List<DailyLog>, today: LocalDate): ConfidenceAssessment {
         val completedWeeks = state.weeklyHistory.count { it.hasWeightData && it.hasCalorieData }
 
+        // Body fat % alone drives the formula (Katch-McArdle bypasses sex/height/age entirely - see
+        // TdeeEngine.initialTdeeGuess), so it counts as full accuracy on its own rather than just
+        // one more field toward a majority.
+        val hasBodyFat = profile.bodyFatPercent != null
         val profileDetailCount = listOf(
             profile.age != null,
             profile.heightCm != null,
             profile.sex != Sex.UNSPECIFIED,
         ).count { it }
-        val hasFullProfileDetails = profileDetailCount == 3
-        val hasEnoughProfileDetails = profileDetailCount >= DETAILS_NEEDED_FOR_MEDIUM
+        val hasFullProfileDetails = hasBodyFat || profileDetailCount == 3
+        val hasEnoughProfileDetails = hasBodyFat || profileDetailCount >= DETAILS_NEEDED_FOR_MEDIUM
 
         val recentWindowStart = today.minusDays(RECENT_WINDOW_DAYS - 1)
         val recentDaysLogged = logs.count {
@@ -66,6 +70,11 @@ object ConfidenceEvaluator {
                 ConfidenceLevel.MEDIUM,
                 "Based on a couple of weeks of your data - getting more accurate, but still settling in.",
             )
+            hasBodyFat -> ConfidenceAssessment(
+                ConfidenceLevel.MEDIUM,
+                "Starting estimate uses your body fat percentage for the most accurate formula " +
+                    "available - it'll get even more accurate once your own results start coming in.",
+            )
             hasFullProfileDetails -> ConfidenceAssessment(
                 ConfidenceLevel.MEDIUM,
                 "Starting estimate uses your sex, height, and age for a fully personalized formula - it'll " +
@@ -74,13 +83,13 @@ object ConfidenceEvaluator {
             hasEnoughProfileDetails -> ConfidenceAssessment(
                 ConfidenceLevel.MEDIUM,
                 "Starting estimate uses most of what you've told us about yourself - filling in the last " +
-                    "detail (sex, height, or age) would sharpen it further.",
+                    "detail (sex, height, or age), or your body fat percentage, would sharpen it further.",
                 promptProfileDetails = true,
             )
             else -> ConfidenceAssessment(
                 ConfidenceLevel.LOW,
-                "This is still a rough, formula-based starting estimate. Add your sex, height, and age, " +
-                    "or just keep logging daily, to sharpen it up.",
+                "This is still a rough, formula-based starting estimate. Add your sex, height, and age " +
+                    "(or your body fat percentage, if you know it), or just keep logging daily, to sharpen it up.",
                 promptProfileDetails = true,
             )
         }

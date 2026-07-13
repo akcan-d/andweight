@@ -106,4 +106,14 @@ class SettingsRepository(private val context: Context) {
     suspend fun markTipSeen(title: String) {
         context.settingsDataStore.edit { it[Keys.SEEN_TIP_TITLES] = (it[Keys.SEEN_TIP_TITLES] ?: emptySet()) + title }
     }
+
+    /** Clears seen/shown tip history so the tip-of-the-day rotation and the checkmarks in the full
+     * tips list both start over from scratch. */
+    suspend fun resetTipHistory() {
+        context.settingsDataStore.edit {
+            it.remove(Keys.SEEN_TIP_TITLES)
+            it.remove(Keys.TIP_SHOWN_COUNT)
+            it.remove(Keys.LAST_TIP_SHOWN_EPOCH_DAY)
+        }
+    }
 }

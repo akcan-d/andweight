@@ -15,6 +15,11 @@ private const val DEFAULT_HEIGHT_CM = 168.0
  * unspecified rather than assuming either one. */
 private const val AVERAGE_SEX_TERM = -78.0
 
+/** Katch-McArdle constants for BMR from lean body mass directly - used whenever body fat % is
+ * known, since it measures the thing Mifflin-St Jeor can only approximate from sex/height/age. */
+private const val KATCH_MCARDLE_BASE = 370.0
+private const val KATCH_MCARDLE_PER_KG_LEAN_MASS = 21.6
+
 /**
  * Reimplementation of the "TDEE 3.0" spreadsheet's adaptive-TDEE algorithm.
  *
@@ -43,7 +48,14 @@ object TdeeEngine {
     fun initialTdeeGuess(profile: UserProfile): Double {
         val hasAnyDemographicDetail = profile.age != null || profile.heightCm != null || profile.sex != Sex.UNSPECIFIED
 
-        val guess = if (!hasAnyDemographicDetail) {
+        val guess = if (profile.bodyFatPercent != null) {
+            // Katch-McArdle from actual lean body mass - takes priority over Mifflin-St Jeor
+            // entirely (rather than being blended with sex/height/age) since it measures the thing
+            // those fields could only ever approximate.
+            val leanMassKg = profile.startWeightKg * (1.0 - profile.bodyFatPercent / 100.0)
+            val bmr = KATCH_MCARDLE_BASE + KATCH_MCARDLE_PER_KG_LEAN_MASS * leanMassKg
+            bmr * profile.activityLevel.multiplier
+        } else if (!hasAnyDemographicDetail) {
             // Nothing at all provided - matches the original spreadsheet's crude bodyweight-only
             // estimate exactly (validated against real spreadsheet numbers - see TdeeEngineTest).
             profile.startWeightKg * EnergyConstants.MAINTENANCE_KCAL_PER_KG

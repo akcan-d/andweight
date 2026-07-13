@@ -30,6 +30,7 @@ data class EditProfileUiState(
     val heightInchesText: String = "",
     val ageText: String = "",
     val activityLevel: ActivityLevel = ActivityLevel.LIGHT,
+    val bodyFatPercentText: String = "",
     val errorMessage: String? = null,
     val didSave: Boolean = false,
 ) {
@@ -84,6 +85,7 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
                 heightInchesText = heightInchesText,
                 ageText = profile.age?.toString() ?: "",
                 activityLevel = profile.activityLevel,
+                bodyFatPercentText = profile.bodyFatPercent?.toString() ?: "",
             )
         }
     }
@@ -152,6 +154,10 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
         uiState = uiState.copy(activityLevel = level)
     }
 
+    fun onBodyFatPercentChange(text: String) {
+        uiState = uiState.copy(bodyFatPercentText = text, errorMessage = null)
+    }
+
     fun save() {
         val unit = uiState.weightUnit
         val startWeight = uiState.startWeightText.toDoubleOrNull()
@@ -206,6 +212,13 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
             return
         }
 
+        val bodyFatText = uiState.bodyFatPercentText
+        val bodyFatPercent = if (bodyFatText.isBlank()) null else bodyFatText.toDoubleOrNull()
+        if (bodyFatText.isNotBlank() && (bodyFatPercent == null || bodyFatPercent < 3.0 || bodyFatPercent > 70.0)) {
+            uiState = uiState.copy(errorMessage = "Enter a body fat percentage between 3 and 70, or clear the field.")
+            return
+        }
+
         val profile = UserProfile(
             weightUnit = unit,
             startWeightKg = startWeightKg,
@@ -215,6 +228,7 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
             heightCm = uiState.heightCm,
             age = age,
             activityLevel = uiState.activityLevel,
+            bodyFatPercent = bodyFatPercent,
         )
 
         viewModelScope.launch {

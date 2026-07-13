@@ -35,13 +35,15 @@ private val SECTIONS = listOf(
     ),
     TdeeInfoSection(
         "Where the starting number comes from",
-        "Before you've logged anything, the app needs a first guess. If you've told it your sex, " +
-            "height, and age, it uses the Mifflin-St Jeor equation - a widely used formula for " +
-            "estimating resting metabolic rate - multiplied by an activity-level factor. Any of those " +
-            "three details you leave out is filled in with a reasonable population-average value " +
-            "instead, so partial information still helps. If none of them are provided at all, it " +
-            "falls back to a much simpler rule of thumb based on body weight alone, matching the " +
-            "original spreadsheet this app was built from.",
+        "Before you've logged anything, the app needs a first guess. If you know your body fat " +
+            "percentage, that's used on its own via the Katch-McArdle formula, which estimates " +
+            "metabolism from actual lean body mass rather than approximating it - the most accurate " +
+            "starting point available. Otherwise, if you've told it your sex, height, and age, it " +
+            "uses the Mifflin-St Jeor equation - a widely used formula for estimating resting " +
+            "metabolic rate - multiplied by an activity-level factor. Any of those three details you " +
+            "leave out is filled in with a reasonable population-average value instead, so partial " +
+            "information still helps. If none of them are provided at all, it falls back to a much " +
+            "simpler rule of thumb based on body weight alone.",
     ),
     TdeeInfoSection(
         "How it adapts",
