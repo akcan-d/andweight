@@ -24,9 +24,46 @@ class PhrasingTest {
     }
 
     @Test
-    fun `forecast sentence handles maintain, reached, and in-progress goals`() {
-        assertEquals("You're aiming to hold steady at your current weight.", Phrasing.forecastSentence(null, null))
-        assertEquals("You've reached your goal - nice work!", Phrasing.forecastSentence(0.0, LocalDate.now()))
-        assertTrue(Phrasing.forecastSentence(6.0, LocalDate.of(2026, 3, 1)).startsWith("About 6 weeks to go"))
+    fun `goal countdown shows exact days under 60 days`() {
+        val countdown = Phrasing.goalCountdown(42)
+        assertEquals(42L, countdown.amount)
+        assertEquals("days", countdown.unitLabel)
+        assertTrue(!countdown.isApproximate)
+    }
+
+    @Test
+    fun `goal countdown singularizes exactly one day`() {
+        val countdown = Phrasing.goalCountdown(1)
+        assertEquals(1L, countdown.amount)
+        assertEquals("day", countdown.unitLabel)
+    }
+
+    @Test
+    fun `goal countdown switches to weeks between 60 days and 6 months`() {
+        val countdown = Phrasing.goalCountdown(90)
+        assertEquals("weeks", countdown.unitLabel)
+        assertEquals(13L, countdown.amount) // round(90 / 7.0)
+        assertTrue(countdown.isApproximate)
+    }
+
+    @Test
+    fun `goal countdown switches to months beyond 6 months`() {
+        val countdown = Phrasing.goalCountdown(300)
+        assertEquals("months", countdown.unitLabel)
+        assertEquals(10L, countdown.amount) // round(300 / 30.44)
+        assertTrue(countdown.isApproximate)
+    }
+
+    @Test
+    fun `goal countdown never mixes units`() {
+        val countdown = Phrasing.goalCountdown(478)
+        // Should read as a single whole number of months, not "7 months 2 weeks 3 days".
+        assertEquals("months", countdown.unitLabel)
+        assertTrue(countdown.amount in 14..16)
+    }
+
+    @Test
+    fun `target date is formatted with a full date including year`() {
+        assertEquals("Mar 1, 2026", Phrasing.formatTargetDate(LocalDate.of(2026, 3, 1)))
     }
 }

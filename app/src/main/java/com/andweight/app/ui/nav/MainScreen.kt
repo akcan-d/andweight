@@ -79,7 +79,7 @@ fun MainScreen(onDataErased: () -> Unit) {
                     selected = currentRoute?.hierarchy?.any { it.route == TODAY_ROUTE_PATTERN } == true,
                     onClick = { navController.navigateToToday(null) },
                     icon = { Icon(Icons.Filled.Today, contentDescription = null) },
-                    label = { Text("Today") },
+                    label = { Text("Status") },
                 )
                 NavigationBarItem(
                     selected = currentRoute?.hierarchy?.any { it.route == JOURNEY_ROUTE } == true,

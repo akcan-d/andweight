@@ -12,7 +12,7 @@ import kotlin.math.roundToInt
  */
 object Phrasing {
 
-    private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
+    private val fullDateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 
     /**
      * How today's recommended intake compares to the person's current TDEE - which is itself an
@@ -37,20 +37,30 @@ object Phrasing {
         return if (deltaKg < 0) "You're down $amount since you started." else "You're up $amount since you started."
     }
 
-    fun forecastSentence(weeksToGoal: Double?, goalDate: LocalDate?): String = when {
-        weeksToGoal == null -> "You're aiming to hold steady at your current weight."
-        weeksToGoal <= 0.0 -> "You've reached your goal - nice work!"
-        else -> "About ${weeksPhrase(weeksToGoal)} to go, around ${goalDate?.format(dateFormatter)}."
+    /** A whole number plus a matching, already-pluralized unit word ("months"/"weeks"/"days") -
+     * never a mix of units, and never falsely precise about a many-months-out estimate. Longer
+     * horizons are shown in coarser units specifically so the number stays honest about how rough
+     * the underlying TDEE-based projection still is at that distance. */
+    data class GoalCountdown(val amount: Long, val unitLabel: String, val isApproximate: Boolean)
+
+    private const val MONTH_THRESHOLD_DAYS = 183L
+    private const val WEEK_THRESHOLD_DAYS = 60L
+    private const val DAYS_PER_MONTH = 30.44
+    private const val DAYS_PER_WEEK = 7.0
+
+    fun goalCountdown(daysToGoal: Long): GoalCountdown = when {
+        daysToGoal > MONTH_THRESHOLD_DAYS -> {
+            val months = Math.round(daysToGoal / DAYS_PER_MONTH)
+            GoalCountdown(months, if (months == 1L) "month" else "months", isApproximate = true)
+        }
+        daysToGoal >= WEEK_THRESHOLD_DAYS -> {
+            val weeks = Math.round(daysToGoal / DAYS_PER_WEEK)
+            GoalCountdown(weeks, if (weeks == 1L) "week" else "weeks", isApproximate = true)
+        }
+        else -> GoalCountdown(daysToGoal, if (daysToGoal == 1L) "day" else "days", isApproximate = false)
     }
 
-    private fun weeksPhrase(weeks: Double): String {
-        val rounded = (weeks * 2).roundToInt() / 2.0
-        return when {
-            rounded <= 1.0 -> "a week"
-            rounded == rounded.toInt().toDouble() -> "${rounded.toInt()} weeks"
-            else -> "$rounded weeks"
-        }
-    }
+    fun formatTargetDate(date: LocalDate): String = date.format(fullDateFormatter)
 
     private fun formatAmount(value: Double, unit: WeightUnit): String {
         val rounded = (value * 10).roundToInt() / 10.0

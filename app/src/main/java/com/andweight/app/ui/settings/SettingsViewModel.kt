@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
 import com.andweight.app.domain.CsvExport
+import com.andweight.app.domain.CsvImport
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeightUnit
@@ -94,4 +95,14 @@ class SettingsViewModel(
 
     suspend fun buildCsvExport(): String =
         CsvExport.buildCsv(repository.getProfileOnce(), repository.logsFlow.first())
+
+    /** Upserts every parsed row by date - days present in the file overwrite any existing entry
+     * for that date, days not mentioned in the file are left untouched. */
+    suspend fun importCsv(csv: String): CsvImport.ImportResult {
+        val result = CsvImport.parse(csv)
+        result.logs.forEach { log ->
+            repository.saveLog(log.date, log.weightKg, log.calories, log.intakeLevel, log.wasExactEntry)
+        }
+        return result
+    }
 }

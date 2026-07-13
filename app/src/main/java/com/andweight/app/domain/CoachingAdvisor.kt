@@ -34,8 +34,8 @@ object CoachingAdvisor {
             // people not to worry about a target while a specific (lower, if losing) one is still
             // sitting right there in the details view - that combination read as contradictory.
             return Advice(
-                "Keep logging every day you can - the target below is just a rough starting estimate " +
-                    "based on formulas, not your real results yet. It'll get more accurate the more you log.",
+                "This early estimate is formula-based, not from your real results yet - keep logging " +
+                    "daily to sharpen it up.",
                 AdviceSentiment.NEUTRAL,
             )
         }

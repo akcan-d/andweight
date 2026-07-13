@@ -142,18 +142,25 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
 
             HeroSection(profile, tdeeState)
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                val advice = CoachingAdvisor.advise(profile, tdeeState)
+            val advice = CoachingAdvisor.advise(profile, tdeeState)
+            Text(
+                advice.message,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = when (advice.sentiment) {
+                    AdviceSentiment.POSITIVE -> MaterialTheme.colorScheme.primary
+                    AdviceSentiment.CAUTION -> MaterialTheme.colorScheme.error
+                    AdviceSentiment.NEUTRAL -> MaterialTheme.colorScheme.onSurface
+                },
+            )
+
+            StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
+
+            if (tdeeState.recommendedCaloriesFloorApplied) {
                 Text(
-                    advice.message,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = when (advice.sentiment) {
-                        AdviceSentiment.POSITIVE -> MaterialTheme.colorScheme.primary
-                        AdviceSentiment.CAUTION -> MaterialTheme.colorScheme.error
-                        AdviceSentiment.NEUTRAL -> MaterialTheme.colorScheme.onSurface
-                    },
+                    "Your goal pace would call for fewer calories than is safe, so today's target has been raised to a safe minimum.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
 
@@ -166,24 +173,10 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
             if (showDetails) {
                 StatRow("Current weight", "${oneDecimal(unit.fromKg(tdeeState.currentWeightKg))} ${unit.name.lowercase()}")
                 StatRow("Estimated TDEE", "${tdeeState.currentTdee.roundToInt()} kcal/day")
-                StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
-                StatRow(
-                    "Forecast",
-                    when {
-                        tdeeState.weeksToGoal == null -> "Maintaining"
-                        tdeeState.weeksToGoal <= 0.0 -> "Goal reached!"
-                        else -> "~${formatWeeksNumeric(tdeeState.weeksToGoal)} to go"
-                    },
-                )
-            } else {
-                Text(Phrasing.weightTrendSentence(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit), style = MaterialTheme.typography.bodyMedium)
-            }
-
-            if (tdeeState.recommendedCaloriesFloorApplied) {
                 Text(
-                    "Your goal pace would call for fewer calories than is safe, so today's target has been raised to a safe minimum.",
+                    Phrasing.weightTrendSentence(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -197,6 +190,8 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        var targetDate: LocalDate? = null
+
         when {
             tdeeState.weeksToGoal == null -> {
                 Text("Maintaining", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -207,12 +202,15 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
                 Text("Nice work getting here.", style = MaterialTheme.typography.bodyMedium)
             }
             else -> {
-                val days = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
-                Text("$days", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+                val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
+                val countdown = Phrasing.goalCountdown(daysToGoal)
+                targetDate = tdeeState.goalDate
                 Text(
-                    if (days == 1L) "day until you reach your goal" else "days until you reach your goal",
-                    style = MaterialTheme.typography.bodyMedium,
+                    if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}",
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Bold,
                 )
+                Text("${countdown.unitLabel} until you reach your goal", style = MaterialTheme.typography.bodyMedium)
             }
         }
 
@@ -225,6 +223,15 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
+            )
+        }
+
+        targetDate?.let {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Target date: ${Phrasing.formatTargetDate(it)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -401,13 +408,6 @@ private fun MealSection(viewModel: TodayViewModel) {
             }
         }
 
-        if (viewModel.lastSaveFloorApplied) {
-            Text(
-                "Raised to a safe minimum for this day.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
         if (viewModel.belowFloorWarning) {
             Text(
                 "This is below the general safety minimum for a full day's eating. We've kept the " +
@@ -559,8 +559,4 @@ private fun ConfidenceBadge(confidence: ConfidenceAssessment, onEditProfile: () 
 private fun oneDecimal(value: Double): String {
     val rounded = Math.round(value * 10.0) / 10.0
     return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
-}
-
-private fun formatWeeksNumeric(weeks: Double): String {
-    return if (weeks == weeks.toLong().toDouble()) "${weeks.toLong()} weeks" else "$weeks weeks"
 }

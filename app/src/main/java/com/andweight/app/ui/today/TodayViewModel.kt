@@ -74,20 +74,15 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     var mealState by mutableStateOf(MealEntryState())
         private set
 
-    /** True right after a save whose resolved calories were clamped up to the safety floor (quick-
-     * pick only) - shown once on the summary view, then cleared as soon as the day changes or is
-     * re-edited. */
-    var lastSaveFloorApplied by mutableStateOf(false)
-        private set
-
     init {
         loadDay(selectedDate)
     }
 
-    /** Unlike [lastSaveFloorApplied], this is derived from the saved log itself rather than a
-     * transient post-save flag - an exact entry's calories are kept exactly as typed, so whether
-     * it's below the safety floor can be (and should be) shown every time the day is viewed, not
-     * just right after saving. */
+    /** Derived from the saved log itself rather than a transient post-save flag - an exact entry's
+     * calories are kept exactly as typed, so whether it's below the safety floor can be (and
+     * should be) shown every time the day is viewed, not just right after saving. Quick-pick
+     * entries are silently clamped up to the floor instead (see [IntakeResolver.resolveQuickPick]),
+     * so there's nothing to warn about for those. */
     val belowFloorWarning: Boolean
         get() {
             val log = existingLog ?: return false
@@ -109,21 +104,18 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
     fun goToPreviousDay() {
         selectedDate = selectedDate.minusDays(1)
-        lastSaveFloorApplied = false
         loadDay(selectedDate)
     }
 
     fun goToNextDay() {
         if (!canGoToNextDay()) return
         selectedDate = selectedDate.plusDays(1)
-        lastSaveFloorApplied = false
         loadDay(selectedDate)
     }
 
     fun jumpToToday() {
         if (!canJumpToToday()) return
         selectedDate = actualToday
-        lastSaveFloorApplied = false
         loadDay(selectedDate)
     }
 
@@ -132,7 +124,6 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     fun jumpToDate(date: LocalDate) {
         if (date == selectedDate) return
         selectedDate = date
-        lastSaveFloorApplied = false
         loadDay(selectedDate)
     }
 
@@ -141,7 +132,6 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         viewModelScope.launch {
             repository.deleteLog(dateBeingDeleted)
             if (dateBeingDeleted == selectedDate) {
-                lastSaveFloorApplied = false
                 loadDay(selectedDate)
             }
         }
@@ -190,7 +180,6 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     // --- Meal ---
 
     fun onStartEditingMeal() {
-        lastSaveFloorApplied = false
         isEditingMeal = true
     }
 
@@ -262,7 +251,6 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
                 wasExact = mealState.useExact,
             )
             if (dateBeingSaved == selectedDate) {
-                lastSaveFloorApplied = resolution.floorApplied
                 loadDay(selectedDate)
             }
         }
@@ -327,7 +315,6 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
                 wasExact = hasMealInput && mealState.useExact,
             )
             if (dateBeingSaved == selectedDate) {
-                lastSaveFloorApplied = resolution?.floorApplied ?: false
                 loadDay(selectedDate)
             }
         }
