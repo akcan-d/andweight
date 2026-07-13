@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.ThemeMode
+import com.andweight.app.domain.WeightUnit
 import com.andweight.app.ui.AppViewModelProvider
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -61,6 +62,7 @@ fun SettingsScreen(
     onViewAllTips: () -> Unit,
     onShowTutorial: () -> Unit,
     onEditProfile: () -> Unit,
+    onShowTdeeInfo: () -> Unit,
     onDataErased: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
@@ -94,6 +96,19 @@ fun SettingsScreen(
         )
         OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
             Text("Edit profile")
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        Text("Units", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WeightUnit.entries.forEach { unit ->
+                FilterChip(
+                    selected = profile?.weightUnit == unit,
+                    onClick = { viewModel.setWeightUnit(unit) },
+                    label = { Text(if (unit == WeightUnit.KG) "Metric (kg, cm)" else "Imperial (lb, ft/in)") },
+                )
+            }
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -135,6 +150,9 @@ fun SettingsScreen(
         Text("Help", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         OutlinedButton(onClick = onShowTutorial, modifier = Modifier.fillMaxWidth()) {
             Text("Show the tutorial again")
+        }
+        OutlinedButton(onClick = onShowTdeeInfo, modifier = Modifier.fillMaxWidth()) {
+            Text("How your estimate works")
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

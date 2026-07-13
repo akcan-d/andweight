@@ -13,6 +13,7 @@ import com.andweight.app.ui.settings.EditProfileViewModel
 import com.andweight.app.ui.settings.ReminderOptInViewModel
 import com.andweight.app.ui.settings.SettingsViewModel
 import com.andweight.app.ui.settings.TipOfTheDayViewModel
+import com.andweight.app.ui.tips.TipsViewModel
 import com.andweight.app.ui.today.TodayViewModel
 
 /**
@@ -27,6 +28,7 @@ object AppViewModelProvider {
         initializer { JourneyViewModel(repository()) }
         initializer { SettingsViewModel(settingsRepository(), repository(), application()) }
         initializer { TipOfTheDayViewModel(settingsRepository()) }
+        initializer { TipsViewModel(settingsRepository()) }
         initializer { EditProfileViewModel(repository()) }
         initializer { ReminderOptInViewModel(settingsRepository(), repository(), application()) }
     }

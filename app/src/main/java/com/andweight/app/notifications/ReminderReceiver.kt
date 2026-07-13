@@ -23,10 +23,9 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (app.settingsRepository.isReminderEnabledOnce()) {
                     val today = LocalDate.now()
                     val log = app.repository.getLogForDate(today)
-                    val needsWeight = log?.weightKg == null
-                    val needsCalories = log?.calories == null
-                    if (needsWeight || needsCalories) {
-                        NotificationHelper.showReminder(context, needsWeight, needsCalories)
+                    val dayComplete = log?.weightKg != null && log.calories != null
+                    if (!dayComplete) {
+                        NotificationHelper.showReminder(context)
                     }
                     val (hour, minute) = app.settingsRepository.getReminderTimeOnce()
                     ReminderScheduler.schedule(context, hour, minute)

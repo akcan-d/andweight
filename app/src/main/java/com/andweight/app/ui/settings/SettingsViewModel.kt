@@ -11,6 +11,7 @@ import com.andweight.app.data.SettingsRepository
 import com.andweight.app.domain.CsvExport
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.domain.UserProfile
+import com.andweight.app.domain.WeightUnit
 import com.andweight.app.notifications.ReminderScheduler
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +71,13 @@ class SettingsViewModel(
             if (settingsRepository.isReminderEnabledOnce()) {
                 ReminderScheduler.schedule(application, hour, minute)
             }
+        }
+    }
+
+    fun setWeightUnit(unit: WeightUnit) {
+        viewModelScope.launch {
+            val currentProfile = profile.value ?: return@launch
+            repository.saveProfile(currentProfile.copy(weightUnit = unit))
         }
     }
 

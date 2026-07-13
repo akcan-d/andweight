@@ -30,12 +30,14 @@ class TipOfTheDayViewModel(private val settingsRepository: SettingsRepository) :
             val lastShown = settingsRepository.getLastTipShownDate()
             if (enabled && lastShown != LocalDate.now()) {
                 val shownCount = settingsRepository.getTipShownCount()
-                tipToShow = if (shownCount < Tips.PRIORITY_COUNT) {
+                val tip = if (shownCount < Tips.PRIORITY_COUNT) {
                     Tips.all[shownCount]
                 } else {
                     Tips.all.random()
                 }
+                tipToShow = tip
                 settingsRepository.incrementTipShownCount()
+                settingsRepository.markTipSeen(tip.title)
             }
         }
     }

@@ -7,6 +7,30 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-13
+
+### Added
+- Journey tab now shows "What the research says": general, non-personalized
+  health-benefit facts from published weight-loss research (blood pressure,
+  cholesterol/triglycerides, type 2 diabetes risk, sleep apnea, knee joint
+  load), each unlocked as you lose the percentage of body weight the cited
+  study measured, with the source named on every fact
+- Journey tab now shows a check-in rate stat ("you logged X% of the last N
+  days"), capped to the days since your first entry so new users aren't
+  penalized for the full 30-day window
+- "How your estimate works" info screen (Settings > Help) explaining where
+  the starting calorie estimate comes from and how the adaptive TDEE
+  algorithm corrects itself from your real results over time
+- Units (Metric/Imperial) can now be changed directly from Settings, not
+  just from Edit Profile
+- Already-seen tips are marked with a checkmark in the full tips list
+
+### Changed
+- Reminder notification is back to a single tap-to-open notification,
+  without in-notification quick actions - the reply/quick-action buttons
+  were unreliable on-device (a stuck "sending" state on the weight reply),
+  and opening the app to log takes barely any extra time
+
 ## [0.10.0] - 2026-07-10
 
 ### Changed

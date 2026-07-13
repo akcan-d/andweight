@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.andweight.app.domain.ThemeMode
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +32,7 @@ class SettingsRepository(private val context: Context) {
         val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val REMINDER_PROMPT_SHOWN = booleanPreferencesKey("reminder_prompt_shown")
+        val SEEN_TIP_TITLES = stringSetPreferencesKey("seen_tip_titles")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -95,5 +97,13 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun incrementTipShownCount() {
         context.settingsDataStore.edit { it[Keys.TIP_SHOWN_COUNT] = (it[Keys.TIP_SHOWN_COUNT] ?: 0) + 1 }
+    }
+
+    /** Titles of tips that have actually been shown as the tip-of-the-day pop-up - not just present
+     * in the full list, so browsing the list doesn't itself mark everything as "seen". */
+    val seenTipTitlesFlow: Flow<Set<String>> = context.settingsDataStore.data.map { it[Keys.SEEN_TIP_TITLES] ?: emptySet() }
+
+    suspend fun markTipSeen(title: String) {
+        context.settingsDataStore.edit { it[Keys.SEEN_TIP_TITLES] = (it[Keys.SEEN_TIP_TITLES] ?: emptySet()) + title }
     }
 }

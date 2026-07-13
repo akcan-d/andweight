@@ -40,6 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.DailyLog
+import com.andweight.app.domain.DataFillRateResult
+import com.andweight.app.domain.HealthBenefit
+import com.andweight.app.domain.HealthBenefitsResult
 import com.andweight.app.domain.Milestone
 import com.andweight.app.domain.MilestoneCategory
 import com.andweight.app.domain.Phrasing
@@ -67,6 +70,8 @@ fun JourneyScreen(
     val tdeeState by viewModel.tdeeState.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val milestones by viewModel.milestones.collectAsState()
+    val healthBenefits by viewModel.healthBenefits.collectAsState()
+    val dataFillRate by viewModel.dataFillRate.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
 
     val hasAnyData = logs.isNotEmpty()
@@ -100,7 +105,13 @@ fun JourneyScreen(
                 item { MilestonesSection(milestones) }
             }
 
+            dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
+
             item { WeightTrendCard(logs, profile) }
+
+            if (healthBenefits.achieved.isNotEmpty() || healthBenefits.next != null) {
+                item { HealthBenefitsSection(healthBenefits) }
+            }
 
             item {
                 Row(
@@ -184,6 +195,68 @@ private fun MilestoneCategoryCard(category: MilestoneCategory, milestones: List<
                         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DataFillRateCard(fillRate: DataFillRateResult) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Check-in rate", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "You logged something on ${fillRate.percent}% of the last ${fillRate.totalDays} " +
+                    "day${if (fillRate.totalDays == 1) "" else "s"} (${fillRate.loggedDays}/${fillRate.totalDays}).",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HealthBenefitsSection(result: HealthBenefitsResult) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("What the research says", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(
+            "General findings from published weight-loss research - population averages, not a " +
+                "guarantee for you personally. Always follow your own doctor's guidance.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        result.achieved.forEach { fact -> HealthBenefitCard(fact, locked = false) }
+
+        result.next?.let { fact ->
+            HealthBenefitCard(fact, locked = true, hint = result.nextHint)
+        }
+    }
+}
+
+@Composable
+private fun HealthBenefitCard(fact: HealthBenefit, locked: Boolean, hint: String? = null) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (!locked) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                Text(fact.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            }
+            if (locked) {
+                Text(hint ?: "Locked", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text(fact.body, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Source: ${fact.source}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

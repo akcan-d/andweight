@@ -44,6 +44,7 @@ import com.andweight.app.ui.journey.JourneyScreen
 import com.andweight.app.ui.settings.EditProfileScreen
 import com.andweight.app.ui.settings.ReminderOptInViewModel
 import com.andweight.app.ui.settings.SettingsScreen
+import com.andweight.app.ui.settings.TdeeInfoScreen
 import com.andweight.app.ui.settings.TipOfTheDayViewModel
 import com.andweight.app.ui.tips.TipsScreen
 import com.andweight.app.ui.today.TodayScreen
@@ -55,6 +56,7 @@ private const val SETTINGS_ROUTE = "settings"
 private const val SETTINGS_TIPS_ROUTE = "settings/tips"
 private const val SETTINGS_TUTORIAL_ROUTE = "settings/tutorial"
 private const val SETTINGS_EDIT_PROFILE_ROUTE = "settings/profile"
+private const val SETTINGS_TDEE_INFO_ROUTE = "settings/tdee-info"
 
 @Composable
 fun MainScreen(onDataErased: () -> Unit) {
@@ -103,6 +105,7 @@ fun MainScreen(onDataErased: () -> Unit) {
                     onViewAllTips = { navController.navigate(SETTINGS_TIPS_ROUTE) },
                     onShowTutorial = { navController.navigate(SETTINGS_TUTORIAL_ROUTE) },
                     onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
+                    onShowTdeeInfo = { navController.navigate(SETTINGS_TDEE_INFO_ROUTE) },
                     onDataErased = onDataErased,
                 )
             }
@@ -114,6 +117,9 @@ fun MainScreen(onDataErased: () -> Unit) {
             }
             composable(SETTINGS_EDIT_PROFILE_ROUTE) {
                 EditProfileScreen(contentPadding = padding, onBack = { navController.popBackStack() })
+            }
+            composable(SETTINGS_TDEE_INFO_ROUTE) {
+                TdeeInfoScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             }
         }
     }
