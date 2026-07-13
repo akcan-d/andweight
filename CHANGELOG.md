@@ -7,6 +7,28 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-13
+
+### Added
+- Research-backed health benefit facts for weight-gain goals too (bone
+  density, immune function, fertility/menstrual health, and an underweight-
+  BMI mortality-risk context fact when height is on file)
+
+### Changed
+- Research-benefit facts (both lose and gain) are now capped to what's
+  reachable within your own stated goal - a fact that would require going
+  past your goal is left out entirely rather than dangled as a locked target
+- Onboarding intro and the closing safety note no longer presuppose a
+  weight-loss goal; both now read correctly for Gain too
+- Onboarding pace explanation reads correctly for a Gain goal instead of
+  always describing weight loss
+
+### Fixed
+- Journey's "edit this day" action could occasionally land back on the
+  wrong day, because it reused the bottom-tab save/restore-state navigation
+  behavior; it's now a plain, always-correct jump to the requested date,
+  with a back arrow to return to Journey
+
 ## [0.12.0] - 2026-07-13
 
 ### Added

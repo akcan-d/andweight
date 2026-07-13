@@ -53,7 +53,7 @@ fun OnboardingScreen(
         ) {
             Text("Let's set up AndWeight", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "This is a health tool first, not a race to lose weight. We'll help you find a " +
+                "This is a health tool first, not a race to a number. We'll help you find a " +
                     "sustainable pace that fits your body - you can always adjust the plan later.",
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -258,9 +258,11 @@ fun OnboardingScreen(
             Text(
                 "Recommended daily calories will never go below 1200 (women) or 1500 (men). But numbers " +
                     "only tell part of the story: muscle mass and body composition matter as much as the " +
-                    "scale, and losing weight quickly raises the risk of losing muscle along with fat. If " +
-                    "you have any history of disordered eating, please talk to a doctor before using an " +
-                    "app like this one.",
+                    "scale, and " + when (direction) {
+                        GoalDirection.GAIN -> "gaining weight quickly tends to add mostly fat rather than muscle."
+                        else -> "losing weight quickly raises the risk of losing muscle along with fat."
+                    } + " If you have any history of disordered eating, please talk to a doctor before " +
+                    "using an app like this one.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp),
             )
