@@ -106,6 +106,7 @@ fun MainScreen(onDataErased: () -> Unit) {
                     contentPadding = padding,
                     onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
                     initialDate = if (epochDay >= 0) LocalDate.ofEpochDay(epochDay) else null,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(JOURNEY_ROUTE) {
@@ -234,10 +235,20 @@ private fun NavController.navigateToTab(route: String) {
     }
 }
 
-/** Same tab-switch semantics as [navigateToTab], but for Today's optional date argument - null
- * goes to the actual current day (the bottom-nav tab), a specific date jumps straight there (the
- * "edit this day" action from Journey). */
+/**
+ * Two different things share the Today destination, so they're deliberately handled with
+ * different navigation semantics:
+ * - null (the bottom-nav tab) uses the same save/restore-state tab-switch behavior as the other
+ *   tabs, so returning to Today resumes wherever you left off.
+ * - a specific date (the "edit this day" action from Journey) is a plain push instead - using
+ *   restoreState here would risk restoring a *previously saved* Today instance and silently
+ *   ignoring the newly requested date. A plain push always lands on exactly the requested day,
+ *   and the system back button (or the header's back arrow) returns to Journey.
+ */
 private fun NavController.navigateToToday(date: LocalDate?) {
-    val route = if (date != null) "$TODAY_ROUTE_BASE?$TODAY_DATE_ARG=${date.toEpochDay()}" else TODAY_ROUTE_BASE
-    navigateToTab(route)
+    if (date == null) {
+        navigateToTab(TODAY_ROUTE_BASE)
+    } else {
+        navigate("$TODAY_ROUTE_BASE?$TODAY_DATE_ARG=${date.toEpochDay()}")
+    }
 }

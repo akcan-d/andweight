@@ -117,8 +117,13 @@ fun OnboardingScreen(
             if (direction != null && direction != GoalDirection.MAINTAIN && startWeightKg != null) {
                 Text("Pace", style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "Even the fastest option is capped at a rate considered safe for your weight - " +
-                        "going faster tends to cost muscle, not just fat, and rarely stays off.",
+                    if (direction == GoalDirection.LOSE) {
+                        "Even the fastest option is capped at a rate considered safe for your weight - " +
+                            "going faster tends to cost muscle, not just fat, and rarely stays off."
+                    } else {
+                        "Even the fastest option is capped at a rate your body can plausibly build " +
+                            "muscle at - going faster than this mostly adds fat rather than muscle."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

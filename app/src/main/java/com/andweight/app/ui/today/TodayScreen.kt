@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -75,6 +76,7 @@ fun TodayScreen(
     contentPadding: PaddingValues,
     onEditProfile: () -> Unit,
     initialDate: LocalDate? = null,
+    onBack: (() -> Unit)? = null,
     viewModel: TodayViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -86,6 +88,13 @@ fun TodayScreen(
     }
 
     val items = buildList<@Composable () -> Unit> {
+        // Only shown when arriving via the Journey "edit this day" action, not the normal bottom
+        // tab - a plain push (see MainScreen.navigateToToday) is what got us here, so a system
+        // back press already returns to Journey; this just gives that the same visible affordance
+        // every other pushed sub-screen in the app has.
+        if (initialDate != null && onBack != null) {
+            add { EditingDayHeader(initialDate, onBack) }
+        }
         add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
         add { CheckInCard(viewModel, profile) }
     }
@@ -100,6 +109,16 @@ fun TodayScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         items(items) { it() }
+    }
+}
+
+@Composable
+private fun EditingDayHeader(date: LocalDate, onBack: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Journey")
+        }
+        Text("Editing ${date.format(dateFormatter)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
