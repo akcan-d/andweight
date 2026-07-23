@@ -7,6 +7,34 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-07-23
+
+### Added
+- Calendar date-picker button on the Status page to jump straight to any date
+- Horizontal swipe navigation between the Status, Journey, and Settings tabs,
+  in sync with the bottom nav
+- "Show more" pagination on Journey's daily history list instead of loading
+  the entire history at once
+
+### Changed
+- Export and import CSV are now a single combined section in Settings
+- Editing a day from Journey now switches to the Status tab with that day
+  open, exactly like a normal tab switch - no more separate "Editing day X"
+  page to back out of
+- The "jump to today" icon on Status is now visually distinct from the new
+  calendar button
+- Journey's Milestones and research ("What the research says") sections are
+  now compact, tappable chips instead of stacked wordy cards, and the page
+  is reordered so both sit together near the top
+- The accuracy popup now says how many more days of logging it takes to
+  reach the next confidence level
+
+### Fixed
+- Research-benefit facts (Journey) could show nothing unlocked even after
+  real progress, because they were measured against your onboarding start
+  weight instead of your earliest logged weight (the same baseline the
+  Status page's "down X kg" uses) - both now agree
+
 ## [0.14.0] - 2026-07-13
 
 ### Added
