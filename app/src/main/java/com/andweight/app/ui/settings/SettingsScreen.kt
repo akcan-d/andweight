@@ -161,11 +161,7 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        ExportDataSection(onBuildCsv = viewModel::buildCsvExport)
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-        ImportDataSection(onImportCsv = viewModel::importCsv)
+        ExportImportSection(onBuildCsv = viewModel::buildCsvExport, onImportCsv = viewModel::importCsv)
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -174,9 +170,10 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun ExportDataSection(onBuildCsv: suspend () -> String) {
+private fun ExportImportSection(onBuildCsv: suspend () -> String, onImportCsv: suspend (String) -> CsvImport.ImportResult) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var importResult by remember { mutableStateOf<CsvImport.ImportResult?>(null) }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -186,9 +183,18 @@ private fun ExportDataSection(onBuildCsv: suspend () -> String) {
         }
     }
 
-    Text("Export", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val csv = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            if (csv != null) importResult = onImportCsv(csv)
+        }
+    }
+
+    Text("Export & import", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text(
-        "Save your full weight and calorie history as a CSV file you can open in a spreadsheet.",
+        "Save your full weight and calorie history as a CSV file, or restore/merge one back in. " +
+            "Imported days replace any existing entry for that date - other days are left as they are.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -198,29 +204,6 @@ private fun ExportDataSection(onBuildCsv: suspend () -> String) {
     ) {
         Text("Export data as CSV")
     }
-}
-
-@Composable
-private fun ImportDataSection(onImportCsv: suspend (String) -> CsvImport.ImportResult) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var importResult by remember { mutableStateOf<CsvImport.ImportResult?>(null) }
-
-    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        coroutineScope.launch {
-            val csv = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            if (csv != null) importResult = onImportCsv(csv)
-        }
-    }
-
-    Text("Import", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Text(
-        "Restore or merge data from a CSV file in the same format as the export above. Days in the " +
-            "file replace any existing entry for that date - other days are left as they are.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
     OutlinedButton(
         onClick = { openDocumentLauncher.launch("*/*") },
         modifier = Modifier.fillMaxWidth(),

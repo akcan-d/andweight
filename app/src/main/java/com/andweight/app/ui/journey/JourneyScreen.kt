@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -44,7 +45,6 @@ import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.DataFillRateResult
 import com.andweight.app.domain.HealthBenefit
 import com.andweight.app.domain.Milestone
-import com.andweight.app.domain.MilestoneCategory
 import com.andweight.app.domain.Phrasing
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeekSummary
@@ -62,6 +62,8 @@ private enum class JourneyViewMode(val label: String) {
     WEEKLY("Weekly trend"),
 }
 
+private const val DAILY_PAGE_SIZE = 20
+
 @Composable
 fun JourneyScreen(
     contentPadding: PaddingValues,
@@ -75,6 +77,7 @@ fun JourneyScreen(
     val healthBenefits: List<HealthBenefit> by viewModel.healthBenefits.collectAsState()
     val dataFillRate by viewModel.dataFillRate.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
+    var visibleDailyCount by remember { mutableStateOf(DAILY_PAGE_SIZE) }
 
     val hasAnyData = logs.isNotEmpty()
 
@@ -107,13 +110,13 @@ fun JourneyScreen(
                 item { MilestonesSection(milestones) }
             }
 
-            dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
-
-            item { WeightTrendCard(logs, profile) }
-
             if (healthBenefits.isNotEmpty()) {
                 item { HealthBenefitsSection(healthBenefits) }
             }
+
+            dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
+
+            item { WeightTrendCard(logs, profile) }
 
             item {
                 Row(
@@ -133,8 +136,19 @@ fun JourneyScreen(
             when (viewMode) {
                 JourneyViewMode.DAILY -> {
                     val sortedLogs = logs.sortedByDescending { it.date }
-                    items(sortedLogs) { log ->
+                    val visibleLogs = sortedLogs.take(visibleDailyCount)
+                    items(visibleLogs) { log ->
                         DailyCard(log, profile, onEdit = { onEditDay(log.date) }, onDelete = { viewModel.deleteLog(log.date) })
+                    }
+                    if (visibleDailyCount < sortedLogs.size) {
+                        item {
+                            TextButton(
+                                onClick = { visibleDailyCount += DAILY_PAGE_SIZE },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Show more (${sortedLogs.size - visibleDailyCount} more)")
+                            }
+                        }
                     }
                 }
                 JourneyViewMode.WEEKLY -> {
@@ -146,58 +160,52 @@ fun JourneyScreen(
     }
 }
 
+// One flat set of achieved milestones plus one flat set of what's coming up next, rather than four
+// separate per-category cards each with their own achieved/next split - milestone titles already
+// say what they're about ("7-day streak", "Halfway there"), so a category label per card was mostly
+// repeating information the title already carried.
 @Composable
 private fun MilestonesSection(milestones: List<Milestone>) {
-    val grouped = MilestoneCategory.entries.mapNotNull { category ->
-        val items = milestones.filter { it.category == category }
-        if (items.isEmpty()) null else category to items
-    }
-    if (grouped.isEmpty()) return
+    if (milestones.isEmpty()) return
+    val achieved = milestones.filter { it.achieved }
+    val upNext = milestones.filter { !it.achieved }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Milestones", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(grouped) { (category, categoryMilestones) -> MilestoneCategoryCard(category, categoryMilestones) }
-        }
-    }
-}
 
-@Composable
-private fun MilestoneCategoryCard(category: MilestoneCategory, milestones: List<Milestone>) {
-    val achieved = milestones.filter { it.achieved }
-    val next = milestones.firstOrNull { !it.achieved }
-
-    Card(modifier = Modifier.width(220.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(category.label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    "${achieved.size}/${milestones.size}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            if (achieved.isNotEmpty()) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
+        if (achieved.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(achieved) { milestone ->
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(milestone.title) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
                     )
-                    Text(achieved.last().title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                 }
-            } else {
-                Text("Nothing unlocked yet", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        } else {
+            Text(
+                "Keep logging to earn your first milestone.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
-            if (next != null) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Next: ${next.title}", style = MaterialTheme.typography.bodySmall)
-                    next.hint?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+        if (upNext.isNotEmpty()) {
+            Text("Up next", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(upNext) { milestone ->
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(milestone.hint?.let { hint -> "${milestone.title} - $hint" } ?: milestone.title) },
+                    )
                 }
             }
         }
@@ -218,65 +226,77 @@ private fun DataFillRateCard(fillRate: DataFillRateResult) {
     }
 }
 
+// Matches the Milestones section's chip layout, for the same reason: unlocked findings as short
+// tappable chips (title only, full text on tap) instead of a full card per finding stacked
+// vertically, so unlocking several at once doesn't turn this into a wall of paragraphs.
 @Composable
 private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
-    var expanded by remember { mutableStateOf(false) }
+    if (benefits.isEmpty()) return
     val achieved = benefits.filter { it.achieved }
-    val locked = benefits.filter { !it.achieved }
-    // Collapsed: every achieved fact, plus just the single soonest one still to unlock. Expanded:
-    // every remaining locked fact too, so the full road ahead is visible on request.
-    val lockedToShow = if (expanded) locked else locked.take(1)
+    val next = benefits.firstOrNull { !it.achieved }
+    var expandedFact by remember { mutableStateOf<HealthBenefit?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("What the research says", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Text(
-            "General findings from published weight-loss research - population averages, not a " +
-                "guarantee for you personally. Always follow your own doctor's guidance.",
+            "Population averages from published research, not a guarantee for you personally - " +
+                "always follow your own doctor's guidance. Tap a finding to read more.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        achieved.forEach { fact -> HealthBenefitCard(fact) }
-        lockedToShow.forEach { fact -> HealthBenefitCard(fact) }
-
-        if (locked.size > 1) {
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(if (expanded) "Show less" else "Show all upcoming findings (${locked.size})")
-            }
-        }
-    }
-}
-
-@Composable
-private fun HealthBenefitCard(fact: HealthBenefit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (fact.achieved) {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
+        if (achieved.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(achieved) { fact ->
+                    AssistChip(
+                        onClick = { expandedFact = fact },
+                        label = { Text(fact.title) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
                     )
                 }
-                Text(fact.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
             }
-            if (!fact.achieved) {
-                Text(
-                    fact.hint ?: "Locked",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(fact.body, style = MaterialTheme.typography.bodySmall)
-                Text(
-                    "Source: ${fact.source}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        } else {
+            Text(
+                "Nothing unlocked yet - keep going!",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+
+        next?.let { fact ->
+            Text(
+                "Next: ${fact.title}${fact.hint?.let { " - $it" } ?: ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    expandedFact?.let { fact ->
+        AlertDialog(
+            onDismissRequest = { expandedFact = null },
+            title = { Text(fact.title) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(fact.body, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Source: ${fact.source}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { expandedFact = null }) { Text("Got it") }
+            },
+        )
     }
 }
 

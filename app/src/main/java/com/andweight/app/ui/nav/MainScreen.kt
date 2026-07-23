@@ -7,7 +7,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Settings
@@ -26,21 +29,20 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.journey.JourneyScreen
 import com.andweight.app.ui.settings.EditProfileScreen
@@ -52,78 +54,93 @@ import com.andweight.app.ui.tips.TipsScreen
 import com.andweight.app.ui.today.TodayScreen
 import com.andweight.app.ui.tutorial.TutorialScreen
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
-private const val TODAY_ROUTE_BASE = "today"
-private const val TODAY_DATE_ARG = "date"
-private const val TODAY_ROUTE_PATTERN = "today?date={date}"
-private const val JOURNEY_ROUTE = "journey"
-private const val SETTINGS_ROUTE = "settings"
+private const val MAIN_TABS_ROUTE = "main_tabs"
 private const val SETTINGS_TIPS_ROUTE = "settings/tips"
 private const val SETTINGS_TUTORIAL_ROUTE = "settings/tutorial"
 private const val SETTINGS_EDIT_PROFILE_ROUTE = "settings/profile"
 private const val SETTINGS_TDEE_INFO_ROUTE = "settings/tdee-info"
 
+private const val TAB_STATUS = 0
+private const val TAB_JOURNEY = 1
+private const val TAB_SETTINGS = 2
+
 @Composable
 fun MainScreen(onDataErased: () -> Unit) {
     val navController = rememberNavController()
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    val scope = rememberCoroutineScope()
+
+    // Set by Journey's "edit this day" action and consumed by the Status tab the moment it's
+    // composed after the switch - a plain nav argument would fight with the pager's own state
+    // retention, so the date travels alongside navigation rather than inside it.
+    var pendingEditDate by remember { mutableStateOf<LocalDate?>(null) }
+
+    fun goToTab(tab: Int) {
+        val backStackEntry = navController.currentBackStackEntry
+        if (backStackEntry?.destination?.route != MAIN_TABS_ROUTE) {
+            navController.popBackStack(MAIN_TABS_ROUTE, inclusive = false)
+        }
+        scope.launch { pagerState.animateScrollToPage(tab) }
+    }
 
     PopupHost()
 
     Scaffold(
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
-            val currentRoute = backStackEntry?.destination
+            val onTabs = backStackEntry?.destination?.route == MAIN_TABS_ROUTE
 
             NavigationBar {
                 NavigationBarItem(
-                    selected = currentRoute?.hierarchy?.any { it.route == TODAY_ROUTE_PATTERN } == true,
-                    onClick = { navController.navigateToToday(null) },
+                    selected = onTabs && pagerState.currentPage == TAB_STATUS,
+                    onClick = { goToTab(TAB_STATUS) },
                     icon = { Icon(Icons.Filled.Today, contentDescription = null) },
                     label = { Text("Status") },
                 )
                 NavigationBarItem(
-                    selected = currentRoute?.hierarchy?.any { it.route == JOURNEY_ROUTE } == true,
-                    onClick = { navController.navigateToTab(JOURNEY_ROUTE) },
+                    selected = onTabs && pagerState.currentPage == TAB_JOURNEY,
+                    onClick = { goToTab(TAB_JOURNEY) },
                     icon = { Icon(Icons.Filled.EmojiEvents, contentDescription = null) },
                     label = { Text("Journey") },
                 )
                 NavigationBarItem(
-                    selected = currentRoute?.hierarchy?.any { it.route == SETTINGS_ROUTE } == true,
-                    onClick = { navController.navigateToTab(SETTINGS_ROUTE) },
+                    selected = onTabs && pagerState.currentPage == TAB_SETTINGS,
+                    onClick = { goToTab(TAB_SETTINGS) },
                     icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
                     label = { Text("Settings") },
                 )
             }
         },
     ) { padding ->
-        NavHost(navController = navController, startDestination = TODAY_ROUTE_PATTERN) {
-            composable(
-                route = TODAY_ROUTE_PATTERN,
-                arguments = listOf(navArgument(TODAY_DATE_ARG) { type = NavType.LongType; defaultValue = -1L }),
-            ) { backStackEntry ->
-                val epochDay = backStackEntry.arguments?.getLong(TODAY_DATE_ARG) ?: -1L
-                TodayScreen(
-                    contentPadding = padding,
-                    onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
-                    initialDate = if (epochDay >= 0) LocalDate.ofEpochDay(epochDay) else null,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(JOURNEY_ROUTE) {
-                JourneyScreen(
-                    contentPadding = padding,
-                    onEditDay = { date -> navController.navigateToToday(date) },
-                )
-            }
-            composable(SETTINGS_ROUTE) {
-                SettingsScreen(
-                    contentPadding = padding,
-                    onViewAllTips = { navController.navigate(SETTINGS_TIPS_ROUTE) },
-                    onShowTutorial = { navController.navigate(SETTINGS_TUTORIAL_ROUTE) },
-                    onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
-                    onShowTdeeInfo = { navController.navigate(SETTINGS_TDEE_INFO_ROUTE) },
-                    onDataErased = onDataErased,
-                )
+        NavHost(navController = navController, startDestination = MAIN_TABS_ROUTE) {
+            composable(MAIN_TABS_ROUTE) {
+                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                    when (page) {
+                        TAB_STATUS -> TodayScreen(
+                            contentPadding = padding,
+                            onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
+                            initialDate = pendingEditDate,
+                            onInitialDateConsumed = { pendingEditDate = null },
+                        )
+                        TAB_JOURNEY -> JourneyScreen(
+                            contentPadding = padding,
+                            onEditDay = { date ->
+                                pendingEditDate = date
+                                goToTab(TAB_STATUS)
+                            },
+                        )
+                        TAB_SETTINGS -> SettingsScreen(
+                            contentPadding = padding,
+                            onViewAllTips = { navController.navigate(SETTINGS_TIPS_ROUTE) },
+                            onShowTutorial = { navController.navigate(SETTINGS_TUTORIAL_ROUTE) },
+                            onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
+                            onShowTdeeInfo = { navController.navigate(SETTINGS_TDEE_INFO_ROUTE) },
+                            onDataErased = onDataErased,
+                        )
+                    }
+                }
             }
             composable(SETTINGS_TIPS_ROUTE) {
                 TipsScreen(contentPadding = padding, onBack = { navController.popBackStack() })
@@ -225,30 +242,4 @@ private fun ReminderOptInPopup(viewModel: ReminderOptInViewModel) {
             }
         },
     )
-}
-
-private fun NavController.navigateToTab(route: String) {
-    navigate(route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
-
-/**
- * Two different things share the Today destination, so they're deliberately handled with
- * different navigation semantics:
- * - null (the bottom-nav tab) uses the same save/restore-state tab-switch behavior as the other
- *   tabs, so returning to Today resumes wherever you left off.
- * - a specific date (the "edit this day" action from Journey) is a plain push instead - using
- *   restoreState here would risk restoring a *previously saved* Today instance and silently
- *   ignoring the newly requested date. A plain push always lands on exactly the requested day,
- *   and the system back button (or the header's back arrow) returns to Journey.
- */
-private fun NavController.navigateToToday(date: LocalDate?) {
-    if (date == null) {
-        navigateToTab(TODAY_ROUTE_BASE)
-    } else {
-        navigate("$TODAY_ROUTE_BASE?$TODAY_DATE_ARG=${date.toEpochDay()}")
-    }
 }

@@ -57,39 +57,53 @@ object ConfidenceEvaluator {
         }
         val isStale = completedWeeks >= MIN_WEEKS_BEFORE_STALENESS_APPLIES && recentDaysLogged < MIN_RECENT_DAYS_LOGGED
 
+        // "N more days" assumes logging daily from here on - the honest, achievable version of that
+        // promise, since a completed week only needs one day of each kind of entry somewhere in it.
+        fun daysToNextLevel(targetWeeks: Int): String {
+            val days = (targetWeeks - completedWeeks).coerceAtLeast(1) * 7
+            return "Enter data for about $days more day${if (days == 1) "" else "s"} to reach the next level."
+        }
+
         return when {
-            isStale -> ConfidenceAssessment(
-                ConfidenceLevel.LOW,
-                "You haven't logged much in the past week, so this estimate is going stale. Check in daily to bring it back up.",
-            )
+            isStale -> {
+                val daysNeeded = (MIN_RECENT_DAYS_LOGGED - recentDaysLogged).coerceAtLeast(1)
+                ConfidenceAssessment(
+                    ConfidenceLevel.LOW,
+                    "You haven't logged much in the past week, so this estimate is going stale. Enter " +
+                        "data for $daysNeeded more day${if (daysNeeded == 1) "" else "s"} this week to bring it back up.",
+                )
+            }
             completedWeeks >= 4 -> ConfidenceAssessment(
                 ConfidenceLevel.HIGH,
                 "Built from several weeks of your actual results - this is a solid, personalized estimate.",
             )
             completedWeeks >= 2 -> ConfidenceAssessment(
                 ConfidenceLevel.MEDIUM,
-                "Based on a couple of weeks of your data - getting more accurate, but still settling in.",
+                "Based on a couple of weeks of your data - getting more accurate, but still settling in. " +
+                    daysToNextLevel(4),
             )
             hasBodyFat -> ConfidenceAssessment(
                 ConfidenceLevel.MEDIUM,
-                "Starting estimate uses your body fat percentage for the most accurate formula " +
-                    "available - it'll get even more accurate once your own results start coming in.",
+                "Starting estimate uses your body fat percentage for the most accurate formula available. " +
+                    daysToNextLevel(4),
             )
             hasFullProfileDetails -> ConfidenceAssessment(
                 ConfidenceLevel.MEDIUM,
-                "Starting estimate uses your sex, height, and age for a fully personalized formula - it'll " +
-                    "get even more accurate once your own results start coming in.",
+                "Starting estimate uses your sex, height, and age for a fully personalized formula. " +
+                    daysToNextLevel(4),
             )
             hasEnoughProfileDetails -> ConfidenceAssessment(
                 ConfidenceLevel.MEDIUM,
                 "Starting estimate uses most of what you've told us about yourself - filling in the last " +
-                    "detail (sex, height, or age), or your body fat percentage, would sharpen it further.",
+                    "detail (sex, height, or age), or your body fat percentage, would sharpen it further. " +
+                    daysToNextLevel(4),
                 promptProfileDetails = true,
             )
             else -> ConfidenceAssessment(
                 ConfidenceLevel.LOW,
                 "This is still a rough, formula-based starting estimate. Add your sex, height, and age " +
-                    "(or your body fat percentage, if you know it), or just keep logging daily, to sharpen it up.",
+                    "(or your body fat percentage, if you know it) to sharpen it up right away. Otherwise, " +
+                    daysToNextLevel(2).replaceFirstChar { it.lowercase() },
                 promptProfileDetails = true,
             )
         }

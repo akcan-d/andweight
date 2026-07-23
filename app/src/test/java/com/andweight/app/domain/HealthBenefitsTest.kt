@@ -14,8 +14,18 @@ class HealthBenefitsTest {
         pace = PaceOption.MODERATE,
     )
 
+    // Two logged weeks apart: an anchor entry at the profile's starting weight, then the "current"
+    // entry - this mirrors how earliestKnownWeightKg is actually derived from logged history rather
+    // than read back from the profile, which is what HealthBenefits now keys its baseline off of.
     private fun stateAt(currentWeightKg: Double, forProfile: UserProfile = profile): TdeeState =
-        TdeeEngine.compute(forProfile, listOf(DailyLog(LocalDate.of(2026, 1, 1), currentWeightKg, 2000.0)), LocalDate.of(2026, 1, 1))
+        TdeeEngine.compute(
+            forProfile,
+            listOf(
+                DailyLog(LocalDate.of(2026, 1, 1), forProfile.startWeightKg, 2000.0),
+                DailyLog(LocalDate.of(2026, 1, 15), currentWeightKg, 2000.0),
+            ),
+            LocalDate.of(2026, 1, 15),
+        )
 
     @Test
     fun `nothing unlocked yet - first locked tier has a hint pointing at 5 percent`() {

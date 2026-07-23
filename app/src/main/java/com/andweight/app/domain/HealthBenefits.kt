@@ -102,20 +102,21 @@ object HealthBenefits {
 
     fun compute(profile: UserProfile, state: TdeeState): List<HealthBenefit> {
         val direction = profile.goalDirection
-        if (direction == GoalDirection.MAINTAIN || profile.startWeightKg <= 0.0) return emptyList()
+        val startWeightKg = state.earliestKnownWeightKg
+        if (direction == GoalDirection.MAINTAIN || startWeightKg <= 0.0) return emptyList()
 
         val changeKg = when (direction) {
-            GoalDirection.LOSE -> (profile.startWeightKg - state.currentWeightKg).coerceAtLeast(0.0)
-            GoalDirection.GAIN -> (state.currentWeightKg - profile.startWeightKg).coerceAtLeast(0.0)
+            GoalDirection.LOSE -> (startWeightKg - state.currentWeightKg).coerceAtLeast(0.0)
+            GoalDirection.GAIN -> (state.currentWeightKg - startWeightKg).coerceAtLeast(0.0)
             GoalDirection.MAINTAIN -> 0.0
         }
         val goalChangeKg = when (direction) {
-            GoalDirection.LOSE -> (profile.startWeightKg - profile.goalWeightKg).coerceAtLeast(0.0)
-            GoalDirection.GAIN -> (profile.goalWeightKg - profile.startWeightKg).coerceAtLeast(0.0)
+            GoalDirection.LOSE -> (startWeightKg - profile.goalWeightKg).coerceAtLeast(0.0)
+            GoalDirection.GAIN -> (profile.goalWeightKg - startWeightKg).coerceAtLeast(0.0)
             GoalDirection.MAINTAIN -> 0.0
         }
-        val percentChanged = (changeKg / profile.startWeightKg) * 100.0
-        val goalPercent = (goalChangeKg / profile.startWeightKg) * 100.0
+        val percentChanged = (changeKg / startWeightKg) * 100.0
+        val goalPercent = (goalChangeKg / startWeightKg) * 100.0
 
         val unit = profile.weightUnit
         val unitLabel = if (unit.isMetric) "kg" else "lb"
@@ -127,7 +128,7 @@ object HealthBenefits {
             val hint = if (achieved) {
                 null
             } else {
-                val neededKg = ((profile.startWeightKg * tier.thresholdPercent / 100.0) - changeKg).coerceAtLeast(0.0)
+                val neededKg = ((startWeightKg * tier.thresholdPercent / 100.0) - changeKg).coerceAtLeast(0.0)
                 "Unlocks at ${tier.thresholdPercent.toInt()}% of your starting weight - about " +
                     "${formatOneDecimal(unit.fromKg(neededKg))} $unitLabel more to go"
             }
@@ -136,7 +137,7 @@ object HealthBenefits {
 
         val contextFacts = when (direction) {
             GoalDirection.LOSE -> listOf(kneeLoadFact(profile, changeKg))
-            GoalDirection.GAIN -> listOfNotNull(underweightMortalityFact(profile))
+            GoalDirection.GAIN -> listOfNotNull(underweightMortalityFact(profile, startWeightKg))
             GoalDirection.MAINTAIN -> emptyList()
         }
 
@@ -165,10 +166,10 @@ object HealthBenefits {
     // Only relevant - and only shown at all - if the person's starting BMI was actually in the
     // underweight range; this describes their starting situation rather than a target, so there's
     // nothing to "unlock" and no goal-size cap needed.
-    private fun underweightMortalityFact(profile: UserProfile): HealthBenefit? {
+    private fun underweightMortalityFact(profile: UserProfile, startWeightKg: Double): HealthBenefit? {
         val heightCm = profile.heightCm ?: return null
         val heightM = heightCm / 100.0
-        val bmi = profile.startWeightKg / (heightM * heightM)
+        val bmi = startWeightKg / (heightM * heightM)
         if (bmi >= UNDERWEIGHT_BMI_THRESHOLD) return null
 
         return HealthBenefit(

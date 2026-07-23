@@ -18,25 +18,30 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -64,7 +69,9 @@ import com.andweight.app.domain.TdeeState
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.common.IntakeChip
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
@@ -76,25 +83,24 @@ fun TodayScreen(
     contentPadding: PaddingValues,
     onEditProfile: () -> Unit,
     initialDate: LocalDate? = null,
-    onBack: (() -> Unit)? = null,
+    onInitialDateConsumed: () -> Unit = {},
     viewModel: TodayViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
     val tdeeState by viewModel.tdeeState.collectAsState()
     val confidence by viewModel.confidence.collectAsState()
 
+    // Journey's "edit this day" action lands here exactly like a normal tab switch (see
+    // MainScreen) - this just jumps the day picker to the requested date once, rather than
+    // treating it as a separate screen the person needs to back out of.
     LaunchedEffect(initialDate) {
-        if (initialDate != null) viewModel.jumpToDate(initialDate)
+        if (initialDate != null) {
+            viewModel.jumpToDate(initialDate)
+            onInitialDateConsumed()
+        }
     }
 
     val items = buildList<@Composable () -> Unit> {
-        // Only shown when arriving via the Journey "edit this day" action, not the normal bottom
-        // tab - a plain push (see MainScreen.navigateToToday) is what got us here, so a system
-        // back press already returns to Journey; this just gives that the same visible affordance
-        // every other pushed sub-screen in the app has.
-        if (initialDate != null && onBack != null) {
-            add { EditingDayHeader(initialDate, onBack) }
-        }
         add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
         add { CheckInCard(viewModel, profile) }
     }
@@ -109,16 +115,6 @@ fun TodayScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         items(items) { it() }
-    }
-}
-
-@Composable
-private fun EditingDayHeader(date: LocalDate, onBack: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Journey")
-        }
-        Text("Editing ${date.format(dateFormatter)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -298,6 +294,8 @@ private fun AllSetBanner() {
 
 @Composable
 private fun DayPager(viewModel: TodayViewModel) {
+    var showDatePicker by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -313,9 +311,12 @@ private fun DayPager(viewModel: TodayViewModel) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
+            IconButton(onClick = { showDatePicker = true }) {
+                Icon(Icons.Filled.CalendarMonth, contentDescription = "Jump to a specific date")
+            }
             if (viewModel.canJumpToToday()) {
                 IconButton(onClick = viewModel::jumpToToday) {
-                    Icon(Icons.Filled.Today, contentDescription = "Jump to today")
+                    Icon(Icons.Filled.Refresh, contentDescription = "Jump to today")
                 }
             }
         }
@@ -323,6 +324,55 @@ private fun DayPager(viewModel: TodayViewModel) {
         IconButton(onClick = viewModel::goToNextDay, enabled = viewModel.canGoToNextDay()) {
             Icon(Icons.Filled.ChevronRight, contentDescription = "Next day")
         }
+    }
+
+    if (showDatePicker) {
+        DayPickerDialog(
+            initialDate = viewModel.selectedDate,
+            latestSelectableDate = viewModel.actualToday,
+            onConfirm = { date ->
+                viewModel.jumpToDate(date)
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayPickerDialog(
+    initialDate: LocalDate,
+    latestSelectableDate: LocalDate,
+    onConfirm: (LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initialDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                val date = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate()
+                return !date.isAfter(latestSelectableDate)
+            }
+        },
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                state.selectedDateMillis?.let { millis ->
+                    onConfirm(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
+                }
+            }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    ) {
+        DatePicker(state = state)
     }
 }
 
