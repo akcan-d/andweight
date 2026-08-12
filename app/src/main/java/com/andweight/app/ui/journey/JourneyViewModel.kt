@@ -22,12 +22,13 @@ import java.time.LocalDate
 
 class JourneyViewModel(private val repository: AndWeightRepository) : ViewModel() {
 
-    private val today: LocalDate = LocalDate.now()
+    /** Fixed for the lifetime of this screen - matches [com.andweight.app.ui.today.TodayViewModel.actualToday]. */
+    val actualToday: LocalDate = LocalDate.now()
 
     val profile: StateFlow<UserProfile?> = repository.profileFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val tdeeState: StateFlow<TdeeState?> = repository.tdeeStateFlow(today)
+    val tdeeState: StateFlow<TdeeState?> = repository.tdeeStateFlow(actualToday)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val logs: StateFlow<List<DailyLog>> = repository.logsFlow
@@ -37,7 +38,7 @@ class JourneyViewModel(private val repository: AndWeightRepository) : ViewModel(
         if (userProfile == null || state == null) {
             emptyList()
         } else {
-            JourneyMilestones.compute(userProfile, state, logList, today)
+            JourneyMilestones.compute(userProfile, state, logList, actualToday)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -50,7 +51,7 @@ class JourneyViewModel(private val repository: AndWeightRepository) : ViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val dataFillRate: StateFlow<DataFillRateResult?> = logs
-        .map { DataFillRate.compute(it, today) }
+        .map { DataFillRate.compute(it, actualToday) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun deleteLog(date: LocalDate) {

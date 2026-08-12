@@ -1,5 +1,7 @@
 package com.andweight.app.domain
 
+import java.time.DayOfWeek
+
 /** All weights are stored and computed internally in kilograms; this is only for display/input conversion. */
 enum class WeightUnit {
     KG,
@@ -12,6 +14,12 @@ enum class WeightUnit {
      * app's one Metric/Imperial choice, and height follows it (cm for Kg, feet/inches for Lb). */
     val isMetric: Boolean
         get() = this == KG
+
+    /** No separate first-day-of-week setting yet either - it follows the same Metric/Imperial
+     * choice (Monday-start is the common convention in most metric-using countries, Sunday-start
+     * in the US, which is also where "Imperial" units are otherwise still in everyday use). */
+    val firstDayOfWeek: DayOfWeek
+        get() = if (isMetric) DayOfWeek.MONDAY else DayOfWeek.SUNDAY
 }
 
 /** All heights are stored and computed internally in centimeters; this is only for display/input

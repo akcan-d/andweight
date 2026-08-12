@@ -45,6 +45,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.journey.JourneyScreen
+import com.andweight.app.ui.journey.MilestonesScreen
+import com.andweight.app.ui.journey.ResearchScreen
 import com.andweight.app.ui.settings.EditProfileScreen
 import com.andweight.app.ui.settings.ReminderOptInViewModel
 import com.andweight.app.ui.settings.SettingsScreen
@@ -61,6 +63,8 @@ private const val SETTINGS_TIPS_ROUTE = "settings/tips"
 private const val SETTINGS_TUTORIAL_ROUTE = "settings/tutorial"
 private const val SETTINGS_EDIT_PROFILE_ROUTE = "settings/profile"
 private const val SETTINGS_TDEE_INFO_ROUTE = "settings/tdee-info"
+private const val JOURNEY_MILESTONES_ROUTE = "journey/milestones"
+private const val JOURNEY_RESEARCH_ROUTE = "journey/research"
 
 private const val TAB_STATUS = 0
 private const val TAB_JOURNEY = 1
@@ -130,6 +134,8 @@ fun MainScreen(onDataErased: () -> Unit) {
                                 pendingEditDate = date
                                 goToTab(TAB_STATUS)
                             },
+                            onShowMilestones = { navController.navigate(JOURNEY_MILESTONES_ROUTE) },
+                            onShowResearch = { navController.navigate(JOURNEY_RESEARCH_ROUTE) },
                         )
                         TAB_SETTINGS -> SettingsScreen(
                             contentPadding = padding,
@@ -153,6 +159,12 @@ fun MainScreen(onDataErased: () -> Unit) {
             }
             composable(SETTINGS_TDEE_INFO_ROUTE) {
                 TdeeInfoScreen(contentPadding = padding, onBack = { navController.popBackStack() })
+            }
+            composable(JOURNEY_MILESTONES_ROUTE) {
+                MilestonesScreen(contentPadding = padding, onBack = { navController.popBackStack() })
+            }
+            composable(JOURNEY_RESEARCH_ROUTE) {
+                ResearchScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             }
         }
     }

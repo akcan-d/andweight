@@ -89,12 +89,6 @@ fun SettingsScreen(
             ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Your profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(
-            "Update your goal, pace, height, age, activity level, units, or start date any time.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
             Text("Edit profile")
         }

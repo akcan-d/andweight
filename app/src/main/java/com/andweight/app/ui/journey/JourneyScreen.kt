@@ -1,6 +1,7 @@
 package com.andweight.app.ui.journey
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,19 +16,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,9 +55,11 @@ import com.andweight.app.domain.HealthBenefit
 import com.andweight.app.domain.Milestone
 import com.andweight.app.domain.Phrasing
 import com.andweight.app.domain.UserProfile
+import com.andweight.app.domain.WeekGrouping
 import com.andweight.app.domain.WeekSummary
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.common.IntakeChip
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -62,12 +72,12 @@ private enum class JourneyViewMode(val label: String) {
     WEEKLY("Weekly trend"),
 }
 
-private const val DAILY_PAGE_SIZE = 20
-
 @Composable
 fun JourneyScreen(
     contentPadding: PaddingValues,
     onEditDay: (LocalDate) -> Unit,
+    onShowMilestones: () -> Unit,
+    onShowResearch: () -> Unit,
     viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -77,7 +87,7 @@ fun JourneyScreen(
     val healthBenefits: List<HealthBenefit> by viewModel.healthBenefits.collectAsState()
     val dataFillRate by viewModel.dataFillRate.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
-    var visibleDailyCount by remember { mutableStateOf(DAILY_PAGE_SIZE) }
+    var visibleWeeks by remember { mutableStateOf(1) }
 
     val hasAnyData = logs.isNotEmpty()
 
@@ -107,16 +117,18 @@ fun JourneyScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (milestones.isNotEmpty()) {
-                item { MilestonesSection(milestones) }
+                item { MilestonesEntryCard(milestones, onClick = onShowMilestones) }
             }
 
             if (healthBenefits.isNotEmpty()) {
-                item { HealthBenefitsSection(healthBenefits) }
+                item { ResearchEntryCard(healthBenefits, onClick = onShowResearch) }
             }
 
             dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
 
             item { WeightTrendCard(logs, profile) }
+
+            item { Text("History", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold) }
 
             item {
                 Row(
@@ -135,18 +147,35 @@ fun JourneyScreen(
 
             when (viewMode) {
                 JourneyViewMode.DAILY -> {
-                    val sortedLogs = logs.sortedByDescending { it.date }
-                    val visibleLogs = sortedLogs.take(visibleDailyCount)
+                    val firstDayOfWeek = profile?.weightUnit?.firstDayOfWeek ?: DayOfWeek.MONDAY
+                    val currentWeekStart = WeekGrouping.weekStart(viewModel.actualToday, firstDayOfWeek)
+                    val oldestVisibleWeekStart = currentWeekStart.minusWeeks((visibleWeeks - 1).toLong())
+                    val visibleLogs = logs
+                        .filter { !it.date.isBefore(oldestVisibleWeekStart) }
+                        .sortedByDescending { it.date }
+
                     items(visibleLogs) { log ->
                         DailyCard(log, profile, onEdit = { onEditDay(log.date) }, onDelete = { viewModel.deleteLog(log.date) })
                     }
-                    if (visibleDailyCount < sortedLogs.size) {
+
+                    val earliestLogDate = logs.minOfOrNull { it.date }
+                    val earliestWeekStart = earliestLogDate?.let { WeekGrouping.weekStart(it, firstDayOfWeek) }
+                    if (visibleLogs.isEmpty()) {
+                        item {
+                            Text(
+                                "No entries this week.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (earliestWeekStart != null && oldestVisibleWeekStart.isAfter(earliestWeekStart)) {
                         item {
                             TextButton(
-                                onClick = { visibleDailyCount += DAILY_PAGE_SIZE },
+                                onClick = { visibleWeeks += 1 },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("Show more (${sortedLogs.size - visibleDailyCount} more)")
+                                Text("Previous week")
                             }
                         }
                     }
@@ -156,6 +185,121 @@ fun JourneyScreen(
                     items(weeks) { week -> WeekCard(week, profile) }
                 }
             }
+        }
+    }
+}
+
+// Compact teasers on the main Journey page - Milestones and the research section both moved to
+// their own full screens (see MilestonesScreen/ResearchScreen below) rather than living inline,
+// since each has enough content (achieved items, an "up next" line, tappable detail) to compete
+// for attention with the rest of the page.
+@Composable
+private fun MilestonesEntryCard(milestones: List<Milestone>, onClick: () -> Unit) {
+    val achievedCount = milestones.count { it.achieved }
+    JourneyEntryCard(
+        title = "Milestones",
+        subtitle = if (achievedCount == 0) "None unlocked yet" else "$achievedCount unlocked",
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun ResearchEntryCard(benefits: List<HealthBenefit>, onClick: () -> Unit) {
+    val achievedCount = benefits.count { it.achieved }
+    JourneyEntryCard(
+        title = "What the research says",
+        subtitle = if (achievedCount == 0) "Nothing unlocked yet" else "$achievedCount unlocked",
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun JourneyEntryCard(title: String, subtitle: String, onClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MilestonesScreen(
+    contentPadding: PaddingValues,
+    onBack: () -> Unit,
+    viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
+) {
+    val milestones by viewModel.milestones.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Milestones") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
+    ) { topBarPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = topBarPadding.calculateTopPadding() + 12.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                ),
+        ) {
+            MilestonesSection(milestones)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ResearchScreen(
+    contentPadding: PaddingValues,
+    onBack: () -> Unit,
+    viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
+) {
+    val benefits by viewModel.healthBenefits.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("What the research says") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
+    ) { topBarPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = topBarPadding.calculateTopPadding() + 12.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                ),
+        ) {
+            HealthBenefitsSection(benefits)
         }
     }
 }
@@ -171,8 +315,6 @@ private fun MilestonesSection(milestones: List<Milestone>) {
     val upNext = milestones.filter { !it.achieved }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Milestones", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-
         if (achieved.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(achieved) { milestone ->
@@ -237,7 +379,6 @@ private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
     var expandedFact by remember { mutableStateOf<HealthBenefit?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("What the research says", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Text(
             "Population averages from published research, not a guarantee for you personally - " +
                 "always follow your own doctor's guidance. Tap a finding to read more.",
