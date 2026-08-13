@@ -7,6 +7,22 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-13
+
+### Added
+- Journey: Milestones and "What the research says" are now their own
+  screens, reached from a compact summary card on the main page, instead
+  of living inline
+- Journey: a "History" title above the daily/weekly toggle
+- First day of the week (Monday for metric users, Sunday for imperial)
+  as a real concept, used to page Journey's daily history one calendar
+  week at a time via a "Previous week" button, replacing the flat
+  20-item "Show more"
+
+### Changed
+- Settings: dropped the "Your profile" title and description text above
+  the Edit profile button
+
 ## [0.15.0] - 2026-07-23
 
 ### Added
