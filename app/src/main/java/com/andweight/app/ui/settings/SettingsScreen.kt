@@ -1,12 +1,14 @@
 package com.andweight.app.ui.settings
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings as AndroidSettings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +59,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.andweight.app.BuildConfig
 import com.andweight.app.domain.AccentTheme
 import com.andweight.app.domain.BackupSerializer
 import com.andweight.app.domain.ThemeMode
@@ -70,6 +73,7 @@ import java.time.format.DateTimeFormatter
 private val timeFormatter12h = DateTimeFormatter.ofPattern("h:mm a")
 private val timeFormatter24h = DateTimeFormatter.ofPattern("HH:mm")
 private const val PRIVACY_POLICY_URL = "https://akcan-d.github.io/andweight/privacy-policy.html"
+private const val FEEDBACK_EMAIL = "akcan.dayibas@gmail.com"
 
 @Composable
 fun SettingsScreen(
@@ -212,6 +216,9 @@ fun SettingsScreen(
         }
         OutlinedButton(onClick = onShowTdeeInfo, modifier = Modifier.fillMaxWidth()) {
             Text("How your estimate works")
+        }
+        OutlinedButton(onClick = { sendFeedback(context) }, modifier = Modifier.fillMaxWidth()) {
+            Text("Report a bug or send feedback")
         }
         TextButton(onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) }) {
             Text("Privacy policy")
@@ -464,6 +471,26 @@ private fun ReminderSection(
 private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
     val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
     return powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+}
+
+/** mailto: via ACTION_SENDTO rather than ACTION_SEND, so only email apps can handle it, pre-filled
+ * with the device/app details that make a bug report actually useful without the person having to
+ * think to include them. */
+private fun sendFeedback(context: Context) {
+    val body = "\n\n---\n" +
+        "AndWeight ${BuildConfig.VERSION_NAME}\n" +
+        "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n" +
+        "${Build.MANUFACTURER} ${Build.MODEL}"
+    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).apply {
+        putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL))
+        putExtra(Intent.EXTRA_SUBJECT, "AndWeight feedback")
+        putExtra(Intent.EXTRA_TEXT, body)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, "No email app found - you can reach me at $FEEDBACK_EMAIL", Toast.LENGTH_LONG).show()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
