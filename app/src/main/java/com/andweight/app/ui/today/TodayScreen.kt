@@ -102,9 +102,19 @@ fun TodayScreen(
         }
     }
 
+    // Whatever day is currently open leads with the check-in card while it still needs input -
+    // that's the actionable thing, especially for a new user who hasn't logged anything yet and
+    // would otherwise have to scroll past a stats card to find it. Once the day is fully logged,
+    // the status card leads instead, since there's nothing left to act on and the progress is now
+    // the more interesting thing to see first.
     val items = buildList<@Composable () -> Unit> {
-        add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
-        add { CheckInCard(viewModel, profile) }
+        if (viewModel.isDayComplete) {
+            add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
+            add { CheckInCard(viewModel, profile) }
+        } else {
+            add { CheckInCard(viewModel, profile) }
+            add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
+        }
     }
 
     LazyColumn(
