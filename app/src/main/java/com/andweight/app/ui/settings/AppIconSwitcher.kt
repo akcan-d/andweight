@@ -1,5 +1,6 @@
 package com.andweight.app.ui.settings
 
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
@@ -12,9 +13,18 @@ import com.andweight.app.domain.AccentTheme
  *
  * Disabling the alias the currently-running task was actually launched through makes Android
  * force-finish that activity a few seconds later - a well-known side effect of
- * setComponentEnabledSetting, and the cause of a crash shortly after switching themes. So the
- * alias that's actually active right now is never disabled immediately; it's recorded instead
- * and only cleaned up the next time the app cold-starts, once nothing is running under it.
+ * setComponentEnabledSetting. The fix is to track which single alias this process's MainActivity
+ * was actually opened through ([recordLaunchAlias]) and never disable that one until the app
+ * cold-starts again; every other alias is always safe to disable immediately, because nothing is
+ * running under it regardless of whether a previous switch this session happened to leave it
+ * enabled.
+ *
+ * An earlier version of this logic used "is this alias currently enabled" as a proxy for "is it
+ * in use," which is wrong - switching themes two or three times in one session left several
+ * aliases enabled at once (several differently-colored launcher icons appearing simultaneously),
+ * and since the stale-cleanup ran before MainActivity had a chance to say which one it actually
+ * needed, it could end up disabling the very component in the middle of launching - closing the
+ * app immediately and removing its icon from the launcher entirely.
  */
 object AppIconSwitcher {
 
@@ -25,17 +35,24 @@ object AppIconSwitcher {
         AccentTheme.OCEAN to "$PACKAGE.MainActivityOcean",
     )
 
-    // What AndroidManifest.xml declares for each alias before anything has ever been toggled -
-    // PackageManager reports COMPONENT_ENABLED_STATE_DEFAULT until setComponentEnabledSetting
-    // has explicitly overridden it, so this is needed to interpret that "default" state.
-    private val MANIFEST_DEFAULT_ENABLED = mapOf(
-        AccentTheme.SAGE to true,
-        AccentTheme.BERRY to false,
-        AccentTheme.OCEAN to false,
-    )
-
     private const val PREFS_NAME = "icon_switcher"
     private const val PENDING_DISABLE_KEY = "pending_disable_classes"
+
+    // In-memory only, not persisted - which alias className this process's MainActivity was
+    // actually launched through, if any. Fixed for the lifetime of the process.
+    @Volatile
+    private var launchAliasClassName: String? = null
+
+    /** Call once from MainActivity.onCreate, before anything else touches component state. */
+    fun recordLaunchAlias(activity: Activity) {
+        val launchedClassName = activity.intent?.component?.className
+        if (launchedClassName != null && ALIASES.containsValue(launchedClassName)) {
+            launchAliasClassName = launchedClassName
+        }
+        // Only safe to do this now that launchAliasClassName is set - it protects whichever alias
+        // this process actually depends on from being disabled out from under it.
+        applyPendingDisables(activity)
+    }
 
     fun apply(context: Context, theme: AccentTheme) {
         val packageManager = context.packageManager
@@ -45,11 +62,32 @@ object AppIconSwitcher {
             PackageManager.DONT_KILL_APP,
         )
 
-        val stillPending = mutableSetOf<String>()
         ALIASES.forEach { (candidate, className) ->
             if (candidate == theme) return@forEach
-            val isActiveNow = isAliasActive(packageManager, className, MANIFEST_DEFAULT_ENABLED.getValue(candidate))
-            if (isActiveNow) {
+            if (className == launchAliasClassName) {
+                addPendingDisable(context, className)
+            } else {
+                packageManager.setComponentEnabledSetting(
+                    ComponentName(PACKAGE, className),
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }
+        }
+    }
+
+    /** Finishes disabling whichever alias was protected during a previous session, now that a
+     * fresh process means nothing is running under it - unless this very process turns out to be
+     * launched through that same alias again, in which case it stays deferred once more. */
+    private fun applyPendingDisables(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val pending = prefs.getStringSet(PENDING_DISABLE_KEY, null) ?: return
+        if (pending.isEmpty()) return
+
+        val packageManager = context.packageManager
+        val stillPending = mutableSetOf<String>()
+        pending.forEach { className ->
+            if (className == launchAliasClassName) {
                 stillPending += className
             } else {
                 packageManager.setComponentEnabledSetting(
@@ -59,37 +97,14 @@ object AppIconSwitcher {
                 )
             }
         }
-        if (stillPending.isNotEmpty()) {
-            addPendingDisables(context, stillPending)
-        }
+        val prefsEditor = prefs.edit()
+        if (stillPending.isEmpty()) prefsEditor.remove(PENDING_DISABLE_KEY) else prefsEditor.putStringSet(PENDING_DISABLE_KEY, stillPending)
+        prefsEditor.apply()
     }
 
-    /** Call once on app start - finishes disabling whichever alias(es) were in use at the time
-     * of the last switch(es), now that nothing is running under them. */
-    fun applyPendingDisables(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val pending = prefs.getStringSet(PENDING_DISABLE_KEY, null) ?: return
-        if (pending.isEmpty()) return
-        pending.forEach { className ->
-            context.packageManager.setComponentEnabledSetting(
-                ComponentName(PACKAGE, className),
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP,
-            )
-        }
-        prefs.edit().remove(PENDING_DISABLE_KEY).apply()
-    }
-
-    private fun isAliasActive(packageManager: PackageManager, className: String, manifestDefault: Boolean): Boolean =
-        when (packageManager.getComponentEnabledSetting(ComponentName(PACKAGE, className))) {
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED -> false
-            else -> manifestDefault
-        }
-
-    private fun addPendingDisables(context: Context, classNames: Set<String>) {
+    private fun addPendingDisable(context: Context, className: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val existing = prefs.getStringSet(PENDING_DISABLE_KEY, null) ?: emptySet()
-        prefs.edit().putStringSet(PENDING_DISABLE_KEY, existing + classNames).apply()
+        prefs.edit().putStringSet(PENDING_DISABLE_KEY, existing + className).apply()
     }
 }
