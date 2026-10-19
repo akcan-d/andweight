@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <!-- Same progress-ring-and-dot glyph as the launcher icon, recentered and cropped to fill
+         the small notification icon area (the launcher version carries large adaptive-icon
+         safe-zone padding that would read as a tiny, off-center speck in the status bar). -->
+    <group android:translateX="2" android:translateY="2">
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="9"
+            android:strokeLineCap="round"
+            android:pathData="M54,30 A24,24 0 1 1 30,54" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,30 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+    </group>
+</vector>

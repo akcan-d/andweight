@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Favorite
@@ -46,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -165,8 +167,15 @@ fun SettingsScreen(
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         Text("Tips", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = tipsEnabled, onCheckedChange = viewModel::setTipsEnabled)
+        Row(
+            modifier = Modifier.toggleable(
+                value = tipsEnabled,
+                onValueChange = viewModel::setTipsEnabled,
+                role = Role.Checkbox,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = tipsEnabled, onCheckedChange = null)
             Text("Show a daily tip when I open the app")
         }
         TextButton(onClick = onViewAllTips) {
@@ -223,7 +232,13 @@ private fun SupporterSection(
         }
     }
 
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = isSupporter, onValueChange = onSetSupporter, role = Role.Switch),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(if (isSupporter) "Supporter" else "Become a supporter")
             Text(
@@ -232,7 +247,7 @@ private fun SupporterSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(checked = isSupporter, onCheckedChange = onSetSupporter)
+        Switch(checked = isSupporter, onCheckedChange = null)
     }
 
     Text("Color theme", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
@@ -241,7 +256,8 @@ private fun SupporterSection(
             val locked = theme.isSupporterOnly && !isSupporter
             FilterChip(
                 selected = accentTheme == theme,
-                onClick = { if (!locked) onSetAccentTheme(theme) },
+                enabled = !locked,
+                onClick = { onSetAccentTheme(theme) },
                 label = { Text(theme.label) },
                 leadingIcon = if (locked) {
                     { Icon(Icons.Outlined.Lock, contentDescription = "Supporter only", modifier = Modifier.size(16.dp)) }
@@ -346,21 +362,25 @@ private fun ReminderSection(
     }
     var showTimePicker by remember { mutableStateOf(false) }
 
+    val onReminderToggle: (Boolean) -> Unit = { checked ->
+        if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onEnabledChange(checked)
+        }
+    }
     Text("Daily reminder", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = reminderEnabled, onValueChange = onReminderToggle, role = Role.Switch),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text("Remind me to check in if I haven't yet")
-        Switch(
-            checked = reminderEnabled,
-            onCheckedChange = { checked ->
-                if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                ) {
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    onEnabledChange(checked)
-                }
-            },
-        )
+        Switch(checked = reminderEnabled, onCheckedChange = null)
     }
 
     if (reminderEnabled) {

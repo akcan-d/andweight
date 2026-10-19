@@ -58,6 +58,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -610,11 +612,14 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?) {
             val maxWeight = maxOf(weights.max(), goalWeight)
             val range = (maxWeight - minWeight).let { if (it < 0.01) 1.0 else it }
 
+            val weightChartDescription = "Weight trend chart, from ${oneDecimal(weights.first())} to " +
+                "${oneDecimal(weights.last())} ${unit.name.lowercase()}, goal ${oneDecimal(goalWeight)} ${unit.name.lowercase()}"
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 4.dp)
+                    .semantics { contentDescription = weightChartDescription },
             ) {
                 val chartHeight = size.height
                 val chartWidth = size.width
@@ -683,11 +688,14 @@ private fun CalorieTrendCard(logs: List<DailyLog>) {
             val maxCalories = calories.max()
             val range = (maxCalories - minCalories).let { if (it < 1.0) 1.0 else it }
 
+            val calorieChartDescription =
+                "Calorie trend chart, from ${calories.first().toInt()} to ${calories.last().toInt()} calories"
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 4.dp)
+                    .semantics { contentDescription = calorieChartDescription },
             ) {
                 val chartHeight = size.height
                 val chartWidth = size.width

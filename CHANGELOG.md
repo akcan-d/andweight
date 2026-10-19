@@ -7,6 +7,31 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-19
+
+### Added
+- Supporter tier: a one-time "Support the app" unlock in Settings for two extra color themes
+  (Berry, Ocean - these also recolor the app icon) and an extra calorie-trend chart on the
+  Journey page. The core app stays completely free. A rare, consent-based "want to support?"
+  prompt shows at most a handful of times, only after a few weeks of consistent use, never as a
+  recurring interruption
+- Predictive back gesture support
+- A proper notification icon matching the app's logo, instead of a generic one
+
+### Changed
+- Darkened several light-theme colors (primary, accent, secondary, soft/faint text, lines,
+  destructive) for better contrast and readability
+- Onboarding's safety-floor explanation no longer mentions sex by default - it just says 1200,
+  bumping to 1500 only if male is selected; the enforced floor for unspecified sex was lowered to
+  1200 to match what the screen actually says
+- Release builds now use R8 code shrinking and resource shrinking (smaller, obfuscated APK)
+- Accessibility: screen-reader descriptions for the weight/calorie trend charts, merged labels on
+  switches and checkboxes so they read as one control instead of two, and locked theme chips are
+  now properly disabled instead of silently ignoring a tap
+
+### Removed
+- CSV import/export, superseded by full backup/restore
+
 ## [0.17.0] - 2026-10-19
 
 ### Added

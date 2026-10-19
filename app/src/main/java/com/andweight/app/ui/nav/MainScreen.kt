@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Settings
@@ -44,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -268,10 +270,16 @@ private fun TipOfTheDayPopup(viewModel: TipOfTheDayViewModel) {
             Column {
                 Text(tip.body)
                 Row(
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier
+                        .padding(top = 12.dp)
+                        .toggleable(
+                            value = viewModel.dontShowAgain,
+                            onValueChange = { viewModel.onToggleDontShowAgain() },
+                            role = Role.Checkbox,
+                        ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Checkbox(checked = viewModel.dontShowAgain, onCheckedChange = { viewModel.onToggleDontShowAgain() })
+                    Checkbox(checked = viewModel.dontShowAgain, onCheckedChange = null)
                     Text("Don't show these again")
                 }
             }

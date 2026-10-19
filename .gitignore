@@ -14,3 +14,6 @@
 *.dex
 *.class
 local.properties
+*.jks
+*.keystore
+keystore.properties

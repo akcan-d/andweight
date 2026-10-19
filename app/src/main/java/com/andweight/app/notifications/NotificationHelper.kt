@@ -50,7 +50,7 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Time for your check-in")
             .setContentText("Log today's weight or meals to keep your estimate accurate.")
             .setContentIntent(pendingIntent)
