@@ -241,7 +241,7 @@ object IntakeResolver {
     /** A quick-pick answer is a formula-derived estimate, not a factual report - so it's safe (and
      * intended) to clamp it up to the safety floor. */
     fun resolveQuickPick(level: IntakeLevel, currentTdeeEstimate: Double, sex: Sex): CalorieResolution {
-        val raw = currentTdeeEstimate + level.offsetKcal
+        val raw = currentTdeeEstimate * (1.0 + level.offsetPercent)
         val floor = SafetyLimits.floorFor(sex)
         val floored = maxOf(raw, floor)
         return CalorieResolution(floored, floorApplied = floored > raw + 0.01)

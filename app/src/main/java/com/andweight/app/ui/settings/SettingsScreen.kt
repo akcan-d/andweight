@@ -86,6 +86,7 @@ fun SettingsScreen(
     val profile by viewModel.profile.collectAsState()
     val isSupporter by viewModel.isSupporter.collectAsState()
     val accentTheme by viewModel.accentTheme.collectAsState()
+    val highContrast by viewModel.highContrast.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -156,6 +157,17 @@ fun SettingsScreen(
                     label = { Text(mode.label) },
                 )
             }
+        }
+        Row(
+            modifier = Modifier.toggleable(
+                value = highContrast,
+                onValueChange = viewModel::setHighContrast,
+                role = Role.Checkbox,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = highContrast, onCheckedChange = null)
+            Text("High contrast")
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

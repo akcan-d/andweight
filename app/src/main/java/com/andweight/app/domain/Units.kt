@@ -91,10 +91,15 @@ object SafetyLimits {
 // [direction] is -1/0/+1 (less/usual/more) and [intensity] is 0-2 (how far from usual) - both
 // plain data so the UI layer can derive an icon and a neutral (non-judgmental - this app
 // deliberately doesn't code "ate more" as bad) visual weight without a parallel when-chain.
-enum class IntakeLevel(val offsetKcal: Double, val label: String, val shortLabel: String, val direction: Int, val intensity: Int) {
-    STARVING(-750.0, "Much less than usual", "Much less", -1, 2),
-    LESS_THAN_NORMAL(-350.0, "A bit less than usual", "A bit less", -1, 1),
+//
+// [offsetPercent] is a fraction of the person's own current TDEE estimate, not a flat kcal
+// number - a flat +/-750 kcal "much more/less" would be a huge swing for someone with a 1500 kcal
+// TDEE and a modest one for someone at 3500, so this scales with the person it's being applied to
+// instead of meaning something different for everyone.
+enum class IntakeLevel(val offsetPercent: Double, val label: String, val shortLabel: String, val direction: Int, val intensity: Int) {
+    STARVING(-0.40, "Much less than usual", "Much less", -1, 2),
+    LESS_THAN_NORMAL(-0.18, "A bit less than usual", "A bit less", -1, 1),
     AVERAGE(0.0, "About my usual amount", "Usual", 0, 0),
-    MORE_THAN_AVERAGE(350.0, "A bit more than usual", "A bit more", 1, 1),
-    BURSTED(750.0, "Much more than usual", "Much more", 1, 2),
+    MORE_THAN_AVERAGE(0.18, "A bit more than usual", "A bit more", 1, 1),
+    BURSTED(0.40, "Much more than usual", "Much more", 1, 2),
 }

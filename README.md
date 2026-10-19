@@ -38,11 +38,16 @@ Instead of logging every meal, you pick one of five options for how much you fel
 
 | Option | Assumed offset from your current TDEE |
 |---|---|
-| Much less than usual | -750 kcal |
-| A bit less than usual | -350 kcal |
-| About my usual amount | 0 kcal |
-| A bit more than usual | +350 kcal |
-| Much more than usual | +750 kcal |
+| Much less than usual | -40% |
+| A bit less than usual | -18% |
+| About my usual amount | 0% |
+| A bit more than usual | +18% |
+| Much more than usual | +40% |
+
+The offset is a percentage of your own TDEE estimate rather than a flat number of calories -
+a flat +/-750 kcal "much more/less" would be a huge swing for someone with a 1500 kcal TDEE and a
+modest one for someone at 3500, so this scales with the person instead of meaning something
+different for everyone.
 
 There's also an "exact calories" mode for anyone who wants to enter a precise number instead.
 Both paths go through the same safety floor before being saved.

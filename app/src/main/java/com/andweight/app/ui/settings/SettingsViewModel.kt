@@ -50,6 +50,9 @@ class SettingsViewModel(
     val accentTheme: StateFlow<AccentTheme> = settingsRepository.accentThemeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccentTheme.SAGE)
 
+    val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
     var didEraseData by mutableStateOf(false)
@@ -107,6 +110,10 @@ class SettingsViewModel(
             settingsRepository.setAccentTheme(theme)
             AppIconSwitcher.apply(application, theme)
         }
+    }
+
+    fun setHighContrast(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setHighContrast(enabled) }
     }
 
     fun eraseAllData() {

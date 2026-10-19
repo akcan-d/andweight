@@ -38,6 +38,7 @@ class SettingsRepository(private val context: Context) {
         val ACCENT_THEME = stringPreferencesKey("accent_theme")
         val SUPPORTER_PROMPT_SHOWN_COUNT = intPreferencesKey("supporter_prompt_shown_count")
         val LAST_SUPPORTER_PROMPT_EPOCH_DAY = longPreferencesKey("last_supporter_prompt_epoch_day")
+        val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -153,5 +154,16 @@ class SettingsRepository(private val context: Context) {
             it[Keys.SUPPORTER_PROMPT_SHOWN_COUNT] = (it[Keys.SUPPORTER_PROMPT_SHOWN_COUNT] ?: 0) + 1
             it[Keys.LAST_SUPPORTER_PROMPT_EPOCH_DAY] = date.toEpochDay()
         }
+    }
+
+    // A free accessibility option, not a supporter perk - swaps the warm, slightly muted neutrals
+    // for a plain near-black/near-white pair with bolder outlines, for anyone who finds the
+    // default palette too soft to read comfortably.
+    val highContrastFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.HIGH_CONTRAST] ?: false }
+
+    suspend fun highContrastOnce(): Boolean = highContrastFlow.first()
+
+    suspend fun setHighContrast(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
     }
 }

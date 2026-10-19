@@ -164,14 +164,15 @@ class TdeeEngineTest {
     @Test
     fun `quick-pick intake levels offset the current TDEE estimate`() {
         val resolution = IntakeResolver.resolveQuickPick(IntakeLevel.LESS_THAN_NORMAL, 2500.0, Sex.MALE)
-        assertEquals(2150.0, resolution.calories, 0.0)
+        // 2500 * (1 - 0.18) = 2050
+        assertEquals(2050.0, resolution.calories, 0.0)
         assertTrue(!resolution.floorApplied)
     }
 
     @Test
     fun `starving quick-pick is clamped to the safety floor for a low TDEE`() {
         val resolution = IntakeResolver.resolveQuickPick(IntakeLevel.STARVING, 1800.0, Sex.FEMALE)
-        // 1800 - 750 = 1050, below the 1200 floor for women
+        // 1800 * (1 - 0.40) = 1080, below the 1200 floor for women
         assertEquals(1200.0, resolution.calories, 0.0)
         assertTrue(resolution.floorApplied)
     }

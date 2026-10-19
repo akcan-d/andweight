@@ -27,6 +27,18 @@ val LightLine = Color(0xFFDDD3BF)
 val LightDestructive = Color(0xFFC14336)
 val LightDestructiveTint = Color(0xFFFAE1DD)
 
+// High contrast - a plain near-black/near-white pair plus a solid outline, swapped in for the
+// warm (but slightly muted) neutrals above when the high-contrast accessibility setting is on.
+// Accent colors (primary/accent/secondary/destructive) are left as-is - they're already tuned to
+// pass contrast against these same backgrounds, just not pushed to the absolute extreme.
+val LightBackgroundHC = Color(0xFFFFFFFF)
+val LightSurfaceHC = Color(0xFFFFFFFF)
+val LightSurfaceAltHC = Color(0xFFEAEAEA)
+val LightTextHC = Color(0xFF000000)
+val LightTextSoftHC = Color(0xFF1A1A1A)
+val LightTextFaintHC = Color(0xFF404040)
+val LightLineHC = Color(0xFF000000)
+
 // Dark - a warm near-black rather than pure black, cards a step lighter for separation without
 // a hard border; accents brightened slightly so they still read clearly on dark.
 val DarkBackground = Color(0xFF221F19)
@@ -47,3 +59,12 @@ val DarkTextFaint = Color(0xFF7D7768)
 val DarkLine = Color(0xFF433F34)
 val DarkDestructive = Color(0xFFE8897D)
 val DarkDestructiveTint = Color(0xFF4A312C)
+
+// High contrast - dark-mode counterpart to the Light*HC set above.
+val DarkBackgroundHC = Color(0xFF000000)
+val DarkSurfaceHC = Color(0xFF000000)
+val DarkSurfaceAltHC = Color(0xFF1C1C1C)
+val DarkTextHC = Color(0xFFFFFFFF)
+val DarkTextSoftHC = Color(0xFFEDEDED)
+val DarkTextFaintHC = Color(0xFFBFBFBF)
+val DarkLineHC = Color(0xFFFFFFFF)

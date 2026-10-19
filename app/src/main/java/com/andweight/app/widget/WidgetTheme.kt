@@ -23,6 +23,7 @@ object WidgetTheme {
         val app = context.applicationContext as AndWeightApplication
         val themeMode = app.settingsRepository.themeModeFlow.first()
         val accentTheme = app.settingsRepository.accentThemeFlow.first()
+        val highContrast = app.settingsRepository.highContrastFlow.first()
 
         val systemIsDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
@@ -33,7 +34,7 @@ object WidgetTheme {
         }
 
         val accent = accentPaletteFor(accentTheme, isDark)
-        val scheme = if (isDark) darkScheme(accent) else lightScheme(accent)
+        val scheme = if (isDark) darkScheme(accent, highContrast) else lightScheme(accent, highContrast)
         // Both slots get the same already-resolved scheme - Glance otherwise picks between
         // light/dark using the raw system setting, which would ignore a LIGHT/DARK override
         // chosen in Settings instead of "match system".
