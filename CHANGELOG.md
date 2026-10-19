@@ -7,6 +7,22 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-19
+
+### Added
+- A "Report a bug or send feedback" button in Settings > Help, opening an email pre-filled with
+  the app version and device details
+- The Today screen now leads with the check-in card (instead of the status card) whenever that
+  day's weight or meal is still missing, so a new user sees what to do first instead of having to
+  scroll past a stats card
+
+### Fixed
+- Theme switching could leave several differently-colored launcher icons enabled at once if you
+  switched more than once in a session, and in some cases disable the exact icon you were
+  launching through - closing the app immediately and removing it from the launcher entirely. The
+  icon-switching logic now correctly tracks which single icon the running app depends on and only
+  ever touches the others
+
 ## [0.20.0] - 2026-10-19
 
 ### Added
