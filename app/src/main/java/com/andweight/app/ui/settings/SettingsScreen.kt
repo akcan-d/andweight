@@ -73,7 +73,7 @@ import java.time.format.DateTimeFormatter
 private val timeFormatter12h = DateTimeFormatter.ofPattern("h:mm a")
 private val timeFormatter24h = DateTimeFormatter.ofPattern("HH:mm")
 private const val PRIVACY_POLICY_URL = "https://akcan-d.github.io/andweight/privacy-policy.html"
-private const val FEEDBACK_EMAIL = "akcan.dayibas@gmail.com"
+private const val FEEDBACK_EMAIL = "andweight.app@gmail.com"
 
 @Composable
 fun SettingsScreen(
