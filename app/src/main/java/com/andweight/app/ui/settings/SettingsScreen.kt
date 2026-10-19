@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.andweight.app.domain.BackupSerializer
 import com.andweight.app.domain.CsvImport
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.domain.WeightUnit
@@ -72,6 +73,8 @@ fun SettingsScreen(
     val reminderEnabled by viewModel.reminderEnabled.collectAsState()
     val reminderTime by viewModel.reminderTime.collectAsState()
     val profile by viewModel.profile.collectAsState()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(viewModel.didEraseData) {
         if (viewModel.didEraseData) onDataErased()
@@ -89,8 +92,22 @@ fun SettingsScreen(
             ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
-            Text("Edit profile")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = onEditProfile, modifier = Modifier.weight(1f)) {
+                Text("Edit profile")
+            }
+            OutlinedButton(
+                onClick = {
+                    coroutineScope.launch {
+                        val summary = viewModel.buildShareSummary() ?: return@launch
+                        val bitmap = ShareImageRenderer.render(context, summary)
+                        ShareImageRenderer.share(context, bitmap)
+                    }
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Share progress")
+            }
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -155,11 +172,94 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+        BackupRestoreSection(onBuildBackup = viewModel::buildFullBackup, onRestoreBackup = viewModel::restoreFullBackup)
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
         ExportImportSection(onBuildCsv = viewModel::buildCsvExport, onImportCsv = viewModel::importCsv)
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         EraseDataSection(onErase = viewModel::eraseAllData)
+    }
+}
+
+@Composable
+private fun BackupRestoreSection(
+    onBuildBackup: suspend () -> String,
+    onRestoreBackup: suspend (String) -> BackupSerializer.BackupData?,
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var restoreResult by remember { mutableStateOf<BackupSerializer.BackupData?>(null) }
+    var restoreFailed by remember { mutableStateOf(false) }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val backup = onBuildBackup()
+            context.contentResolver.openOutputStream(uri)?.use { it.write(backup.toByteArray()) }
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            if (text != null) {
+                val result = onRestoreBackup(text)
+                if (result == null) restoreFailed = true else restoreResult = result
+            }
+        }
+    }
+
+    Text("Backup & restore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Text(
+        "A full backup of your profile, goal, and every logged day - restoring one sets everything " +
+            "back up in one go, unlike a CSV which only covers your history.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    OutlinedButton(
+        onClick = { createDocumentLauncher.launch("andweight_backup_${LocalDate.now()}.txt") },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Create a full backup")
+    }
+    OutlinedButton(
+        onClick = { openDocumentLauncher.launch("*/*") },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Restore from a backup")
+    }
+
+    restoreResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { restoreResult = null },
+            title = { Text("Restore complete") },
+            text = {
+                val dayWord = if (result.logs.size == 1) "day" else "days"
+                val parts = mutableListOf<String>()
+                if (result.profile != null) parts += "your profile"
+                parts += "${result.logs.size} $dayWord"
+                if (result.settings != null) parts += "your preferences"
+                Text("Restored ${parts.joinToString(", ")}.")
+            },
+            confirmButton = {
+                TextButton(onClick = { restoreResult = null }) { Text("OK") }
+            },
+        )
+    }
+
+    if (restoreFailed) {
+        AlertDialog(
+            onDismissRequest = { restoreFailed = false },
+            title = { Text("Couldn't read that file") },
+            text = { Text("That doesn't look like an AndWeight backup file.") },
+            confirmButton = {
+                TextButton(onClick = { restoreFailed = false }) { Text("OK") }
+            },
+        )
     }
 }
 

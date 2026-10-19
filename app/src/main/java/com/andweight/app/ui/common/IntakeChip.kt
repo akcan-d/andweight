@@ -4,11 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingDown
-import androidx.compose.material.icons.automirrored.filled.TrendingFlat
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.filled.KeyboardDoubleArrowDown
-import androidx.compose.material.icons.filled.KeyboardDoubleArrowUp
+import androidx.compose.material.icons.automirrored.outlined.TrendingDown
+import androidx.compose.material.icons.automirrored.outlined.TrendingFlat
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,11 +32,11 @@ fun IntakeChip(log: DailyLog, style: TextStyle = MaterialTheme.typography.bodyLa
         log.intakeLevel != null -> {
             val level = log.intakeLevel
             val icon = when {
-                level.direction < 0 && level.intensity >= 2 -> Icons.Filled.KeyboardDoubleArrowDown
-                level.direction < 0 -> Icons.AutoMirrored.Filled.TrendingDown
-                level.direction > 0 && level.intensity >= 2 -> Icons.Filled.KeyboardDoubleArrowUp
-                level.direction > 0 -> Icons.AutoMirrored.Filled.TrendingUp
-                else -> Icons.AutoMirrored.Filled.TrendingFlat
+                level.direction < 0 && level.intensity >= 2 -> Icons.Outlined.KeyboardDoubleArrowDown
+                level.direction < 0 -> Icons.AutoMirrored.Outlined.TrendingDown
+                level.direction > 0 && level.intensity >= 2 -> Icons.Outlined.KeyboardDoubleArrowUp
+                level.direction > 0 -> Icons.AutoMirrored.Outlined.TrendingUp
+                else -> Icons.AutoMirrored.Outlined.TrendingFlat
             }
             val alpha = 0.55f + (level.intensity * 0.225f)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

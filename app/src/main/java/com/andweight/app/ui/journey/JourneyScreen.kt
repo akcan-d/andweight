@@ -1,12 +1,14 @@
 package com.andweight.app.ui.journey
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,13 +21,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -44,9 +49,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.DailyLog
@@ -197,6 +209,9 @@ fun JourneyScreen(
 private fun MilestonesEntryCard(milestones: List<Milestone>, onClick: () -> Unit) {
     val achievedCount = milestones.count { it.achieved }
     JourneyEntryCard(
+        icon = Icons.Outlined.EmojiEvents,
+        iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
         title = "Milestones",
         subtitle = if (achievedCount == 0) "None unlocked yet" else "$achievedCount unlocked",
         onClick = onClick,
@@ -207,6 +222,9 @@ private fun MilestonesEntryCard(milestones: List<Milestone>, onClick: () -> Unit
 private fun ResearchEntryCard(benefits: List<HealthBenefit>, onClick: () -> Unit) {
     val achievedCount = benefits.count { it.achieved }
     JourneyEntryCard(
+        icon = Icons.Outlined.FavoriteBorder,
+        iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+        iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
         title = "What the research says",
         subtitle = if (achievedCount == 0) "Nothing unlocked yet" else "$achievedCount unlocked",
         onClick = onClick,
@@ -214,18 +232,34 @@ private fun ResearchEntryCard(benefits: List<HealthBenefit>, onClick: () -> Unit
 }
 
 @Composable
-private fun JourneyEntryCard(title: String, subtitle: String, onClick: () -> Unit) {
+private fun JourneyEntryCard(
+    icon: ImageVector,
+    iconContainerColor: Color,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(iconContainerColor),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -245,7 +279,7 @@ fun MilestonesScreen(
                 title = { Text("Milestones") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
@@ -263,6 +297,8 @@ fun MilestonesScreen(
                 ),
         ) {
             MilestonesSection(milestones)
+            Spacer(Modifier.height(16.dp))
+            MilestonesMascot()
         }
     }
 }
@@ -282,7 +318,7 @@ fun ResearchScreen(
                 title = { Text("What the research says") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
@@ -300,6 +336,88 @@ fun ResearchScreen(
                 ),
         ) {
             HealthBenefitsSection(benefits)
+        }
+    }
+}
+
+@Composable
+private fun MilestonesMascot() {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val faceColor = MaterialTheme.colorScheme.primaryContainer
+            val featureColor = MaterialTheme.colorScheme.onPrimaryContainer
+            val badgeColor = MaterialTheme.colorScheme.tertiary
+            val badgeMarkColor = MaterialTheme.colorScheme.onTertiary
+            val shadowColor = MaterialTheme.colorScheme.surfaceVariant
+
+            Canvas(modifier = Modifier.size(104.dp, 88.dp)) {
+                val w = size.width
+                val h = size.height
+
+                drawOval(
+                    color = shadowColor,
+                    topLeft = Offset(w * 0.18f, h * 0.86f),
+                    size = Size(w * 0.64f, h * 0.08f),
+                )
+
+                val faceRadius = w * 0.36f
+                val faceCenter = Offset(w * 0.47f, h * 0.48f)
+                drawCircle(color = faceColor, radius = faceRadius, center = faceCenter)
+
+                val eyeRadius = w * 0.032f
+                drawCircle(
+                    color = featureColor,
+                    radius = eyeRadius,
+                    center = Offset(faceCenter.x - faceRadius * 0.34f, faceCenter.y - faceRadius * 0.08f),
+                )
+                drawCircle(
+                    color = featureColor,
+                    radius = eyeRadius,
+                    center = Offset(faceCenter.x + faceRadius * 0.34f, faceCenter.y - faceRadius * 0.08f),
+                )
+
+                drawArc(
+                    color = featureColor,
+                    startAngle = 25f,
+                    sweepAngle = 130f,
+                    useCenter = false,
+                    topLeft = Offset(faceCenter.x - faceRadius * 0.4f, faceCenter.y - faceRadius * 0.05f),
+                    size = Size(faceRadius * 0.8f, faceRadius * 0.7f),
+                    style = Stroke(width = w * 0.022f, cap = StrokeCap.Round),
+                )
+
+                val badgeRadius = w * 0.15f
+                val badgeCenter = Offset(faceCenter.x + faceRadius * 0.82f, faceCenter.y - faceRadius * 0.78f)
+                drawCircle(color = badgeColor, radius = badgeRadius, center = badgeCenter)
+                val markHalf = badgeRadius * 0.4f
+                drawLine(
+                    color = badgeMarkColor,
+                    start = Offset(badgeCenter.x - markHalf, badgeCenter.y),
+                    end = Offset(badgeCenter.x - markHalf * 0.2f, badgeCenter.y + markHalf * 0.7f),
+                    strokeWidth = w * 0.016f,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color = badgeMarkColor,
+                    start = Offset(badgeCenter.x - markHalf * 0.2f, badgeCenter.y + markHalf * 0.7f),
+                    end = Offset(badgeCenter.x + markHalf, badgeCenter.y - markHalf * 0.6f),
+                    strokeWidth = w * 0.016f,
+                    cap = StrokeCap.Round,
+                )
+            }
+
+            Text("More milestones on the way", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "Keep logging and we'll keep finding new things worth celebrating.",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -323,12 +441,17 @@ private fun MilestonesSection(milestones: List<Milestone>) {
                         label = { Text(milestone.title) },
                         leadingIcon = {
                             Icon(
-                                Icons.Filled.CheckCircle,
+                                Icons.Outlined.CheckCircle,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.size(16.dp),
                             )
                         },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        ),
+                        border = null,
                     )
                 }
             }
@@ -347,6 +470,11 @@ private fun MilestonesSection(milestones: List<Milestone>) {
                     AssistChip(
                         onClick = {},
                         label = { Text(milestone.hint?.let { hint -> "${milestone.title} - $hint" } ?: milestone.title) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                        border = null,
                     )
                 }
             }
@@ -394,12 +522,17 @@ private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
                         label = { Text(fact.title) },
                         leadingIcon = {
                             Icon(
-                                Icons.Filled.CheckCircle,
+                                Icons.Outlined.CheckCircle,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(16.dp),
                             )
                         },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ),
+                        border = null,
                     )
                 }
             }
@@ -534,10 +667,10 @@ private fun DailyCard(log: DailyLog, profile: UserProfile?, onEdit: () -> Unit, 
                 IntakeChip(log, style = MaterialTheme.typography.bodySmall)
             }
             IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Edit this day")
+                Icon(Icons.Outlined.Edit, contentDescription = "Edit this day")
             }
             IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete this day", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Outlined.Delete, contentDescription = "Delete this day", tint = MaterialTheme.colorScheme.error)
             }
         }
     }

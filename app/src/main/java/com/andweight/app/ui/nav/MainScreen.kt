@@ -5,23 +5,28 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -35,7 +40,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -96,25 +105,40 @@ fun MainScreen(onDataErased: () -> Unit) {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val onTabs = backStackEntry?.destination?.route == MAIN_TABS_ROUTE
 
-            NavigationBar {
-                NavigationBarItem(
-                    selected = onTabs && pagerState.currentPage == TAB_STATUS,
-                    onClick = { goToTab(TAB_STATUS) },
-                    icon = { Icon(Icons.Filled.Today, contentDescription = null) },
-                    label = { Text("Status") },
-                )
-                NavigationBarItem(
-                    selected = onTabs && pagerState.currentPage == TAB_JOURNEY,
-                    onClick = { goToTab(TAB_JOURNEY) },
-                    icon = { Icon(Icons.Filled.EmojiEvents, contentDescription = null) },
-                    label = { Text("Journey") },
-                )
-                NavigationBarItem(
-                    selected = onTabs && pagerState.currentPage == TAB_SETTINGS,
-                    onClick = { goToTab(TAB_SETTINGS) },
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 6.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    NavPillItem(
+                        selected = onTabs && pagerState.currentPage == TAB_STATUS,
+                        icon = Icons.Outlined.WbSunny,
+                        label = "Status",
+                        onClick = { goToTab(TAB_STATUS) },
+                    )
+                    NavPillItem(
+                        selected = onTabs && pagerState.currentPage == TAB_JOURNEY,
+                        icon = Icons.Outlined.EmojiEvents,
+                        label = "Journey",
+                        onClick = { goToTab(TAB_JOURNEY) },
+                    )
+                    NavPillItem(
+                        selected = onTabs && pagerState.currentPage == TAB_SETTINGS,
+                        icon = Icons.Outlined.Settings,
+                        label = "Settings",
+                        onClick = { goToTab(TAB_SETTINGS) },
+                    )
+                }
             }
         },
     ) { padding ->
@@ -167,6 +191,27 @@ fun MainScreen(onDataErased: () -> Unit) {
                 ResearchScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             }
         }
+    }
+}
+
+/** A floating rounded pill rather than an edge-to-edge bar - the active tab gets a soft tinted
+ * background instead of just a color change, matching the chip language used everywhere else. */
+@Composable
+private fun NavPillItem(selected: Boolean, icon: ImageVector, label: String, onClick: () -> Unit) {
+    val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Column(
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(containerColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(21.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = contentColor, fontWeight = FontWeight.SemiBold)
     }
 }
 

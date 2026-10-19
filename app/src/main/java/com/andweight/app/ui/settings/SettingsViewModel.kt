@@ -8,8 +8,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
+import com.andweight.app.domain.BackupSerializer
 import com.andweight.app.domain.CsvExport
 import com.andweight.app.domain.CsvImport
+import com.andweight.app.domain.GoalDirection
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.domain.UserProfile
 import com.andweight.app.domain.WeightUnit
@@ -19,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
@@ -104,5 +108,67 @@ class SettingsViewModel(
             repository.saveLog(log.date, log.weightKg, log.calories, log.intakeLevel, log.wasExactEntry)
         }
         return result
+    }
+
+    /** Unlike CSV, this also captures the profile and a few preferences, so restoring onto a
+     * fresh install doesn't mean redoing onboarding. */
+    suspend fun buildFullBackup(): String {
+        val currentSettings = BackupSerializer.Settings(
+            themeMode = settingsRepository.themeModeFlow.first(),
+            tipsEnabled = settingsRepository.isTipsEnabledOnce(),
+            reminderEnabled = settingsRepository.isReminderEnabledOnce(),
+            reminderHour = settingsRepository.getReminderTimeOnce().first,
+            reminderMinute = settingsRepository.getReminderTimeOnce().second,
+        )
+        return BackupSerializer.build(repository.getProfileOnce(), currentSettings, repository.logsFlow.first())
+    }
+
+    /** Null means the file wasn't recognizable as an AndWeight backup at all, so nothing was
+     * touched - distinct from a recognizable file that's missing a section, which restores
+     * whatever did parse (e.g. an older backup with no [settings] block still restores the
+     * profile and logs). */
+    suspend fun restoreFullBackup(text: String): BackupSerializer.BackupData? {
+        val result = BackupSerializer.parse(text) ?: return null
+
+        result.profile?.let { repository.saveProfile(it) }
+        result.logs.forEach { log ->
+            repository.saveLog(log.date, log.weightKg, log.calories, log.intakeLevel, log.wasExactEntry)
+        }
+        result.settings?.let { settings ->
+            settingsRepository.setThemeMode(settings.themeMode)
+            settingsRepository.setTipsEnabled(settings.tipsEnabled)
+            settingsRepository.setReminderEnabled(settings.reminderEnabled)
+            settingsRepository.setReminderTime(settings.reminderHour, settings.reminderMinute)
+            if (settings.reminderEnabled) {
+                ReminderScheduler.schedule(application, settings.reminderHour, settings.reminderMinute)
+            } else {
+                ReminderScheduler.cancel(application)
+            }
+        }
+
+        return result
+    }
+
+    data class ShareSummary(
+        val daysActive: Int,
+        val changeKg: Double,
+        val direction: GoalDirection,
+        val unit: WeightUnit,
+    )
+
+    /** Null when there's no profile yet to share progress against. */
+    suspend fun buildShareSummary(): ShareSummary? {
+        val currentProfile = repository.getProfileOnce() ?: return null
+        val state = repository.tdeeStateFlow().first() ?: return null
+        val logs = repository.logsFlow.first()
+        val firstLoggedDate = logs.minOfOrNull { it.date }
+        val daysActive = firstLoggedDate?.let { ChronoUnit.DAYS.between(it, LocalDate.now()).toInt() + 1 } ?: 0
+
+        return ShareSummary(
+            daysActive = daysActive,
+            changeKg = state.currentWeightKg - state.earliestKnownWeightKg,
+            direction = currentProfile.goalDirection,
+            unit = currentProfile.weightUnit,
+        )
     }
 }

@@ -1,5 +1,6 @@
 package com.andweight.app.ui.today
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,23 +8,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,9 +31,9 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
@@ -52,7 +50,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -138,6 +140,8 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
 
             HeroSection(profile, tdeeState)
 
+            HorizontalDivider()
+
             val advice = CoachingAdvisor.advise(profile, tdeeState)
             Text(
                 advice.message,
@@ -184,51 +188,72 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        var targetDate: LocalDate? = null
-
         when {
             tdeeState.weeksToGoal == null -> {
-                Text("Maintaining", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Maintaining", style = MaterialTheme.typography.headlineMedium)
                 Text("Aiming to hold steady at your current weight", style = MaterialTheme.typography.bodyMedium)
             }
             tdeeState.weeksToGoal <= 0.0 -> {
-                Text("Goal reached!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Goal reached!", style = MaterialTheme.typography.headlineMedium)
                 Text("Nice work getting here.", style = MaterialTheme.typography.bodyMedium)
             }
             else -> {
                 val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
                 val countdown = Phrasing.goalCountdown(daysToGoal)
-                targetDate = tdeeState.goalDate
-                Text(
-                    if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}",
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Bold,
+                ProgressRing(
+                    progress = goalProgress(profile, tdeeState) ?: 0f,
+                    value = if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}",
+                    label = "${countdown.unitLabel} to go",
                 )
-                Text("${countdown.unitLabel} until you reach your goal", style = MaterialTheme.typography.bodyMedium)
+                tdeeState.goalDate?.let {
+                    Text(
+                        "Target date: ${Phrasing.formatTargetDate(it)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
+    }
+}
 
-        val progress = goalProgress(profile, tdeeState)
-        if (progress != null) {
-            Spacer(Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
+/** A ring instead of a linear bar for the goal countdown - it's the one number on this screen
+ * meant to be taken in at a glance, so it gets the most visual weight. */
+@Composable
+private fun ProgressRing(progress: Float, value: String, label: String) {
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val ringColor = MaterialTheme.colorScheme.primary
+
+    Box(modifier = Modifier.size(172.dp), contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxWidth().size(172.dp)) {
+            val strokeWidth = 16.dp.toPx()
+            val diameter = size.minDimension - strokeWidth
+            val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+            val arcSize = Size(diameter, diameter)
+            drawArc(
+                color = trackColor,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+            )
+            drawArc(
+                color = ringColor,
+                startAngle = -90f,
+                sweepAngle = 360f * progress.coerceIn(0f, 1f),
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
             )
         }
-
-        targetDate?.let {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Target date: ${Phrasing.formatTargetDate(it)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -282,7 +307,7 @@ private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
 @Composable
 private fun AllSetBanner() {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         Text(
             "You're all set for today - don't forget to check in again tomorrow!",
             style = MaterialTheme.typography.bodyMedium,
@@ -302,7 +327,7 @@ private fun DayPager(viewModel: TodayViewModel) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = viewModel::goToPreviousDay, enabled = viewModel.canGoToPreviousDay()) {
-            Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day")
+            Icon(Icons.Outlined.ChevronLeft, contentDescription = "Previous day")
         }
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -312,17 +337,17 @@ private fun DayPager(viewModel: TodayViewModel) {
                 fontWeight = FontWeight.Bold,
             )
             IconButton(onClick = { showDatePicker = true }) {
-                Icon(Icons.Filled.CalendarMonth, contentDescription = "Jump to a specific date")
+                Icon(Icons.Outlined.CalendarMonth, contentDescription = "Jump to a specific date")
             }
             if (viewModel.canJumpToToday()) {
                 IconButton(onClick = viewModel::jumpToToday) {
-                    Icon(Icons.Filled.Refresh, contentDescription = "Jump to today")
+                    Icon(Icons.Outlined.Refresh, contentDescription = "Jump to today")
                 }
             }
         }
 
         IconButton(onClick = viewModel::goToNextDay, enabled = viewModel.canGoToNextDay()) {
-            Icon(Icons.Filled.ChevronRight, contentDescription = "Next day")
+            Icon(Icons.Outlined.ChevronRight, contentDescription = "Next day")
         }
     }
 
@@ -434,7 +459,7 @@ private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 IconButton(onClick = viewModel::onStartEditingWeight) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit weight")
+                    Icon(Icons.Outlined.Edit, contentDescription = "Edit weight")
                 }
             }
         }
@@ -453,7 +478,7 @@ private fun MealSection(viewModel: TodayViewModel) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (log != null) IntakeChip(log) else Text("-")
                 IconButton(onClick = viewModel::onStartEditingMeal) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit meal info")
+                    Icon(Icons.Outlined.Edit, contentDescription = "Edit meal info")
                 }
             }
         }
@@ -568,16 +593,20 @@ private fun ConfidenceBadge(confidence: ConfidenceAssessment, onEditProfile: () 
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.clickable { showExplanation = true },
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.extraSmall)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable { showExplanation = true }
+            .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(10.dp)
+                .size(9.dp)
                 .clip(CircleShape)
                 .background(color),
         )
-        Text(confidence.level.label, style = MaterialTheme.typography.labelSmall, color = color)
+        Text(confidence.level.label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
     }
 
     if (showExplanation) {

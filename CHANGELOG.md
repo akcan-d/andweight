@@ -7,6 +7,18 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-19
+
+### Added
+- A full visual redesign: a warm cream/sage/coral/sky palette (with a matching dark theme),
+  Quicksand + Figtree fonts, rounder cards and chips, a custom ring for the Status page's goal
+  countdown instead of a linear bar, a floating pill-shaped bottom nav, color-coded tinted icons
+  throughout, and a small mascot illustration on the Milestones screen
+- Full backup & restore in Settings - unlike CSV, this also captures your profile/goal and a few
+  preferences, so restoring onto a fresh install doesn't mean redoing onboarding
+- Share progress as an image - a "Share progress" button next to Edit profile renders a simple
+  branded summary card (weight change, days tracked) and opens the system share sheet
+
 ## [0.16.0] - 2026-08-13
 
 ### Added
