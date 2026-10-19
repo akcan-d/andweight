@@ -39,6 +39,8 @@ class SettingsRepository(private val context: Context) {
         val SUPPORTER_PROMPT_SHOWN_COUNT = intPreferencesKey("supporter_prompt_shown_count")
         val LAST_SUPPORTER_PROMPT_EPOCH_DAY = longPreferencesKey("last_supporter_prompt_epoch_day")
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
+        val SEEN_MILESTONE_TITLES = stringSetPreferencesKey("seen_milestone_titles")
+        val MILESTONE_BASELINE_DONE = booleanPreferencesKey("milestone_baseline_done")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -165,5 +167,25 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHighContrast(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
+    }
+
+    /** Titles of milestones already announced via the in-app notification, so reaching one only
+     * ever gets celebrated once - mirrors [seenTipTitlesFlow]'s pattern. */
+    suspend fun seenMilestoneTitlesOnce(): Set<String> =
+        context.settingsDataStore.data.map { it[Keys.SEEN_MILESTONE_TITLES] ?: emptySet() }.first()
+
+    suspend fun markMilestonesSeen(titles: Set<String>) {
+        context.settingsDataStore.edit { it[Keys.SEEN_MILESTONE_TITLES] = (it[Keys.SEEN_MILESTONE_TITLES] ?: emptySet()) + titles }
+    }
+
+    /** Whether whatever was already achieved has been recorded as a starting point - without this,
+     * someone upgrading from a version before this feature existed would get every milestone
+     * they'd already reached dumped on them at once as "new", instead of only being notified about
+     * ones reached from here on. */
+    suspend fun isMilestoneBaselineDoneOnce(): Boolean =
+        context.settingsDataStore.data.map { it[Keys.MILESTONE_BASELINE_DONE] ?: false }.first()
+
+    suspend fun setMilestoneBaselineDone() {
+        context.settingsDataStore.edit { it[Keys.MILESTONE_BASELINE_DONE] = true }
     }
 }

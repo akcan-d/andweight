@@ -8,6 +8,7 @@ import com.andweight.app.AndWeightApplication
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
 import com.andweight.app.ui.journey.JourneyViewModel
+import com.andweight.app.ui.journey.MilestoneUnlockViewModel
 import com.andweight.app.ui.onboarding.OnboardingViewModel
 import com.andweight.app.ui.settings.EditProfileViewModel
 import com.andweight.app.ui.settings.ReminderOptInViewModel
@@ -33,6 +34,7 @@ object AppViewModelProvider {
         initializer { EditProfileViewModel(repository()) }
         initializer { ReminderOptInViewModel(settingsRepository(), repository(), application()) }
         initializer { SupporterPromptViewModel(repository(), settingsRepository()) }
+        initializer { MilestoneUnlockViewModel(repository(), settingsRepository()) }
     }
 }
 

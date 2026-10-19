@@ -27,12 +27,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +61,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.ui.AppViewModelProvider
 import com.andweight.app.ui.journey.JourneyScreen
+import com.andweight.app.ui.journey.MilestoneUnlockViewModel
 import com.andweight.app.ui.journey.MilestonesScreen
 import com.andweight.app.ui.journey.ResearchScreen
 import com.andweight.app.ui.settings.EditProfileScreen
@@ -103,7 +109,27 @@ fun MainScreen(onDataErased: () -> Unit) {
 
     PopupHost()
 
+    // A brief, dismissible notification rather than a dialog - reaching a milestone is good news
+    // to glance at, not something that needs an explicit "OK".
+    val milestoneViewModel: MilestoneUnlockViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val milestoneMessage = milestoneViewModel.newMilestoneMessage
+    LaunchedEffect(milestoneMessage) {
+        if (milestoneMessage != null) {
+            val result = snackbarHostState.showSnackbar(
+                message = milestoneMessage,
+                actionLabel = "View",
+                duration = SnackbarDuration.Long,
+            )
+            milestoneViewModel.onMessageShown()
+            if (result == SnackbarResult.ActionPerformed) {
+                navController.navigate(JOURNEY_MILESTONES_ROUTE)
+            }
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val onTabs = backStackEntry?.destination?.route == MAIN_TABS_ROUTE
