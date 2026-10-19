@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,6 +69,7 @@ import java.time.format.DateTimeFormatter
 
 private val timeFormatter12h = DateTimeFormatter.ofPattern("h:mm a")
 private val timeFormatter24h = DateTimeFormatter.ofPattern("HH:mm")
+private const val PRIVACY_POLICY_URL = "https://akcan-d.github.io/andweight/privacy-policy.html"
 
 @Composable
 fun SettingsScreen(
@@ -88,6 +90,7 @@ fun SettingsScreen(
     val accentTheme by viewModel.accentTheme.collectAsState()
     val highContrast by viewModel.highContrast.collectAsState()
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(viewModel.didEraseData) {
@@ -209,6 +212,9 @@ fun SettingsScreen(
         }
         OutlinedButton(onClick = onShowTdeeInfo, modifier = Modifier.fillMaxWidth()) {
             Text("How your estimate works")
+        }
+        TextButton(onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) }) {
+            Text("Privacy policy")
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

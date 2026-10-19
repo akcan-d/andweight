@@ -7,6 +7,25 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-19
+
+### Added
+- A privacy policy, linked from Settings > Help, and published at
+  https://akcan-d.github.io/andweight/privacy-policy.html for the Play Store listing
+- High contrast mode: a free accessibility toggle in Settings > Appearance
+- Input bounds on exact-calorie entry and onboarding/Edit Profile's weight, height, and age
+  fields, to catch an obvious typo before it feeds a nonsensical number into the TDEE math
+
+### Changed
+- The quick-pick "a bit/much more or less than usual" options now scale as a percentage of your
+  own current TDEE estimate (+-18%/40%) instead of a flat +-350/750 kcal for everyone
+
+### Fixed
+- Journey's empty state told new users to check in from the "Today" tab - it's actually called
+  "Status"
+- Dropped the unused SCHEDULE_EXACT_ALARM permission (reduces Play Store review risk with no
+  functional loss - the reminder already falls back to an inexact alarm in practice)
+
 ## [0.19.0] - 2026-10-19
 
 ### Changed
