@@ -3,13 +3,11 @@ package com.andweight.app.domain
 import java.time.LocalDate
 
 /**
- * Whole-app backup/restore - unlike [CsvExport]/[CsvImport], which only round-trip the logged
- * days, this captures the profile (goal, pace, height, age, activity level, units - everything
- * onboarding asks for) and a few preferences too, so restoring onto a fresh install doesn't mean
- * redoing setup from scratch. Plain `[section]` + `key=value` text rather than a real JSON/CSV
- * library, matching how [CsvImport] is hand-rolled elsewhere in this app - every value here is
- * program-generated (a number, an enum name, a boolean, an ISO date), so there's nothing that
- * needs escaping.
+ * Whole-app backup/restore - captures the profile (goal, pace, height, age, activity level,
+ * units - everything onboarding asks for) and a few preferences, not just the logged days, so
+ * restoring onto a fresh install doesn't mean redoing setup from scratch. Plain `[section]` +
+ * `key=value` text rather than a real JSON library - every value here is program-generated (a
+ * number, an enum name, a boolean, an ISO date), so there's nothing that needs escaping.
  */
 object BackupSerializer {
 

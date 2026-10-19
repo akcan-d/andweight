@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.BackupSerializer
-import com.andweight.app.domain.CsvImport
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.domain.WeightUnit
 import com.andweight.app.ui.AppViewModelProvider
@@ -176,10 +175,6 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        ExportImportSection(onBuildCsv = viewModel::buildCsvExport, onImportCsv = viewModel::importCsv)
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
         EraseDataSection(onErase = viewModel::eraseAllData)
     }
 }
@@ -215,8 +210,8 @@ private fun BackupRestoreSection(
 
     Text("Backup & restore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text(
-        "A full backup of your profile, goal, and every logged day - restoring one sets everything " +
-            "back up in one go, unlike a CSV which only covers your history.",
+        "A full backup of your profile, goal, and every logged day - restoring one sets " +
+            "everything back up in one go.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -258,71 +253,6 @@ private fun BackupRestoreSection(
             text = { Text("That doesn't look like an AndWeight backup file.") },
             confirmButton = {
                 TextButton(onClick = { restoreFailed = false }) { Text("OK") }
-            },
-        )
-    }
-}
-
-@Composable
-private fun ExportImportSection(onBuildCsv: suspend () -> String, onImportCsv: suspend (String) -> CsvImport.ImportResult) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var importResult by remember { mutableStateOf<CsvImport.ImportResult?>(null) }
-
-    val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        coroutineScope.launch {
-            val csv = onBuildCsv()
-            context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-        }
-    }
-
-    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        coroutineScope.launch {
-            val csv = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            if (csv != null) importResult = onImportCsv(csv)
-        }
-    }
-
-    Text("Export & import", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Text(
-        "Save your full weight and calorie history as a CSV file, or restore/merge one back in. " +
-            "Imported days replace any existing entry for that date - other days are left as they are.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    OutlinedButton(
-        onClick = { createDocumentLauncher.launch("andweight_export_${LocalDate.now()}.csv") },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text("Export data as CSV")
-    }
-    OutlinedButton(
-        onClick = { openDocumentLauncher.launch("*/*") },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text("Import data from CSV")
-    }
-
-    importResult?.let { result ->
-        AlertDialog(
-            onDismissRequest = { importResult = null },
-            title = { Text("Import complete") },
-            text = {
-                val dayWord = if (result.logs.size == 1) "day" else "days"
-                Text(
-                    if (result.skippedRowCount == 0) {
-                        "Imported ${result.logs.size} $dayWord."
-                    } else {
-                        val rowWord = if (result.skippedRowCount == 1) "row" else "rows"
-                        "Imported ${result.logs.size} $dayWord, skipped ${result.skippedRowCount} " +
-                            "$rowWord that couldn't be read."
-                    },
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { importResult = null }) { Text("OK") }
             },
         )
     }

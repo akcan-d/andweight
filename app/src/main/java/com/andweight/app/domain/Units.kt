@@ -73,11 +73,14 @@ object SafetyLimits {
     const val FEMALE_FLOOR_KCAL = 1200.0
     const val MALE_FLOOR_KCAL = 1500.0
 
-    /** When sex is unspecified we use the more conservative (higher) floor. */
+    /** Sex is optional and defaults to unspecified, so that default has to be a real floor on
+     * its own rather than silently assuming either sex - 1200 is the generally-cited minimum
+     * regardless of sex, matching what onboarding tells the person before they've said anything
+     * about sex at all. It only rises to 1500 once they explicitly say they're male. */
     fun floorFor(sex: Sex): Double = when (sex) {
         Sex.MALE -> MALE_FLOOR_KCAL
         Sex.FEMALE -> FEMALE_FLOOR_KCAL
-        Sex.UNSPECIFIED -> MALE_FLOOR_KCAL
+        Sex.UNSPECIFIED -> FEMALE_FLOOR_KCAL
     }
 }
 

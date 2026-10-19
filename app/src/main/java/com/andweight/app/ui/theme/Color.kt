@@ -3,24 +3,28 @@ package com.andweight.app.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Light - warm cream, one muted sage as primary, coral reserved for streaks/celebration, sky
-// blue as a second accent. See the design mockup for the full rationale.
+// blue as a second accent. See the design mockup for the full rationale. Every color meant to be
+// read as text or an icon (not just a decorative tint background) is pulled dark enough for a
+// roughly 4.5:1+ contrast ratio against both white and cream - the original, lighter mockup
+// palette looked right on a wide desktop canvas but read as too soft/low-contrast on an actual
+// phone screen.
 val LightBackground = Color(0xFFFBF7EF)
 val LightSurface = Color(0xFFFFFFFF)
 val LightSurfaceAlt = Color(0xFFF3EEE3)
-val LightPrimary = Color(0xFF5E9A80)
-val LightPrimaryDark = Color(0xFF3F7A61)
+val LightPrimary = Color(0xFF3F7A61)
+val LightPrimaryDark = Color(0xFF2C5A47)
 val LightPrimaryTint = Color(0xFFDEEEE4)
-val LightAccent = Color(0xFFF2976B)
-val LightAccentDark = Color(0xFFC9683F)
+val LightAccent = Color(0xFFB85A35)
+val LightAccentDark = Color(0xFF8A3F22)
 val LightAccentTint = Color(0xFFFCE3D3)
-val LightSecondary = Color(0xFF8EA0D9)
-val LightSecondaryDark = Color(0xFF5B74C7)
+val LightSecondary = Color(0xFF4F63AD)
+val LightSecondaryDark = Color(0xFF38478A)
 val LightSecondaryTint = Color(0xFFE6EAF9)
 val LightText = Color(0xFF3A362E)
-val LightTextSoft = Color(0xFF8A8375)
-val LightTextFaint = Color(0xFFB6AE9E)
-val LightLine = Color(0xFFEDE6D6)
-val LightDestructive = Color(0xFFD9574B)
+val LightTextSoft = Color(0xFF6B6458)
+val LightTextFaint = Color(0xFF9A927F)
+val LightLine = Color(0xFFDDD3BF)
+val LightDestructive = Color(0xFFC14336)
 val LightDestructiveTint = Color(0xFFFAE1DD)
 
 // Dark - a warm near-black rather than pure black, cards a step lighter for separation without

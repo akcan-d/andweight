@@ -256,7 +256,9 @@ fun OnboardingScreen(
             }
 
             Text(
-                "Recommended daily calories will never go below 1200 (women) or 1500 (men). But numbers " +
+                "Recommended daily calories will never go below " +
+                    (if (state.sex == Sex.MALE) "1500" else "1200") +
+                    ". But numbers " +
                     "only tell part of the story: muscle mass and body composition matter as much as the " +
                     "scale, and " + when (direction) {
                         GoalDirection.GAIN -> "gaining weight quickly tends to add mostly fat rather than muscle."

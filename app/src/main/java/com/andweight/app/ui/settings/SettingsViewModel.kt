@@ -9,8 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
 import com.andweight.app.domain.BackupSerializer
-import com.andweight.app.domain.CsvExport
-import com.andweight.app.domain.CsvImport
 import com.andweight.app.domain.GoalDirection
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.domain.UserProfile
@@ -97,20 +95,7 @@ class SettingsViewModel(
         }
     }
 
-    suspend fun buildCsvExport(): String =
-        CsvExport.buildCsv(repository.getProfileOnce(), repository.logsFlow.first())
-
-    /** Upserts every parsed row by date - days present in the file overwrite any existing entry
-     * for that date, days not mentioned in the file are left untouched. */
-    suspend fun importCsv(csv: String): CsvImport.ImportResult {
-        val result = CsvImport.parse(csv)
-        result.logs.forEach { log ->
-            repository.saveLog(log.date, log.weightKg, log.calories, log.intakeLevel, log.wasExactEntry)
-        }
-        return result
-    }
-
-    /** Unlike CSV, this also captures the profile and a few preferences, so restoring onto a
+    /** Unlike a plain CSV, this also captures the profile and a few preferences, so restoring onto a
      * fresh install doesn't mean redoing onboarding. */
     suspend fun buildFullBackup(): String {
         val currentSettings = BackupSerializer.Settings(
