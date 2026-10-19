@@ -5,16 +5,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import com.andweight.app.domain.AccentTheme
 
-private val LightColors = lightColorScheme(
-    primary = LightPrimary,
-    onPrimary = LightSurface,
-    primaryContainer = LightPrimaryTint,
-    onPrimaryContainer = LightPrimaryDark,
-    secondary = LightSecondary,
-    onSecondary = LightSurface,
-    secondaryContainer = LightSecondaryTint,
-    onSecondaryContainer = LightSecondaryDark,
+private fun lightScheme(accent: AccentPalette) = lightColorScheme(
+    primary = accent.primary,
+    onPrimary = accent.onPrimary,
+    primaryContainer = accent.primaryContainer,
+    onPrimaryContainer = accent.onPrimaryContainer,
+    secondary = accent.secondary,
+    onSecondary = accent.onSecondary,
+    secondaryContainer = accent.secondaryContainer,
+    onSecondaryContainer = accent.onSecondaryContainer,
     tertiary = LightAccent,
     onTertiary = LightSurface,
     tertiaryContainer = LightAccentTint,
@@ -39,18 +40,18 @@ private val LightColors = lightColorScheme(
     inverseSurface = LightText,
     inverseOnSurface = LightSurface,
     inversePrimary = LightPrimaryTint,
-    surfaceTint = LightPrimary,
+    surfaceTint = accent.primary,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = DarkPrimary,
-    onPrimary = DarkText,
-    primaryContainer = DarkPrimaryTint,
-    onPrimaryContainer = DarkPrimaryDark,
-    secondary = DarkSecondary,
-    onSecondary = DarkBackground,
-    secondaryContainer = DarkSecondaryTint,
-    onSecondaryContainer = DarkSecondaryDark,
+private fun darkScheme(accent: AccentPalette) = darkColorScheme(
+    primary = accent.primary,
+    onPrimary = accent.onPrimary,
+    primaryContainer = accent.primaryContainer,
+    onPrimaryContainer = accent.onPrimaryContainer,
+    secondary = accent.secondary,
+    onSecondary = accent.onSecondary,
+    secondaryContainer = accent.secondaryContainer,
+    onSecondaryContainer = accent.onSecondaryContainer,
     tertiary = DarkAccent,
     onTertiary = DarkBackground,
     tertiaryContainer = DarkAccentTint,
@@ -75,15 +76,17 @@ private val DarkColors = darkColorScheme(
     inverseSurface = DarkText,
     inverseOnSurface = DarkBackground,
     inversePrimary = DarkPrimaryTint,
-    surfaceTint = DarkPrimary,
+    surfaceTint = accent.primary,
 )
 
 @Composable
 fun AndWeightTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    accentTheme: AccentTheme = AccentTheme.SAGE,
     content: @Composable () -> Unit,
 ) {
-    val colors = if (darkTheme) DarkColors else LightColors
+    val accent = accentPaletteFor(accentTheme, darkTheme)
+    val colors = if (darkTheme) darkScheme(accent) else lightScheme(accent)
     MaterialTheme(
         colorScheme = colors,
         typography = AndWeightTypography,

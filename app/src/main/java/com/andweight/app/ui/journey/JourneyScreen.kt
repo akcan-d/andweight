@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -98,6 +99,7 @@ fun JourneyScreen(
     val milestones by viewModel.milestones.collectAsState()
     val healthBenefits: List<HealthBenefit> by viewModel.healthBenefits.collectAsState()
     val dataFillRate by viewModel.dataFillRate.collectAsState()
+    val isSupporter by viewModel.isSupporter.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
     var visibleWeeks by remember { mutableStateOf(1) }
 
@@ -139,6 +141,14 @@ fun JourneyScreen(
             dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
 
             item { WeightTrendCard(logs, profile) }
+
+            item {
+                if (isSupporter) {
+                    CalorieTrendCard(logs)
+                } else {
+                    LockedChartTeaser()
+                }
+            }
 
             item { Text("History", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold) }
 
@@ -644,6 +654,86 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
             )
+        }
+    }
+}
+
+// A supporter-only perk - the weight trend above is the one chart everyone needs, this is a nice
+// extra for anyone curious about their calorie history specifically.
+@Composable
+private fun CalorieTrendCard(logs: List<DailyLog>) {
+    val points = logs.filter { it.calories != null }.sortedBy { it.date }
+    val lineColor = MaterialTheme.colorScheme.secondary
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+
+            if (points.size < 2) {
+                Text(
+                    "Log your meals on a few more days to see your trend here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                return@Column
+            }
+
+            val calories = points.map { it.calories!! }
+            val minCalories = calories.min()
+            val maxCalories = calories.max()
+            val range = (maxCalories - minCalories).let { if (it < 1.0) 1.0 else it }
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .padding(vertical = 4.dp),
+            ) {
+                val chartHeight = size.height
+                val chartWidth = size.width
+                fun xFor(index: Int): Float =
+                    if (points.size == 1) chartWidth / 2f else chartWidth * index / (points.size - 1).toFloat()
+                fun yFor(value: Double): Float =
+                    (chartHeight - ((value - minCalories) / range * chartHeight)).toFloat()
+
+                for (i in 0 until calories.size - 1) {
+                    drawLine(
+                        color = lineColor,
+                        start = Offset(xFor(i), yFor(calories[i])),
+                        end = Offset(xFor(i + 1), yFor(calories[i + 1])),
+                        strokeWidth = 4f,
+                    )
+                }
+                calories.forEachIndexed { i, value ->
+                    drawCircle(color = lineColor, radius = 5f, center = Offset(xFor(i), yFor(value)))
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(points.first().date.format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+                Text(points.last().date.format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LockedChartTeaser() {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column {
+                Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "An extra chart for supporters - see Settings to learn more.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

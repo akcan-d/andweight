@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
+import com.andweight.app.domain.AccentTheme
 import com.andweight.app.domain.BackupSerializer
 import com.andweight.app.domain.GoalDirection
 import com.andweight.app.domain.ThemeMode
@@ -42,6 +43,12 @@ class SettingsViewModel(
 
     val profile: StateFlow<UserProfile?> = repository.profileFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val isSupporter: StateFlow<Boolean> = settingsRepository.isSupporterFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val accentTheme: StateFlow<AccentTheme> = settingsRepository.accentThemeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccentTheme.SAGE)
 
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
@@ -86,6 +93,20 @@ class SettingsViewModel(
 
     fun resetTipHistory() {
         viewModelScope.launch { settingsRepository.resetTipHistory() }
+    }
+
+    // There's no real billing wired up yet - this is a placeholder switch for testing the
+    // supporter perks (new accent themes/icons, the extra Journey chart) until a real purchase
+    // flow replaces it.
+    fun setSupporter(isSupporter: Boolean) {
+        viewModelScope.launch { settingsRepository.setSupporter(isSupporter) }
+    }
+
+    fun setAccentTheme(theme: AccentTheme) {
+        viewModelScope.launch {
+            settingsRepository.setAccentTheme(theme)
+            AppIconSwitcher.apply(application, theme)
+        }
     }
 
     fun eraseAllData() {

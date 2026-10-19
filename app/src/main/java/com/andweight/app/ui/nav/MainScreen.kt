@@ -59,6 +59,7 @@ import com.andweight.app.ui.journey.ResearchScreen
 import com.andweight.app.ui.settings.EditProfileScreen
 import com.andweight.app.ui.settings.ReminderOptInViewModel
 import com.andweight.app.ui.settings.SettingsScreen
+import com.andweight.app.ui.settings.SupporterPromptViewModel
 import com.andweight.app.ui.settings.TdeeInfoScreen
 import com.andweight.app.ui.settings.TipOfTheDayViewModel
 import com.andweight.app.ui.tips.TipsScreen
@@ -222,11 +223,38 @@ private fun NavPillItem(selected: Boolean, icon: ImageVector, label: String, onC
 private fun PopupHost(
     tipViewModel: TipOfTheDayViewModel = viewModel(factory = AppViewModelProvider.Factory),
     reminderViewModel: ReminderOptInViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    supporterPromptViewModel: SupporterPromptViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     when {
         tipViewModel.tipToShow != null -> TipOfTheDayPopup(tipViewModel)
         reminderViewModel.showPrompt -> ReminderOptInPopup(reminderViewModel)
+        supporterPromptViewModel.showPrompt -> SupporterPromptPopup(supporterPromptViewModel)
     }
+}
+
+@Composable
+private fun SupporterPromptPopup(viewModel: SupporterPromptViewModel) {
+    AlertDialog(
+        onDismissRequest = viewModel::onDismiss,
+        title = { Text("Enjoying AndWeight?") },
+        text = {
+            Text(
+                "If it's been useful, a cheap one-time supporter unlock adds a couple of extra " +
+                    "color themes and an extra chart - entirely optional, and you can always find " +
+                    "it later under Settings.",
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = viewModel::onBecomeSupporter) {
+                Text("Become a supporter")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::onDismiss) {
+                Text("Maybe later")
+            }
+        },
+    )
 }
 
 @Composable

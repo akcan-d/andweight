@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.andweight.app.domain.AccentTheme
 import com.andweight.app.domain.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -33,6 +34,10 @@ class SettingsRepository(private val context: Context) {
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val REMINDER_PROMPT_SHOWN = booleanPreferencesKey("reminder_prompt_shown")
         val SEEN_TIP_TITLES = stringSetPreferencesKey("seen_tip_titles")
+        val IS_SUPPORTER = booleanPreferencesKey("is_supporter")
+        val ACCENT_THEME = stringPreferencesKey("accent_theme")
+        val SUPPORTER_PROMPT_SHOWN_COUNT = intPreferencesKey("supporter_prompt_shown_count")
+        val LAST_SUPPORTER_PROMPT_EPOCH_DAY = longPreferencesKey("last_supporter_prompt_epoch_day")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -114,6 +119,39 @@ class SettingsRepository(private val context: Context) {
             it.remove(Keys.SEEN_TIP_TITLES)
             it.remove(Keys.TIP_SHOWN_COUNT)
             it.remove(Keys.LAST_TIP_SHOWN_EPOCH_DAY)
+        }
+    }
+
+    // There's no real billing wired up yet (see SettingsScreen) - this flag is what will
+    // eventually be set from a verified purchase, but for now it's just a persisted switch.
+    val isSupporterFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.IS_SUPPORTER] ?: false }
+
+    suspend fun isSupporterOnce(): Boolean = isSupporterFlow.first()
+
+    suspend fun setSupporter(isSupporter: Boolean) {
+        context.settingsDataStore.edit { it[Keys.IS_SUPPORTER] = isSupporter }
+    }
+
+    val accentThemeFlow: Flow<AccentTheme> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.ACCENT_THEME]?.let { name -> runCatching { AccentTheme.valueOf(name) }.getOrNull() } ?: AccentTheme.SAGE
+    }
+
+    suspend fun accentThemeOnce(): AccentTheme = accentThemeFlow.first()
+
+    suspend fun setAccentTheme(theme: AccentTheme) {
+        context.settingsDataStore.edit { it[Keys.ACCENT_THEME] = theme.name }
+    }
+
+    suspend fun getSupporterPromptShownCount(): Int =
+        context.settingsDataStore.data.map { it[Keys.SUPPORTER_PROMPT_SHOWN_COUNT] ?: 0 }.first()
+
+    suspend fun getLastSupporterPromptDate(): LocalDate? =
+        context.settingsDataStore.data.map { it[Keys.LAST_SUPPORTER_PROMPT_EPOCH_DAY] }.first()?.let { LocalDate.ofEpochDay(it) }
+
+    suspend fun recordSupporterPromptShown(date: LocalDate) {
+        context.settingsDataStore.edit {
+            it[Keys.SUPPORTER_PROMPT_SHOWN_COUNT] = (it[Keys.SUPPORTER_PROMPT_SHOWN_COUNT] ?: 0) + 1
+            it[Keys.LAST_SUPPORTER_PROMPT_EPOCH_DAY] = date.toEpochDay()
         }
     }
 }

@@ -15,14 +15,19 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -45,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.andweight.app.domain.AccentTheme
 import com.andweight.app.domain.BackupSerializer
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.domain.WeightUnit
@@ -72,6 +78,8 @@ fun SettingsScreen(
     val reminderEnabled by viewModel.reminderEnabled.collectAsState()
     val reminderTime by viewModel.reminderTime.collectAsState()
     val profile by viewModel.profile.collectAsState()
+    val isSupporter by viewModel.isSupporter.collectAsState()
+    val accentTheme by viewModel.accentTheme.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -108,6 +116,15 @@ fun SettingsScreen(
                 Text("Share progress")
             }
         }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        SupporterSection(
+            isSupporter = isSupporter,
+            accentTheme = accentTheme,
+            onSetSupporter = viewModel::setSupporter,
+            onSetAccentTheme = viewModel::setAccentTheme,
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -176,6 +193,63 @@ fun SettingsScreen(
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         EraseDataSection(onErase = viewModel::eraseAllData)
+    }
+}
+
+@Composable
+private fun SupporterSection(
+    isSupporter: Boolean,
+    accentTheme: AccentTheme,
+    onSetSupporter: (Boolean) -> Unit,
+    onSetAccentTheme: (AccentTheme) -> Unit,
+) {
+    Text("Support the app", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Text(
+        "The core app is free, always. A cheap one-time supporter unlock adds a couple of extra " +
+            "color themes (which also recolor the app icon) and an extra chart on your Journey page.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    if (isSupporter) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(
+                Icons.Outlined.Favorite,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text("You're a supporter - thank you!", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        }
+    }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(if (isSupporter) "Supporter" else "Become a supporter")
+            Text(
+                "Real in-app purchases aren't wired up yet - this is a placeholder switch for testing.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = isSupporter, onCheckedChange = onSetSupporter)
+    }
+
+    Text("Color theme", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AccentTheme.entries.forEach { theme ->
+            val locked = theme.isSupporterOnly && !isSupporter
+            FilterChip(
+                selected = accentTheme == theme,
+                onClick = { if (!locked) onSetAccentTheme(theme) },
+                label = { Text(theme.label) },
+                leadingIcon = if (locked) {
+                    { Icon(Icons.Outlined.Lock, contentDescription = "Supporter only", modifier = Modifier.size(16.dp)) }
+                } else {
+                    null
+                },
+            )
+        }
     }
 }
 

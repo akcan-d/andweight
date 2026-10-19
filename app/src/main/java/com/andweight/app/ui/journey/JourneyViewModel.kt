@@ -3,6 +3,7 @@ package com.andweight.app.ui.journey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.andweight.app.data.AndWeightRepository
+import com.andweight.app.data.SettingsRepository
 import com.andweight.app.domain.DailyLog
 import com.andweight.app.domain.DataFillRate
 import com.andweight.app.domain.DataFillRateResult
@@ -20,7 +21,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-class JourneyViewModel(private val repository: AndWeightRepository) : ViewModel() {
+class JourneyViewModel(
+    private val repository: AndWeightRepository,
+    private val settingsRepository: SettingsRepository,
+) : ViewModel() {
 
     /** Fixed for the lifetime of this screen - matches [com.andweight.app.ui.today.TodayViewModel.actualToday]. */
     val actualToday: LocalDate = LocalDate.now()
@@ -53,6 +57,9 @@ class JourneyViewModel(private val repository: AndWeightRepository) : ViewModel(
     val dataFillRate: StateFlow<DataFillRateResult?> = logs
         .map { DataFillRate.compute(it, actualToday) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val isSupporter: StateFlow<Boolean> = settingsRepository.isSupporterFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun deleteLog(date: LocalDate) {
         viewModelScope.launch { repository.deleteLog(date) }

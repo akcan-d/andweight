@@ -20,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.andweight.app.AndWeightApplication
+import com.andweight.app.domain.AccentTheme
 import com.andweight.app.domain.ThemeMode
 import com.andweight.app.ui.onboarding.OnboardingScreen
 import com.andweight.app.ui.theme.AndWeightTheme
@@ -35,13 +36,14 @@ fun AndWeightApp() {
     val context = LocalContext.current
     val app = context.applicationContext as AndWeightApplication
     val themeMode by app.settingsRepository.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
+    val accentTheme by app.settingsRepository.accentThemeFlow.collectAsState(initial = AccentTheme.SAGE)
     val useDarkTheme = when (themeMode) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    AndWeightTheme(darkTheme = useDarkTheme) {
+    AndWeightTheme(darkTheme = useDarkTheme, accentTheme = accentTheme) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val navController = rememberNavController()
 
