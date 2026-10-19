@@ -29,7 +29,8 @@ state forward unchanged - so missing a day or two never breaks anything.
 
 Recommended daily calories are then `current TDEE +/- target daily deficit/surplus`, where the
 target comes from your chosen weekly rate of weight change. This is **never** allowed to drop
-below 1200 kcal (women) or 1500 kcal (men), regardless of how aggressive your goal is.
+below 1200 kcal by default, or 1500 kcal once sex is set to male (sex is optional and only
+raises the floor if explicitly provided), regardless of how aggressive your goal is.
 
 ### The daily check-in
 
@@ -37,11 +38,11 @@ Instead of logging every meal, you pick one of five options for how much you fel
 
 | Option | Assumed offset from your current TDEE |
 |---|---|
-| I was starving | -750 kcal |
-| I ate less than normal | -350 kcal |
-| I ate an average amount | 0 kcal |
-| I ate more than average | +350 kcal |
-| I almost bursted | +750 kcal |
+| Much less than usual | -750 kcal |
+| A bit less than usual | -350 kcal |
+| About my usual amount | 0 kcal |
+| A bit more than usual | +350 kcal |
+| Much more than usual | +750 kcal |
 
 There's also an "exact calories" mode for anyone who wants to enter a precise number instead.
 Both paths go through the same safety floor before being saved.
@@ -50,14 +51,19 @@ Both paths go through the same safety floor before being saved.
 
 ```
 app/src/main/java/com/andweight/app/
-  domain/     Pure Kotlin business logic - no Android dependencies, fully unit-testable.
-              TdeeEngine.kt is the entire adaptive-TDEE algorithm.
-  data/       Room database (entities, DAOs) and the repository that bridges data <-> domain.
-  ui/         Jetpack Compose screens and ViewModels:
-                onboarding/  first-run setup (weight, goal, optional sex/height/age)
-                today/       the daily check-in + current-status dashboard
-                history/     weekly summary list
-                nav/         navigation graph + bottom nav
+  domain/        Pure Kotlin business logic - no Android dependencies, fully unit-testable.
+                 TdeeEngine.kt is the entire adaptive-TDEE algorithm.
+  data/          Room database (entities, DAOs) and the repository that bridges data <-> domain.
+  notifications/ Daily reminder scheduling and the notification itself.
+  widget/        Home-screen Glance widget.
+  ui/            Jetpack Compose screens and ViewModels:
+                   onboarding/ first-run setup (weight, goal, optional sex/height/age)
+                   tutorial/   first-launch walkthrough
+                   today/      the daily check-in + current-status dashboard
+                   journey/    milestones, research, and daily/weekly history
+                   settings/   preferences, edit profile, backup/restore, tips
+                   tips/       the tips list screen
+                   nav/        navigation graph + bottom nav
 ```
 
 There's no backend and no login - everything lives in a local Room (SQLite) database on the

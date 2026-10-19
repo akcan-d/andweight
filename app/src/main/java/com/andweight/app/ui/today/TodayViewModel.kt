@@ -23,6 +23,15 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+// A generous sanity range rather than a tight one - this only exists to catch an obvious typo
+// (a stray minus sign, an extra digit) before it triggers the "below the safety minimum" warning
+// or skews that week's TDEE average, not to second-guess a real, unusually large or small day.
+private const val MIN_PLAUSIBLE_CALORIES = 0.0
+private const val MAX_PLAUSIBLE_CALORIES = 15000.0
+
+private fun isPlausibleCalorieAmount(value: Double): Boolean =
+    value in MIN_PLAUSIBLE_CALORIES..MAX_PLAUSIBLE_CALORIES
+
 data class WeightEntryState(
     val text: String = "",
     val errorMessage: String? = null,
@@ -231,8 +240,8 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
         val resolution = if (mealState.useExact) {
             val exact = mealState.exactCaloriesText.toDoubleOrNull()
-            if (exact == null) {
-                mealState = mealState.copy(errorMessage = "That doesn't look like a number.")
+            if (exact == null || !isPlausibleCalorieAmount(exact)) {
+                mealState = mealState.copy(errorMessage = "That doesn't look like a valid number of calories.")
                 return
             }
             IntakeResolver.resolveExact(exact, currentProfile.sex)
@@ -297,8 +306,8 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
                 resolution = if (mealState.useExact) {
                     val exact = mealState.exactCaloriesText.toDoubleOrNull()
-                    if (exact == null) {
-                        mealState = mealState.copy(errorMessage = "That doesn't look like a number.")
+                    if (exact == null || !isPlausibleCalorieAmount(exact)) {
+                        mealState = mealState.copy(errorMessage = "That doesn't look like a valid number of calories.")
                         return@launch
                     }
                     IntakeResolver.resolveExact(exact, currentProfile.sex)

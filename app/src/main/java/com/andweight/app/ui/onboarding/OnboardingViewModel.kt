@@ -16,6 +16,15 @@ import com.andweight.app.domain.WeightUnit
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+// Generous sanity ranges, not strict ones - these only exist to catch an obvious typo (an extra
+// digit, a missed decimal point) before it feeds a nonsensical number into the TDEE formula, not
+// to second-guess a real, unusually small or large person.
+private const val MIN_WEIGHT_KG = 20.0
+private const val MAX_WEIGHT_KG = 400.0
+private const val MIN_HEIGHT_CM = 50.0
+private const val MAX_HEIGHT_CM = 250.0
+private const val MAX_AGE = 120
+
 data class OnboardingUiState(
     val weightUnit: WeightUnit = WeightUnit.KG,
     val startWeightText: String = "",
@@ -152,6 +161,10 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             return
         }
         val startWeightKg = unit.toKg(startWeight)
+        if (startWeightKg < MIN_WEIGHT_KG || startWeightKg > MAX_WEIGHT_KG) {
+            uiState = uiState.copy(errorMessage = "Enter a realistic current weight.")
+            return
+        }
 
         val direction = uiState.goalDirection
         if (direction == null) {
@@ -169,6 +182,10 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
                 return
             }
             val candidateKg = unit.toKg(goalWeight)
+            if (candidateKg < MIN_WEIGHT_KG || candidateKg > MAX_WEIGHT_KG) {
+                uiState = uiState.copy(errorMessage = "Enter a realistic goal weight.")
+                return
+            }
             val matchesDirection = if (direction == GoalDirection.LOSE) {
                 candidateKg < startWeightKg - 0.01
             } else {
@@ -195,6 +212,16 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
                     "different nutritional needs than what it accounts for. Please talk to a doctor " +
                     "before using a calorie-tracking app, or clear the age field to continue without it.",
             )
+            return
+        }
+        if (age != null && age > MAX_AGE) {
+            uiState = uiState.copy(errorMessage = "Enter a realistic age, or clear the field to continue without it.")
+            return
+        }
+
+        val heightCm = uiState.heightCm
+        if (heightCm != null && (heightCm < MIN_HEIGHT_CM || heightCm > MAX_HEIGHT_CM)) {
+            uiState = uiState.copy(errorMessage = "Enter a realistic height, or clear the field to continue without it.")
             return
         }
 

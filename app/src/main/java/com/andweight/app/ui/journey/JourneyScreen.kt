@@ -114,7 +114,7 @@ fun JourneyScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "No entries yet - check in from the Today tab to start your journey.",
+                    "No entries yet - check in from the Status tab to start your journey.",
                     modifier = Modifier.padding(32.dp),
                     style = MaterialTheme.typography.bodyMedium,
                 )

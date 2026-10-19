@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
@@ -18,14 +17,10 @@ object ReminderScheduler {
         val triggerAtMillis = nextTriggerMillis(hour, minute)
         val pendingIntent = reminderPendingIntent(context)
 
-        val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-        if (canScheduleExact) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-        } else {
-            // Falls back to an inexact-but-doze-aware alarm if exact-alarm scheduling isn't
-            // available - still fires close to the requested time, just not to the minute.
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-        }
+        // Deliberately inexact (no SCHEDULE_EXACT_ALARM) - a once-a-day nudge doesn't need
+        // to-the-minute precision, and the exact-alarm permission draws extra Play Store review
+        // scrutiny for apps that don't have a genuine alarm-clock/calendar use case.
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
     }
 
     fun cancel(context: Context) {
