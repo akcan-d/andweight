@@ -5,6 +5,7 @@ import com.andweight.app.data.AndWeightRepository
 import com.andweight.app.data.SettingsRepository
 import com.andweight.app.notifications.NotificationHelper
 import com.andweight.app.notifications.ReminderScheduler
+import com.andweight.app.ui.settings.AppIconSwitcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,6 +23,7 @@ class AndWeightApplication : Application() {
         settingsRepository = SettingsRepository(this)
 
         NotificationHelper.createChannel(this)
+        AppIconSwitcher.applyPendingDisables(this)
 
         // Defensive re-scheduling on every process start - covers the default-enabled first run
         // (nobody has touched the Settings toggle yet) and self-heals if an alarm was ever lost.

@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,6 +52,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.AccentTheme
 import com.andweight.app.domain.BackupSerializer
@@ -393,9 +397,20 @@ private fun ReminderSection(
         // Some phones (Samsung, Xiaomi, OnePlus and others layer their own battery management on
         // top of stock Android's) will quietly kill the reminder unless the app is excluded from
         // battery optimization - AlarmManager alone can't get around that, so the only real fix
-        // is asking the person to allow it.
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        val ignoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+        // is asking the person to allow it. Granting that happens in a separate system Settings
+        // screen, so this needs to actively recheck on resume rather than once - otherwise the
+        // warning never clears even after the person turns the setting on.
+        var ignoringBatteryOptimizations by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    ignoringBatteryOptimizations = isIgnoringBatteryOptimizations(context)
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
         if (!ignoringBatteryOptimizations) {
             Text(
                 "Some phones delay or block reminders unless the app is excluded from battery optimization.",
@@ -426,6 +441,11 @@ private fun ReminderSection(
             onDismiss = { showTimePicker = false },
         )
     }
+}
+
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    return powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

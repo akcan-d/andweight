@@ -7,7 +7,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import com.andweight.app.domain.AccentTheme
 
-private fun lightScheme(accent: AccentPalette) = lightColorScheme(
+// internal, not private - the home-screen widget builds its own Glance color scheme from these
+// same functions so it stays visually identical to the in-app theme (see widget/WidgetTheme.kt).
+internal fun lightScheme(accent: AccentPalette) = lightColorScheme(
     primary = accent.primary,
     onPrimary = accent.onPrimary,
     primaryContainer = accent.primaryContainer,
@@ -43,7 +45,7 @@ private fun lightScheme(accent: AccentPalette) = lightColorScheme(
     surfaceTint = accent.primary,
 )
 
-private fun darkScheme(accent: AccentPalette) = darkColorScheme(
+internal fun darkScheme(accent: AccentPalette) = darkColorScheme(
     primary = accent.primary,
     onPrimary = accent.onPrimary,
     primaryContainer = accent.primaryContainer,
