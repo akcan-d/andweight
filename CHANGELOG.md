@@ -7,6 +7,24 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-19
+
+### Changed
+- Home-screen widget redesigned: now styled with the exact same color theme as the app (accent
+  and light/dark) instead of generic default colors, and shows a goal-progress ring plus a short
+  weight-trend sparkline and current weight instead of an exact calorie count. Dropped the
+  "Ate usual" quick-log button - the widget is now purely informative, and tapping anywhere on it
+  opens the app
+- The tutorial's first-launch pages are now centered in the available space instead of leaving a
+  large empty gap on taller screens, with a small icon per page
+
+### Fixed
+- Switching the accent theme no longer crashes the app a few seconds later (disabling the
+  launcher-icon alias the app was actually running under was causing Android to force-finish it)
+- The "allow reminders to run in the background" warning in Settings now rechecks the battery
+  optimization setting when you return to the app, instead of staying stuck on screen forever
+  after you've already granted it
+
 ## [0.18.0] - 2026-10-19
 
 ### Added
