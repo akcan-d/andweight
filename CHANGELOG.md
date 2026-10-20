@@ -7,6 +7,25 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-20
+
+### Changed
+- Renamed the app from AndWeight to Measured everywhere user-facing: app name, onboarding and
+  tutorial copy, the supporter prompt, backup-file messages, feedback email subject, widget text,
+  the share-progress image, and the privacy policy page
+- Also changed the Android applicationId/package from `com.andweight.app` to `com.measured.app`
+  to match - the last point this was safely possible, since it's permanent once a real release
+  goes out. An existing sideloaded install under the old id needs a fresh install rather than an
+  in-place update (back up first if you want to keep your history)
+- The launcher icon, notification icon, and notification's large icon are now an old-style balance
+  scale instead of a partial progress-ring glyph - ties back to the app's name and the idea of
+  weight and balance, and reads as more distinct than the previous abstract shape
+- Primary, secondary, and accent colors are noticeably more saturated (less washed-out), while
+  staying dark enough to clear the same ~4.5:1 contrast target as before
+- The Today screen's coaching line is now a short, icon-led pill instead of a full sentence, and
+  Settings' daily-tip row is a switch matching the reminder row instead of a checkbox with a
+  sentence
+
 ## [0.21.0] - 2026-10-19
 
 ### Added

@@ -3,18 +3,40 @@
     android:height="24dp"
     android:viewportWidth="64"
     android:viewportHeight="64">
-    <!-- Same progress-ring-and-dot glyph as the launcher icon, recentered and cropped to fill
-         the small notification icon area (the launcher version carries large adaptive-icon
-         safe-zone padding that would read as a tiny, off-center speck in the status bar). -->
-    <group android:translateX="2" android:translateY="2">
-        <path
-            android:fillColor="#00000000"
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="9"
-            android:strokeLineCap="round"
-            android:pathData="M54,30 A24,24 0 1 1 30,54" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M54,30 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
-    </group>
+    <!-- Same balance-scale glyph as the launcher icon, scaled to fill more of this small
+         notification icon area directly (rather than reusing the launcher's adaptive-icon
+         safe-zone padding, which would read as a tiny, off-center speck in the status bar). -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5.84"
+        android:strokeLineCap="round"
+        android:pathData="M32,10.12 L32,53.89" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5.84"
+        android:strokeLineCap="round"
+        android:pathData="M17.41,53.89 L46.59,53.89" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5.84"
+        android:strokeLineCap="round"
+        android:pathData="M10.12,18.87 L53.89,18.87" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.96"
+        android:strokeLineJoin="round"
+        android:pathData="M10.12,18.87 l-5.84,17.51 a6.71,6.71 0 0,0 12.84,0 z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.96"
+        android:strokeLineJoin="round"
+        android:pathData="M53.89,18.87 l5.84,17.51 a6.71,6.71 0 0,1 -12.84,0 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,15.95 m-3.79,0 a3.79,3.79 0 1,0 7.58,0 a3.79,3.79 0 1,0 -7.58,0" />
 </vector>

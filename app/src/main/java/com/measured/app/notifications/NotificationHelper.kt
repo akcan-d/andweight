@@ -80,18 +80,38 @@ object NotificationHelper {
         val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF2D7D55.toInt() }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, backgroundPaint)
 
-        val inset = size * 0.27f
-        val rect = RectF(inset, inset, size - inset, size - inset)
-        val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        // An old-style balance scale, matching ic_launcher_foreground.xml's proportions - beam,
+        // post, foot, and two pointed hanging dishes.
+        val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             style = Paint.Style.STROKE
-            strokeWidth = size * 0.09f
+            strokeWidth = size * 0.0593f
             strokeCap = Paint.Cap.ROUND
         }
-        canvas.drawArc(rect, -90f, 270f, false, ringPaint)
+        val dishPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = size * 0.0504f
+            strokeCap = Paint.Cap.ROUND
+        }
 
-        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-        canvas.drawCircle(rect.right, rect.top, size * 0.06f, dotPaint)
+        val postX = size * 0.5f
+        val beamY = size * 0.3667f
+        canvas.drawLine(postX, size * 0.2778f, postX, size * 0.7222f, framePaint)
+        canvas.drawLine(size * 0.3519f, size * 0.7222f, size * 0.6481f, size * 0.7222f, framePaint)
+        canvas.drawLine(size * 0.2778f, beamY, size * 0.7222f, beamY, framePaint)
+
+        val dishRadius = size * 0.0652f
+        val dishY = size * 0.5444f
+        for ((beamEndX, dishCenterX) in listOf(size * 0.2778f to size * 0.2837f, size * 0.7222f to size * 0.7163f)) {
+            canvas.drawLine(beamEndX, beamY, dishCenterX - dishRadius, dishY, dishPaint)
+            canvas.drawLine(beamEndX, beamY, dishCenterX + dishRadius, dishY, dishPaint)
+            val dishRect = RectF(dishCenterX - dishRadius, dishY - dishRadius, dishCenterX + dishRadius, dishY + dishRadius)
+            canvas.drawArc(dishRect, 180f, -180f, false, dishPaint)
+        }
+
+        val fulcrumPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        canvas.drawCircle(postX, size * 0.337f, size * 0.0385f, fulcrumPaint)
 
         return bitmap
     }
