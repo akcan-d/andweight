@@ -85,25 +85,25 @@ object NotificationHelper {
         val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             style = Paint.Style.STROKE
-            strokeWidth = size * 0.0593f
+            strokeWidth = size * 0.0504f
             strokeCap = Paint.Cap.ROUND
         }
         val dishPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             style = Paint.Style.STROKE
-            strokeWidth = size * 0.0504f
+            strokeWidth = size * 0.0428f
             strokeCap = Paint.Cap.ROUND
         }
 
         val postX = size * 0.5f
-        val beamY = size * 0.3667f
-        canvas.drawLine(postX, size * 0.2778f, postX, size * 0.7222f, framePaint)
-        canvas.drawLine(size * 0.3519f, size * 0.7222f, size * 0.6481f, size * 0.7222f, framePaint)
-        canvas.drawLine(size * 0.2778f, beamY, size * 0.7222f, beamY, framePaint)
+        val beamY = size * 0.3867f
+        canvas.drawLine(postX, size * 0.3111f, postX, size * 0.6889f, framePaint)
+        canvas.drawLine(size * 0.3741f, size * 0.6889f, size * 0.6259f, size * 0.6889f, framePaint)
+        canvas.drawLine(size * 0.3111f, beamY, size * 0.6889f, beamY, framePaint)
 
-        val dishRadius = size * 0.0652f
-        val dishY = size * 0.5444f
-        for ((beamEndX, dishCenterX) in listOf(size * 0.2778f to size * 0.2837f, size * 0.7222f to size * 0.7163f)) {
+        val dishRadius = size * 0.0554f
+        val dishY = size * 0.5377f
+        for ((beamEndX, dishCenterX) in listOf(size * 0.3111f to size * 0.3161f, size * 0.6889f to size * 0.6839f)) {
             canvas.drawLine(beamEndX, beamY, dishCenterX - dishRadius, dishY, dishPaint)
             canvas.drawLine(beamEndX, beamY, dishCenterX + dishRadius, dishY, dishPaint)
             val dishRect = RectF(dishCenterX - dishRadius, dishY - dishRadius, dishCenterX + dishRadius, dishY + dishRadius)
@@ -111,7 +111,7 @@ object NotificationHelper {
         }
 
         val fulcrumPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-        canvas.drawCircle(postX, size * 0.337f, size * 0.0385f, fulcrumPaint)
+        canvas.drawCircle(postX, size * 0.3615f, size * 0.0327f, fulcrumPaint)
 
         return bitmap
     }

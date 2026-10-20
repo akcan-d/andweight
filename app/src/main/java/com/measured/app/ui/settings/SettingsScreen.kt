@@ -134,11 +134,14 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+        val matchIconToTheme by viewModel.matchIconToTheme.collectAsState()
         SupporterSection(
             isSupporter = isSupporter,
             accentTheme = accentTheme,
+            matchIconToTheme = matchIconToTheme,
             onSetSupporter = viewModel::setSupporter,
             onSetAccentTheme = viewModel::setAccentTheme,
+            onSetMatchIconToTheme = viewModel::setMatchIconToTheme,
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -245,13 +248,15 @@ fun SettingsScreen(
 private fun SupporterSection(
     isSupporter: Boolean,
     accentTheme: AccentTheme,
+    matchIconToTheme: Boolean,
     onSetSupporter: (Boolean) -> Unit,
     onSetAccentTheme: (AccentTheme) -> Unit,
+    onSetMatchIconToTheme: (Boolean) -> Unit,
 ) {
     Text("Support the app", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text(
         "The core app is free, always. A cheap one-time supporter unlock adds a couple of extra " +
-            "color themes (which also recolor the app icon) and an extra chart on your Journey page.",
+            "color themes and an extra chart on your Journey page.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -302,6 +307,25 @@ private fun SupporterSection(
                 },
             )
         }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = matchIconToTheme, onValueChange = onSetMatchIconToTheme, role = Role.Switch),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Match app icon color")
+            Text(
+                "Also recolors your home screen icon when you change themes. Android has to " +
+                    "briefly restart the app to do this, so it's off by default.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = matchIconToTheme, onCheckedChange = null)
     }
 }
 

@@ -67,6 +67,20 @@ object AppIconSwitcher {
         applyPendingDisables(activity)
     }
 
+    /** Whether [theme]'s alias is already the one enabled - so callers that only want to sync the
+     * icon to an already-current theme (rather than responding to an actual theme change) can
+     * skip the restart entirely when there's nothing to fix. Component state defaults to
+     * "whatever the manifest says" until something has explicitly touched it, which is "enabled"
+     * for Sage and "disabled" for the others. */
+    fun isAlreadyApplied(context: Context, theme: AccentTheme): Boolean {
+        val state = context.packageManager.getComponentEnabledSetting(ComponentName(PACKAGE, ALIASES.getValue(theme)))
+        return when (state) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED -> false
+            else -> theme == AccentTheme.SAGE
+        }
+    }
+
     fun apply(context: Context, theme: AccentTheme) {
         val packageManager = context.packageManager
         packageManager.setComponentEnabledSetting(

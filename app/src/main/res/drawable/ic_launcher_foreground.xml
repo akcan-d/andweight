@@ -9,34 +9,34 @@
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="6.4"
+        android:strokeWidth="5.44"
         android:strokeLineCap="round"
-        android:pathData="M54,30 L54,78" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="6.4"
-        android:strokeLineCap="round"
-        android:pathData="M38,78 L70,78" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="6.4"
-        android:strokeLineCap="round"
-        android:pathData="M30,39.6 L78,39.6" />
+        android:pathData="M54,33.6 L54,74.4" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
         android:strokeWidth="5.44"
-        android:strokeLineJoin="round"
-        android:pathData="M30,39.6 l-6.4,19.2 a7.36,7.36 0 0,0 14.08,0 z" />
+        android:strokeLineCap="round"
+        android:pathData="M40.4,74.4 L67.6,74.4" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
         android:strokeWidth="5.44"
+        android:strokeLineCap="round"
+        android:pathData="M33.6,41.76 L74.4,41.76" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.62"
         android:strokeLineJoin="round"
-        android:pathData="M78,39.6 l6.4,19.2 a7.36,7.36 0 0,1 -14.08,0 z" />
+        android:pathData="M33.6,41.76 l-5.44,16.32 a6.26,6.26 0 0,0 11.97,0 z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.62"
+        android:strokeLineJoin="round"
+        android:pathData="M74.4,41.76 l5.44,16.32 a6.26,6.26 0 0,1 -11.97,0 z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,36.4 m-4.16,0 a4.16,4.16 0 1,0 8.32,0 a4.16,4.16 0 1,0 -8.32,0" />
+        android:pathData="M54,39.04 m-3.54,0 a3.54,3.54 0 1,0 7.08,0 a3.54,3.54 0 1,0 -7.08,0" />
 </vector>

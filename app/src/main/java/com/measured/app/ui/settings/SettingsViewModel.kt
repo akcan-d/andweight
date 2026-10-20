@@ -53,6 +53,9 @@ class SettingsViewModel(
     val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val matchIconToTheme: StateFlow<Boolean> = settingsRepository.matchIconToThemeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
     var didEraseData by mutableStateOf(false)
@@ -110,8 +113,10 @@ class SettingsViewModel(
             val previousTheme = settingsRepository.accentThemeOnce()
             settingsRepository.setAccentTheme(theme)
             // Only switching away from the icon currently in use needs a restart to clean it up -
-            // re-tapping the already-selected theme is a no-op for the launcher icon.
-            if (theme != previousTheme) {
+            // re-tapping the already-selected theme is a no-op for the launcher icon. And only
+            // bother at all if the person has opted into the icon following the theme - most
+            // people trying out colors don't want the app to restart every time.
+            if (theme != previousTheme && settingsRepository.matchIconToThemeOnce()) {
                 AppIconSwitcher.applyAndRestart(application, theme)
             }
         }
@@ -119,6 +124,20 @@ class SettingsViewModel(
 
     fun setHighContrast(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setHighContrast(enabled) }
+    }
+
+    fun setMatchIconToTheme(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setMatchIconToTheme(enabled)
+            // Turning it on should take effect right away, against whatever theme is already
+            // selected - otherwise the icon would stay wrong until the next theme change. Skip
+            // the restart if the icon already happens to match (e.g. still on the default Sage
+            // theme), so flipping this on doesn't restart the app for no visible reason.
+            val currentTheme = settingsRepository.accentThemeOnce()
+            if (enabled && !AppIconSwitcher.isAlreadyApplied(application, currentTheme)) {
+                AppIconSwitcher.applyAndRestart(application, currentTheme)
+            }
+        }
     }
 
     fun eraseAllData() {
