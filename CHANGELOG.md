@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to AndWeight are documented here. Format loosely follows
+All notable changes to Measured (formerly AndWeight) are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/), and versions follow
 [Semantic Versioning](https://semver.org/) - while pre-1.0, a minor version bump
 can still include a behavior change, not just new features.

@@ -51,7 +51,7 @@ fun OnboardingScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Let's set up AndWeight", style = MaterialTheme.typography.headlineSmall)
+            Text("Let's set up Measured", style = MaterialTheme.typography.headlineSmall)
             Text(
                 "This is a health tool first, not a race to a number. We'll help you find a " +
                     "sustainable pace that fits your body - you can always adjust the plan later.",

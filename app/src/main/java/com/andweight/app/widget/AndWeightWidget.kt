@@ -144,7 +144,7 @@ private fun EmptyWidgetContent() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            "Open AndWeight to finish setup",
+            "Open Measured to finish setup",
             style = TextStyle(color = GlanceTheme.colors.onBackground, textAlign = TextAlign.Center),
         )
     }

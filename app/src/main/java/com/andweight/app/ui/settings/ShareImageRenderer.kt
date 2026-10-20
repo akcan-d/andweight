@@ -25,7 +25,7 @@ object ShareImageRenderer {
 
     // Mirrors Color.kt's LightPrimary/LightSurface - duplicated here since this file works in
     // plain android.graphics ints rather than Compose Color, and only needs these two.
-    private const val BACKGROUND_COLOR = 0xFF5E9A80.toInt()
+    private const val BACKGROUND_COLOR = 0xFF2D7D55.toInt()
     private const val WHITE = 0xFFFFFFFF.toInt()
     private const val WHITE_SOFT = 0xCCFFFFFF.toInt()
     private const val DIVIDER = 0x40FFFFFF
@@ -50,7 +50,7 @@ object ShareImageRenderer {
             textSize = 38f
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("A N D W E I G H T", center, 170f, eyebrowPaint)
+        canvas.drawText("M E A S U R E D", center, 170f, eyebrowPaint)
 
         val direction = summary.direction
         val unit = summary.unit

@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AndWeight"
+rootProject.name = "Measured"
 include(":app")

@@ -264,7 +264,7 @@ private fun PopupHost(
 private fun SupporterPromptPopup(viewModel: SupporterPromptViewModel) {
     AlertDialog(
         onDismissRequest = viewModel::onDismiss,
-        title = { Text("Enjoying AndWeight?") },
+        title = { Text("Enjoying Measured?") },
         text = {
             Text(
                 "If it's been useful, a cheap one-time supporter unlock adds a couple of extra " +

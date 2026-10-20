@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.TipsAndUpdates
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -191,15 +192,21 @@ fun SettingsScreen(
 
         Text("Tips", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Row(
-            modifier = Modifier.toggleable(
-                value = tipsEnabled,
-                onValueChange = viewModel::setTipsEnabled,
-                role = Role.Checkbox,
-            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = tipsEnabled,
+                    onValueChange = viewModel::setTipsEnabled,
+                    role = Role.Switch,
+                ),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Checkbox(checked = tipsEnabled, onCheckedChange = null)
-            Text("Show a daily tip when I open the app")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Outlined.TipsAndUpdates, contentDescription = null)
+                Text("Daily tip")
+            }
+            Switch(checked = tipsEnabled, onCheckedChange = null)
         }
         TextButton(onClick = onViewAllTips) {
             Text("View all tips")
@@ -369,7 +376,7 @@ private fun BackupRestoreSection(
         AlertDialog(
             onDismissRequest = { restoreFailed = false },
             title = { Text("Couldn't read that file") },
-            text = { Text("That doesn't look like an AndWeight backup file.") },
+            text = { Text("That doesn't look like a Measured backup file.") },
             confirmButton = {
                 TextButton(onClick = { restoreFailed = false }) { Text("OK") }
             },
@@ -478,12 +485,12 @@ private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
  * think to include them. */
 private fun sendFeedback(context: Context) {
     val body = "\n\n---\n" +
-        "AndWeight ${BuildConfig.VERSION_NAME}\n" +
+        "Measured ${BuildConfig.VERSION_NAME}\n" +
         "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n" +
         "${Build.MANUFACTURER} ${Build.MODEL}"
     val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).apply {
         putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL))
-        putExtra(Intent.EXTRA_SUBJECT, "AndWeight feedback")
+        putExtra(Intent.EXTRA_SUBJECT, "Measured feedback")
         putExtra(Intent.EXTRA_TEXT, body)
     }
     try {

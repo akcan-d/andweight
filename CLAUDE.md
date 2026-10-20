@@ -1,4 +1,4 @@
-# Working on AndWeight
+# Working on Measured (formerly AndWeight)
 
 - After making a change, update README.md if the change affects anything it describes (project
   structure, how the algorithm/features work, setup steps, etc.) - don't let it drift stale.

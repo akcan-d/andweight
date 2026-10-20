@@ -44,14 +44,14 @@ private val pages = listOf(
     TutorialPage(
         Icons.Outlined.TaskAlt,
         "Forget logging every meal",
-        "Most calorie apps ask you to weigh every ingredient and log every bite. AndWeight just " +
+        "Most calorie apps ask you to weigh every ingredient and log every bite. Measured just " +
             "needs your weight and a quick sense of how much you ate - a couple of taps, once a day.",
     ),
     TutorialPage(
         Icons.Outlined.FavoriteBorder,
         "This is about health, not just a number",
         "The scale doesn't tell the whole story - muscle mass and body composition matter just as " +
-            "much as weight, and AndWeight won't push you to lose faster than is healthy. If you " +
+            "much as weight, and Measured won't push you to lose faster than is healthy. If you " +
             "have any history of disordered eating, please talk to a doctor before using a tool " +
             "like this one.",
     ),
@@ -59,7 +59,7 @@ private val pages = listOf(
         Icons.Outlined.Insights,
         "It learns your real metabolism",
         "Everyone's calorie needs are a little different, and no formula gets it exactly right. " +
-            "AndWeight watches what actually happens to your weight and adjusts its estimate to match " +
+            "Measured watches what actually happens to your weight and adjusts its estimate to match " +
             "your body, not just a textbook average.",
     ),
     TutorialPage(
@@ -71,7 +71,7 @@ private val pages = listOf(
     TutorialPage(
         Icons.Outlined.CalendarMonth,
         "Consistency beats precision",
-        "You don't need to be exact. Missed a day? No problem - AndWeight carries on smoothly. " +
+        "You don't need to be exact. Missed a day? No problem - Measured carries on smoothly. " +
             "Showing up regularly matters far more than getting every number perfect.",
     ),
 )

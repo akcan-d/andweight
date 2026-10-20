@@ -1,4 +1,4 @@
-# AndWeight
+# Measured
 
 An Android app that replaces manual calorie tracking with a 2-minute daily check-in: log your
 weight and roughly how much you ate, and the app figures out your real maintenance calories
@@ -87,7 +87,7 @@ No API keys, accounts, or backend setup are required - it should run immediately
 
 ### Running the tests
 
-`View > Tool Windows > Gradle`, then `AndWeight > app > Tasks > verification > test`, or from a
+`View > Tool Windows > Gradle`, then `Measured > app > Tasks > verification > test`, or from a
 terminal: `./gradlew test` (macOS/Linux) or `gradlew.bat test` (Windows).
 
 ## Safety note
