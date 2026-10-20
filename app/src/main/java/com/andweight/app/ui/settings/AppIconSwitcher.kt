@@ -3,7 +3,10 @@ package com.andweight.app.ui.settings
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.widget.Toast
+import com.andweight.app.MainActivity
 import com.andweight.app.domain.AccentTheme
 
 /**
@@ -25,6 +28,13 @@ import com.andweight.app.domain.AccentTheme
  * and since the stale-cleanup ran before MainActivity had a chance to say which one it actually
  * needed, it could end up disabling the very component in the middle of launching - closing the
  * app immediately and removing its icon from the launcher entirely.
+ *
+ * That fix is safe, but on its own it still leaves the old icon sitting in the launcher
+ * (deferred) until the app happens to fully restart, which reads as a bug even though nothing's
+ * actually wrong. [applyAndRestart] closes that gap: it restarts the task through a direct
+ * (non-alias) intent - Android's own supported way to replace a task, not us yanking a component
+ * out from under a live one - which makes it safe to retire the old alias immediately afterward
+ * instead of waiting.
  */
 object AppIconSwitcher {
 
@@ -43,14 +53,17 @@ object AppIconSwitcher {
     @Volatile
     private var launchAliasClassName: String? = null
 
-    /** Call once from MainActivity.onCreate, before anything else touches component state. */
+    /** Call once from MainActivity.onCreate, before anything else touches component state. Always
+     * re-evaluates (rather than only updating when a match is found) - a direct, non-alias launch
+     * (from [applyAndRestart], a notification tap, or the widget) means this task doesn't depend
+     * on any alias at all, which must actively clear out whatever alias an *earlier* activity
+     * instance in this same process happened to depend on, or that stale value would keep
+     * protecting an alias nothing is using anymore. */
     fun recordLaunchAlias(activity: Activity) {
         val launchedClassName = activity.intent?.component?.className
-        if (launchedClassName != null && ALIASES.containsValue(launchedClassName)) {
-            launchAliasClassName = launchedClassName
-        }
-        // Only safe to do this now that launchAliasClassName is set - it protects whichever alias
-        // this process actually depends on from being disabled out from under it.
+        launchAliasClassName = launchedClassName?.takeIf { ALIASES.containsValue(it) }
+        // Only safe to do this now that launchAliasClassName reflects this activity - it protects
+        // whichever alias this process actually depends on from being disabled out from under it.
         applyPendingDisables(activity)
     }
 
@@ -74,6 +87,21 @@ object AppIconSwitcher {
                 )
             }
         }
+    }
+
+    /** Same as [apply], but also closes the window where the old icon lingers in the launcher -
+     * restarts through MainActivity directly (not through any alias), which replaces the current
+     * task the same way Android itself would (not us disabling a component a live task still
+     * considers its root). That direct-launch restart naturally retriggers [recordLaunchAlias],
+     * which sees a non-alias launch, correctly clears the old protection, and lets the existing
+     * pending-cleanup disable the old alias right away instead of waiting for a real cold start. */
+    fun applyAndRestart(context: Context, theme: AccentTheme) {
+        apply(context, theme)
+        Toast.makeText(context, "Updating the app icon…", Toast.LENGTH_SHORT).show()
+        val restartIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        context.startActivity(restartIntent)
     }
 
     /** Finishes disabling whichever alias was protected during a previous session, now that a

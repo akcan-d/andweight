@@ -107,8 +107,13 @@ class SettingsViewModel(
 
     fun setAccentTheme(theme: AccentTheme) {
         viewModelScope.launch {
+            val previousTheme = settingsRepository.accentThemeOnce()
             settingsRepository.setAccentTheme(theme)
-            AppIconSwitcher.apply(application, theme)
+            // Only switching away from the icon currently in use needs a restart to clean it up -
+            // re-tapping the already-selected theme is a no-op for the launcher icon.
+            if (theme != previousTheme) {
+                AppIconSwitcher.applyAndRestart(application, theme)
+            }
         }
     }
 
