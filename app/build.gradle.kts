@@ -78,6 +78,16 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    // Names the built APK after the version instead of the generic "app-release.apk", so a
+    // file handed out of the project (e.g. for testing) carries its own version in the filename.
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "Measured-${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
 }
 
 dependencies {
