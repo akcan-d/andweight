@@ -18,11 +18,11 @@ val keystoreProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.andweight.app"
+    namespace = "com.measured.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.andweight.app"
+        applicationId = "com.measured.app"
         minSdk = 26
         targetSdk = 34
         versionCode = 21

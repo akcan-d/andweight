@@ -6,8 +6,8 @@ weight and roughly how much you ate, and the app figures out your real maintenan
 
 This is a port of a personal "TDEE 3.0" spreadsheet. The spreadsheet's formulas were reverse
 engineered cell-by-cell and its adaptive algorithm is reproduced exactly (see
-[`TdeeEngine.kt`](app/src/main/java/com/andweight/app/domain/TdeeEngine.kt) and the tests in
-[`TdeeEngineTest.kt`](app/src/test/java/com/andweight/app/domain/TdeeEngineTest.kt), which assert
+[`TdeeEngine.kt`](app/src/main/java/com/measured/app/domain/TdeeEngine.kt) and the tests in
+[`TdeeEngineTest.kt`](app/src/test/java/com/measured/app/domain/TdeeEngineTest.kt), which assert
 against real numbers taken from that spreadsheet).
 
 ## How the algorithm works
@@ -55,7 +55,7 @@ Both paths go through the same safety floor before being saved.
 ## Project structure
 
 ```
-app/src/main/java/com/andweight/app/
+app/src/main/java/com/measured/app/
   domain/        Pure Kotlin business logic - no Android dependencies, fully unit-testable.
                  TdeeEngine.kt is the entire adaptive-TDEE algorithm.
   data/          Room database (entities, DAOs) and the repository that bridges data <-> domain.
