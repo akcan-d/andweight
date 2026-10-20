@@ -23,6 +23,8 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.automirrored.outlined.TrendingDown
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
@@ -73,6 +75,7 @@ import com.measured.app.domain.IntakeLevel
 import com.measured.app.domain.Phrasing
 import com.measured.app.domain.TdeeState
 import com.measured.app.domain.UserProfile
+import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.IntakeChip
 import java.time.Instant
@@ -80,6 +83,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
@@ -213,11 +217,7 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
             if (showDetails) {
                 StatRow("Current weight", "${oneDecimal(unit.fromKg(tdeeState.currentWeightKg))} ${unit.name.lowercase()}")
                 StatRow("Estimated TDEE", "${tdeeState.currentTdee.roundToInt()} kcal/day")
-                Text(
-                    Phrasing.weightTrendSentence(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                WeightTrendStatRow(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit)
             }
         }
     }
@@ -233,7 +233,7 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
         when {
             tdeeState.weeksToGoal == null -> {
                 Text("Maintaining", style = MaterialTheme.typography.headlineMedium)
-                Text("Aiming to hold steady at your current weight", style = MaterialTheme.typography.bodyMedium)
+                Text("Holding steady", style = MaterialTheme.typography.bodyMedium)
             }
             tdeeState.weeksToGoal <= 0.0 -> {
                 Text("Goal reached!", style = MaterialTheme.typography.headlineMedium)
@@ -316,6 +316,25 @@ private fun StatRow(label: String, value: String) {
 }
 
 @Composable
+private fun WeightTrendStatRow(deltaKg: Double, unit: WeightUnit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Since you started", style = MaterialTheme.typography.bodyMedium)
+        if (abs(deltaKg) < 0.05) {
+            Text("No change", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(
+                    if (deltaKg < 0) Icons.AutoMirrored.Outlined.TrendingDown else Icons.AutoMirrored.Outlined.TrendingUp,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(Phrasing.formatWeight(abs(deltaKg), unit), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
 private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -346,13 +365,22 @@ private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
 
 @Composable
 private fun AllSetBanner() {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.size(7.dp))
         Text(
-            "You're all set for today - don't forget to check in again tomorrow!",
+            "All set for today",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }
@@ -552,8 +580,8 @@ private fun MealInputFields(viewModel: TodayViewModel) {
 
     if (!state.useExact) {
         Text(
-            "Compared to what's typical for you lately - not an exact calorie count.",
-            style = MaterialTheme.typography.bodySmall,
+            "vs. your usual",
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -567,7 +595,7 @@ private fun MealInputFields(viewModel: TodayViewModel) {
             }
         }
         TextButton(onClick = viewModel::onToggleExact) {
-            Text("I'd rather enter my exact calories")
+            Text("Enter exact calories")
         }
     } else {
         OutlinedTextField(
@@ -579,7 +607,7 @@ private fun MealInputFields(viewModel: TodayViewModel) {
             modifier = Modifier.fillMaxWidth(),
         )
         TextButton(onClick = viewModel::onToggleExact) {
-            Text("Use the quick pick instead")
+            Text("Use quick pick")
         }
     }
 

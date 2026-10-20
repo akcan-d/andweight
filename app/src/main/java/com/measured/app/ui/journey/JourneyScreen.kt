@@ -424,7 +424,7 @@ private fun MilestonesMascot() {
 
             Text("More milestones on the way", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(
-                "Keep logging and we'll keep finding new things worth celebrating.",
+                "Keep logging to unlock more.",
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -497,12 +497,16 @@ private fun MilestonesSection(milestones: List<Milestone>) {
 @Composable
 private fun DataFillRateCard(fillRate: DataFillRateResult) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Check-in rate", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Check-in rate", style = MaterialTheme.typography.bodyMedium)
             Text(
-                "You logged something on ${fillRate.percent}% of the last ${fillRate.totalDays} " +
-                    "day${if (fillRate.totalDays == 1) "" else "s"} (${fillRate.loggedDays}/${fillRate.totalDays}).",
+                "${fillRate.percent}% (${fillRate.loggedDays}/${fillRate.totalDays})",
                 style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
             )
         }
     }
@@ -521,7 +525,7 @@ private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "Population averages from published research, not a guarantee for you personally - " +
-                "always follow your own doctor's guidance. Tap a finding to read more.",
+                "always follow your own doctor's guidance.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -598,7 +602,7 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?) {
 
             if (points.size < 2 || profile == null) {
                 Text(
-                    "Log your weight on a few more days to see your trend here.",
+                    "A few more days of data needed.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -676,7 +680,7 @@ private fun CalorieTrendCard(logs: List<DailyLog>) {
 
             if (points.size < 2) {
                 Text(
-                    "Log your meals on a few more days to see your trend here.",
+                    "A few more days of data needed.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

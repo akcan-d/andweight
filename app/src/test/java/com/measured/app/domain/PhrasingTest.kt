@@ -17,13 +17,6 @@ class PhrasingTest {
     }
 
     @Test
-    fun `weight trend sentence picks a direction`() {
-        assertTrue(Phrasing.weightTrendSentence(-2.0, WeightUnit.KG).contains("down"))
-        assertTrue(Phrasing.weightTrendSentence(2.0, WeightUnit.KG).contains("up"))
-        assertTrue(Phrasing.weightTrendSentence(0.0, WeightUnit.KG).contains("hasn't changed"))
-    }
-
-    @Test
     fun `goal countdown shows exact days under 60 days`() {
         val countdown = Phrasing.goalCountdown(42)
         assertEquals(42L, countdown.amount)

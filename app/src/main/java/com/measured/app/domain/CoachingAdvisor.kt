@@ -34,8 +34,7 @@ object CoachingAdvisor {
             // people not to worry about a target while a specific (lower, if losing) one is still
             // sitting right there in the details view - that combination read as contradictory.
             return Advice(
-                "This early estimate is formula-based, not from your real results yet - keep logging " +
-                    "daily to sharpen it up.",
+                "Still an early estimate - keep logging to sharpen it up.",
                 AdviceSentiment.NEUTRAL,
             )
         }
@@ -45,7 +44,7 @@ object CoachingAdvisor {
         if (profile.goalDirection == GoalDirection.MAINTAIN) {
             return when {
                 abs(recentDeltaKg) < 0.3 ->
-                    Advice("You're holding steady - exactly what you're aiming for. Keep eating about what feels normal for you.", AdviceSentiment.POSITIVE)
+                    Advice("Holding steady - keep eating normally.", AdviceSentiment.POSITIVE)
                 recentDeltaKg > 0 ->
                     Advice("You've been drifting upward lately. Try scaling back your portions a little.", AdviceSentiment.CAUTION)
                 else ->

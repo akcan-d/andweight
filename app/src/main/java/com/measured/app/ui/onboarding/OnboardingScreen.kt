@@ -155,7 +155,7 @@ fun OnboardingScreen(
             }
 
             TextButton(onClick = viewModel::onToggleAdvanced) {
-                Text(if (state.showAdvanced) "Hide optional details" else "Add optional details (sex, height, age, body fat %) for a better starting estimate")
+                Text(if (state.showAdvanced) "Hide optional details" else "Add optional details for a better estimate")
             }
 
             if (state.showAdvanced) {

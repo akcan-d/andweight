@@ -2,7 +2,6 @@ package com.measured.app.domain
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -29,12 +28,6 @@ object Phrasing {
             delta < 600 -> "Eat a bit more today."
             else -> "Eat noticeably more today."
         }
-    }
-
-    fun weightTrendSentence(deltaKg: Double, unit: WeightUnit): String {
-        if (abs(deltaKg) < 0.05) return "Your weight hasn't changed much since you started."
-        val amount = formatAmount(unit.fromKg(abs(deltaKg)), unit)
-        return if (deltaKg < 0) "You're down $amount since you started." else "You're up $amount since you started."
     }
 
     /** A whole number plus a matching, already-pluralized unit word ("months"/"weeks"/"days") -

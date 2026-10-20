@@ -24,10 +24,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.TipsAndUpdates
+import androidx.compose.material.icons.outlined.Tonality
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -170,15 +171,17 @@ fun SettingsScreen(
             }
         }
         Row(
-            modifier = Modifier.toggleable(
-                value = highContrast,
-                onValueChange = viewModel::setHighContrast,
-                role = Role.Checkbox,
-            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(value = highContrast, onValueChange = viewModel::setHighContrast, role = Role.Switch),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Checkbox(checked = highContrast, onCheckedChange = null)
-            Text("High contrast")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Outlined.Tonality, contentDescription = null)
+                Text("High contrast")
+            }
+            Switch(checked = highContrast, onCheckedChange = null)
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -319,8 +322,7 @@ private fun SupporterSection(
         Column(modifier = Modifier.weight(1f)) {
             Text("Match app icon color")
             Text(
-                "Also recolors your home screen icon when you change themes. Android has to " +
-                    "briefly restart the app to do this, so it's off by default.",
+                "Recolors your home screen icon too - requires restarting the app.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -360,8 +362,7 @@ private fun BackupRestoreSection(
 
     Text("Backup & restore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text(
-        "A full backup of your profile, goal, and every logged day - restoring one sets " +
-            "everything back up in one go.",
+        "Save or restore everything in one file.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -431,7 +432,6 @@ private fun ReminderSection(
             onEnabledChange(checked)
         }
     }
-    Text("Daily reminder", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -439,7 +439,10 @@ private fun ReminderSection(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Remind me to check in if I haven't yet")
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(Icons.Outlined.Notifications, contentDescription = null)
+            Text("Daily reminder")
+        }
         Switch(checked = reminderEnabled, onCheckedChange = null)
     }
 
