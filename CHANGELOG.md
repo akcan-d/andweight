@@ -7,6 +7,20 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-20
+
+### Changed
+- The balance-scale logo is a bit smaller with wider margins, on the launcher icon and both
+  notification icons
+- Switching the in-app color theme no longer restarts the app to recolor the launcher icon -
+  that's now a separate "Match app icon color" toggle in Settings, off by default, since the
+  restart was removing the home-screen shortcut for a moment and that's not what most people
+  switching colors want
+- A second copy-simplification pass: Today's "all set" banner and weight-trend line, Journey's
+  check-in rate, and Settings' High contrast and Daily reminder rows all trade a sentence (or, for
+  High contrast, the app's last checkbox) for an icon, a short label, or a stat row. Several other
+  captions and two coaching messages are shorter in place
+
 ## [0.22.0] - 2026-10-20
 
 ### Changed
