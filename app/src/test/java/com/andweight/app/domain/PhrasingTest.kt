@@ -9,11 +9,11 @@ class PhrasingTest {
 
     @Test
     fun `calorie target sentence reflects the size of the deficit`() {
-        assertEquals("Eat about what you've been eating these past few weeks.", Phrasing.calorieTargetSentence(2500.0, 2500.0))
-        assertEquals("Eat a little less than you've been eating these past few weeks.", Phrasing.calorieTargetSentence(2200.0, 2500.0))
-        assertEquals("Eat noticeably less than you've been eating these past few weeks.", Phrasing.calorieTargetSentence(1800.0, 2500.0))
-        assertEquals("Eat a little more than you've been eating these past few weeks.", Phrasing.calorieTargetSentence(2800.0, 2500.0))
-        assertEquals("Eat noticeably more than you've been eating these past few weeks.", Phrasing.calorieTargetSentence(3200.0, 2500.0))
+        assertEquals("Eat about the usual today.", Phrasing.calorieTargetSentence(2500.0, 2500.0))
+        assertEquals("Eat a bit less today.", Phrasing.calorieTargetSentence(2200.0, 2500.0))
+        assertEquals("Eat noticeably less today.", Phrasing.calorieTargetSentence(1800.0, 2500.0))
+        assertEquals("Eat a bit more today.", Phrasing.calorieTargetSentence(2800.0, 2500.0))
+        assertEquals("Eat noticeably more today.", Phrasing.calorieTargetSentence(3200.0, 2500.0))
     }
 
     @Test

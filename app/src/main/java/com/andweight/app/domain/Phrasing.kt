@@ -23,11 +23,11 @@ object Phrasing {
     fun calorieTargetSentence(recommendedCalories: Double, tdee: Double): String {
         val delta = recommendedCalories - tdee
         return when {
-            delta <= -600 -> "Eat noticeably less than you've been eating these past few weeks."
-            delta <= -150 -> "Eat a little less than you've been eating these past few weeks."
-            delta < 150 -> "Eat about what you've been eating these past few weeks."
-            delta < 600 -> "Eat a little more than you've been eating these past few weeks."
-            else -> "Eat noticeably more than you've been eating these past few weeks."
+            delta <= -600 -> "Eat noticeably less today."
+            delta <= -150 -> "Eat a bit less today."
+            delta < 150 -> "Eat about the usual today."
+            delta < 600 -> "Eat a bit more today."
+            else -> "Eat noticeably more today."
         }
     }
 

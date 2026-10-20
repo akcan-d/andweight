@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,7 +22,9 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,6 +60,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.andweight.app.domain.AdviceSentiment
@@ -153,16 +157,42 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
             HorizontalDivider()
 
             val advice = CoachingAdvisor.advise(profile, tdeeState)
-            Text(
-                advice.message,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = when (advice.sentiment) {
-                    AdviceSentiment.POSITIVE -> MaterialTheme.colorScheme.primary
-                    AdviceSentiment.CAUTION -> MaterialTheme.colorScheme.error
-                    AdviceSentiment.NEUTRAL -> MaterialTheme.colorScheme.onSurface
-                },
-            )
+            val (adviceContainer, adviceOnContainer, adviceIcon) = when (advice.sentiment) {
+                AdviceSentiment.POSITIVE -> Triple(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.onPrimaryContainer,
+                    Icons.Outlined.CheckCircle,
+                )
+                AdviceSentiment.CAUTION -> Triple(
+                    MaterialTheme.colorScheme.errorContainer,
+                    MaterialTheme.colorScheme.onErrorContainer,
+                    Icons.Outlined.WarningAmber,
+                )
+                AdviceSentiment.NEUTRAL -> Triple(
+                    MaterialTheme.colorScheme.surfaceVariant,
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                    Icons.Outlined.Info,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(CircleShape)
+                    .background(adviceContainer)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(adviceIcon, contentDescription = null, tint = adviceOnContainer, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.size(7.dp))
+                Text(
+                    advice.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = adviceOnContainer,
+                    textAlign = TextAlign.Center,
+                )
+            }
 
             StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
 

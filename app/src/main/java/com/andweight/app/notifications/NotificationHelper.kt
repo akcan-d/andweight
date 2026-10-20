@@ -77,7 +77,7 @@ object NotificationHelper {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF3F7A61.toInt() }
+        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF2D7D55.toInt() }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, backgroundPaint)
 
         val inset = size * 0.27f
