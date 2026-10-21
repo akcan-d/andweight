@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,23 +25,19 @@ import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -77,51 +72,48 @@ import com.measured.app.domain.DataFillRateResult
 import com.measured.app.domain.HealthBenefit
 import com.measured.app.domain.Milestone
 import com.measured.app.domain.MilestoneCategory
-import com.measured.app.domain.Phrasing
 import com.measured.app.domain.UserProfile
-import com.measured.app.domain.WeekSummary
 import com.measured.app.ui.AppViewModelProvider
-import com.measured.app.ui.common.IntakeChip
 import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
+import java.time.temporal.ChronoUnit
 
-private val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
-private val dayOfMonthFormatter = DateTimeFormatter.ofPattern("EEE, d")
-private val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
 // Same green used for the Today screen's "high confidence" accuracy indicator - a neutral,
-// theme-independent "done" signal, not a judgment on any of the day's actual numbers.
-private val DAY_COMPLETE_COLOR = Color(0xFF43A047)
-
-private enum class JourneyViewMode(val label: String) {
-    DAILY("Daily"),
-    WEEKLY("Weekly trend"),
-}
+// theme-independent "done" signal, not a judgment on any of the day's actual numbers. Shared
+// with JourneyHistoryScreen's DayRow.
+val DAY_COMPLETE_COLOR = Color(0xFF43A047)
 
 private enum class ChartStyle { LINE, BAR }
+
+// Once there's a lot of history, defaulting to the full span means early, often noisier data
+// stretches the chart's auto min/max and flattens how recent changes look - a plain "zoom in"
+// toggle beats trying to guess the right window automatically.
+private enum class ChartWindow(val label: String) {
+    RECENT("Last 60 days"),
+    ALL("All time"),
+}
+private const val CHART_WINDOW_THRESHOLD_DAYS = 60L
 
 @Composable
 fun JourneyScreen(
     contentPadding: PaddingValues,
-    onEditDay: (LocalDate) -> Unit,
     onShowMilestones: () -> Unit,
     onShowResearch: () -> Unit,
+    onShowHistory: () -> Unit,
     viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
-    val tdeeState by viewModel.tdeeState.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val milestones by viewModel.milestones.collectAsState()
     val healthBenefits: List<HealthBenefit> by viewModel.healthBenefits.collectAsState()
     val dataFillRate by viewModel.dataFillRate.collectAsState()
     val isSupporter by viewModel.isSupporter.collectAsState()
-    var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
     var chartStyle by remember { mutableStateOf(ChartStyle.LINE) }
+    var chartWindow by remember { mutableStateOf(ChartWindow.RECENT) }
     var showSupporterLockedDialog by remember { mutableStateOf(false) }
 
     if (showSupporterLockedDialog) {
@@ -171,9 +163,33 @@ fun JourneyScreen(
 
             dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
 
+            val earliestLog = logs.minOfOrNull { it.date }
+            val spansMoreThanWindow = earliestLog != null &&
+                ChronoUnit.DAYS.between(earliestLog, LocalDate.now()) > CHART_WINDOW_THRESHOLD_DAYS
+            if (spansMoreThanWindow) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChartWindow.entries.forEach { window ->
+                            FilterChip(
+                                selected = chartWindow == window,
+                                onClick = { chartWindow = window },
+                                label = { Text(window.label) },
+                                colors = themedFilterChipColors(),
+                            )
+                        }
+                    }
+                }
+            }
+            val chartLogs = if (spansMoreThanWindow && chartWindow == ChartWindow.RECENT) {
+                val cutoff = LocalDate.now().minusDays(CHART_WINDOW_THRESHOLD_DAYS)
+                logs.filter { it.date >= cutoff }
+            } else {
+                logs
+            }
+
             item {
                 WeightTrendCard(
-                    logs = logs,
+                    logs = chartLogs,
                     profile = profile,
                     chartStyle = chartStyle,
                     onChartStyleChange = { chartStyle = it },
@@ -186,7 +202,7 @@ fun JourneyScreen(
             // and bar for them (see ChartStyleToggle), not seeing the calorie chart at all.
             item {
                 CalorieTrendCard(
-                    logs = logs,
+                    logs = chartLogs,
                     chartStyle = chartStyle,
                     onChartStyleChange = { chartStyle = it },
                     isSupporter = isSupporter,
@@ -194,67 +210,7 @@ fun JourneyScreen(
                 )
             }
 
-            item { Text("History", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold) }
-
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    JourneyViewMode.entries.forEach { mode ->
-                        FilterChip(
-                            selected = viewMode == mode,
-                            onClick = { viewMode = mode },
-                            label = { Text(mode.label) },
-                            colors = themedFilterChipColors(),
-                        )
-                    }
-                }
-            }
-
-            when (viewMode) {
-                JourneyViewMode.DAILY -> {
-                    // Grouped by month with one compact row per day, rather than a full card per
-                    // day loaded one week at a time - that old pattern meant someone with a year
-                    // of history had to tap "Previous week" dozens of times just to scroll back,
-                    // and still ended up with hundreds of bulky cards once they did. The LazyColumn
-                    // this all lives in already only composes what's on screen, so there's no need
-                    // to hide older entries behind a button at all - just group them for scanning.
-                    val monthGroups = logs.sortedByDescending { it.date }.groupBy { YearMonth.from(it.date) }
-
-                    monthGroups.forEach { (month, daysInMonth) ->
-                        item(key = "month-$month") {
-                            Text(
-                                month.format(monthFormatter),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
-                        }
-                        item(key = "month-card-$month") {
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column {
-                                    daysInMonth.forEachIndexed { index, log ->
-                                        DayRow(
-                                            log = log,
-                                            profile = profile,
-                                            onEdit = { onEditDay(log.date) },
-                                            onDelete = { viewModel.deleteLog(log.date) },
-                                        )
-                                        if (index != daysInMonth.lastIndex) {
-                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                JourneyViewMode.WEEKLY -> {
-                    val weeks = tdeeState?.weeklyHistory.orEmpty().reversed()
-                    items(weeks) { week -> WeekCard(week, profile) }
-                }
-            }
+            item { HistoryEntryCard(dayCount = logs.size, onClick = onShowHistory) }
         }
     }
 }
@@ -285,6 +241,18 @@ private fun ResearchEntryCard(benefits: List<HealthBenefit>, onClick: () -> Unit
         iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
         title = "What the research says",
         subtitle = if (achievedCount == 0) "Nothing unlocked yet" else "$achievedCount unlocked",
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun HistoryEntryCard(dayCount: Int, onClick: () -> Unit) {
+    JourneyEntryCard(
+        icon = Icons.Outlined.Schedule,
+        iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
+        iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+        title = "History",
+        subtitle = if (dayCount == 1) "1 day logged" else "$dayCount days logged",
         onClick = onClick,
     )
 }
@@ -957,111 +925,8 @@ private fun BoxScope.AxisLabel(text: String, alignment: Alignment) {
 }
 
 
-// One compact line per day instead of a full card - these are meant to sit stacked by the dozen
-// inside a single month card, so a date, the day's numbers, and a tap target for edit/delete is
-// all there's room (and need) for. The date already omits the month/year, since those are said
-// once in the month header above this row rather than repeated on every single line.
-@Composable
-private fun DayRow(log: DailyLog, profile: UserProfile?, onEdit: () -> Unit, onDelete: () -> Unit) {
-    val unit = profile?.weightUnit
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit).padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                // A fully logged day (both weight and calories) earns a small green dot, the same
-                // "done" signal used for the accuracy indicator elsewhere - a quiet confirmation
-                // while scanning a month at a glance, not a judgment on any of the numbers in it.
-                if (log.weightKg != null && log.calories != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(DAY_COMPLETE_COLOR),
-                    )
-                }
-                Text(log.date.format(dayOfMonthFormatter), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (log.weightKg != null && unit != null) {
-                    Text(Phrasing.formatWeight(log.weightKg, unit), style = MaterialTheme.typography.bodySmall)
-                }
-                IntakeChip(log, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        IconButton(onClick = { showDeleteConfirm = true }) {
-            Icon(
-                Icons.Outlined.Delete,
-                contentDescription = "Delete this day",
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete this day?") },
-            text = { Text("This removes the weight and meal info logged for ${log.date.format(dateFormatter)}. This can't be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    onDelete()
-                }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun WeekCard(week: WeekSummary, profile: UserProfile?) {
-    val unit = profile?.weightUnit
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                "${week.startDate.format(dateFormatter)} - ${week.endDate.format(dateFormatter)}",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            if (!week.hasWeightData && !week.hasCalorieData) {
-                Text("No entries this week", style = MaterialTheme.typography.bodySmall)
-            } else {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Avg weight", style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        week.avgWeightKg?.let { kg ->
-                            val value = unit?.fromKg(kg) ?: kg
-                            "${oneDecimal(value)} ${unit?.name?.lowercase() ?: "kg"}"
-                        } ?: "-",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Avg calories", style = MaterialTheme.typography.bodySmall)
-                    Text(week.avgCalories?.roundToInt()?.toString() ?: "-", style = MaterialTheme.typography.bodySmall)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Estimated TDEE", style = MaterialTheme.typography.bodySmall)
-                    Text(week.tdee?.roundToInt()?.toString() ?: "not enough data yet", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-    }
-}
-
-private fun oneDecimal(value: Double): String {
+// Shared with JourneyHistoryScreen's WeekCard.
+fun oneDecimal(value: Double): String {
     val rounded = Math.round(value * 10.0) / 10.0
     return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
 }

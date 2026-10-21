@@ -60,6 +60,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.journey.JourneyHistoryScreen
 import com.measured.app.ui.journey.JourneyScreen
 import com.measured.app.ui.journey.MilestoneUnlockViewModel
 import com.measured.app.ui.journey.MilestonesScreen
@@ -85,6 +86,7 @@ private const val SETTINGS_TDEE_INFO_ROUTE = "settings/tdee-info"
 private const val SETTINGS_SUPPORTER_ROUTE = "settings/supporter"
 private const val JOURNEY_MILESTONES_ROUTE = "journey/milestones"
 private const val JOURNEY_RESEARCH_ROUTE = "journey/research"
+private const val JOURNEY_HISTORY_ROUTE = "journey/history"
 
 private const val TAB_STATUS = 0
 private const val TAB_JOURNEY = 1
@@ -185,12 +187,9 @@ fun MainScreen(onDataErased: () -> Unit) {
                         )
                         TAB_JOURNEY -> JourneyScreen(
                             contentPadding = padding,
-                            onEditDay = { date ->
-                                pendingEditDate = date
-                                goToTab(TAB_STATUS)
-                            },
                             onShowMilestones = { navController.navigate(JOURNEY_MILESTONES_ROUTE) },
                             onShowResearch = { navController.navigate(JOURNEY_RESEARCH_ROUTE) },
+                            onShowHistory = { navController.navigate(JOURNEY_HISTORY_ROUTE) },
                         )
                         TAB_SETTINGS -> SettingsScreen(
                             contentPadding = padding,
@@ -224,6 +223,16 @@ fun MainScreen(onDataErased: () -> Unit) {
             }
             composable(JOURNEY_RESEARCH_ROUTE) {
                 ResearchScreen(contentPadding = padding, onBack = { navController.popBackStack() })
+            }
+            composable(JOURNEY_HISTORY_ROUTE) {
+                JourneyHistoryScreen(
+                    contentPadding = padding,
+                    onEditDay = { date ->
+                        pendingEditDate = date
+                        goToTab(TAB_STATUS)
+                    },
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
     }
