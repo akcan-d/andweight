@@ -26,11 +26,12 @@ data class Milestone(
  * goal, weight moved), rather than asserting specific physiological outcomes at given weights or
  * dates, which would be unverifiable claims dressed up as guarantees.
  *
- * Each category shows only the single latest threshold already reached, plus the single next one
- * coming up - not every rung on the ladder - so working through a batch of logs at once doesn't
- * turn into a wall of "1kg down, 5kg down, 10kg down" chips that all say the same thing in
- * different words. The titles already carry that history implicitly (reaching "10kg down" means
- * you also passed 5kg and 1kg).
+ * Each category returns every threshold already reached, in order, plus the single next one
+ * coming up - a full achievement history rather than just the latest rung, so earlier milestones
+ * stay visible and the overall "unlocked" count reflects everything actually passed rather than
+ * only the most recent one per category. Everything here is computed fresh from the current
+ * profile/state/logs on every call rather than cached, so it stays correct if the goal weight
+ * changes (a milestone that no longer makes sense for the new goal simply stops appearing).
  */
 object JourneyMilestones {
 
@@ -66,8 +67,15 @@ object JourneyMilestones {
     // real progress rather than either trivial (50kg goal passing "1kg down") or unreachable (3kg
     // goal needing "50kg down"). AMOUNT_FRACTION_RANGE then picks the slice of this progression
     // that's actually meaningful for a given goal's total distance.
+    //
+    // Always expressed in kg, regardless of the person's display unit - weight is stored in kg,
+    // so achievement itself is decided in kg and only the title's number is converted and rounded
+    // for display. An earlier version kept a second, separately-curated lb progression so lb
+    // titles landed on round numbers, but that meant switching the display unit alone (no actual
+    // weight change) could flip which thresholds counted as reached, since each unit evaluated
+    // against a different list. One canonical list fixes that at the cost of lb titles sometimes
+    // landing on a slightly less round number.
     private val AMOUNT_PROGRESSION_KG = listOf(0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0)
-    private val AMOUNT_PROGRESSION_LB = listOf(1.0, 2.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
     private val AMOUNT_FRACTION_RANGE = 0.05..0.95
 
     fun compute(profile: UserProfile, state: TdeeState, logs: List<DailyLog>, today: LocalDate): List<Milestone> {
@@ -96,8 +104,8 @@ object JourneyMilestones {
     private fun timeMilestones(daysSinceStart: Long): List<Milestone> {
         val latestAchieved = TIME_THRESHOLDS.indexOfLast { (threshold, _) -> daysSinceStart >= threshold }
         val result = mutableListOf<Milestone>()
-        if (latestAchieved >= 0) {
-            result += Milestone(MilestoneCategory.TIME, TIME_THRESHOLDS[latestAchieved].second, achieved = true)
+        for (i in 0..latestAchieved) {
+            result += Milestone(MilestoneCategory.TIME, TIME_THRESHOLDS[i].second, achieved = true)
         }
         TIME_THRESHOLDS.getOrNull(latestAchieved + 1)?.let { (threshold, title) ->
             val remaining = threshold - daysSinceStart
@@ -109,8 +117,8 @@ object JourneyMilestones {
     private fun streakMilestones(longestStreak: Int): List<Milestone> {
         val latestAchieved = STREAK_THRESHOLDS.indexOfLast { (threshold, _) -> longestStreak >= threshold }
         val result = mutableListOf<Milestone>()
-        if (latestAchieved >= 0) {
-            result += Milestone(MilestoneCategory.STREAK, STREAK_THRESHOLDS[latestAchieved].second, achieved = true)
+        for (i in 0..latestAchieved) {
+            result += Milestone(MilestoneCategory.STREAK, STREAK_THRESHOLDS[i].second, achieved = true)
         }
         STREAK_THRESHOLDS.getOrNull(latestAchieved + 1)?.let { (threshold, title) ->
             val remaining = threshold - longestStreak
@@ -128,8 +136,8 @@ object JourneyMilestones {
         val ratio = rawRatio.coerceIn(0.0, 1.0)
         val latestAchieved = PROGRESS_THRESHOLDS.indexOfLast { (threshold, _) -> ratio >= threshold - 0.001 }
         val result = mutableListOf<Milestone>()
-        if (latestAchieved >= 0) {
-            result += Milestone(MilestoneCategory.PROGRESS, PROGRESS_THRESHOLDS[latestAchieved].second, achieved = true)
+        for (i in 0..latestAchieved) {
+            result += Milestone(MilestoneCategory.PROGRESS, PROGRESS_THRESHOLDS[i].second, achieved = true)
         }
         PROGRESS_THRESHOLDS.getOrNull(latestAchieved + 1)?.let { (threshold, title) ->
             val remainingPercent = ((threshold - ratio) * 100).roundToLong()
@@ -144,29 +152,29 @@ object JourneyMilestones {
         unit: WeightUnit,
         direction: GoalDirection,
     ): List<Milestone> {
-        val progression = if (unit == WeightUnit.KG) AMOUNT_PROGRESSION_KG else AMOUNT_PROGRESSION_LB
-        val totalNeededInUnit = unit.fromKg(totalNeededKg)
-        val thresholdsInUnit = progression.filter {
-            it / totalNeededInUnit in AMOUNT_FRACTION_RANGE
-        }
-        if (thresholdsInUnit.isEmpty()) return emptyList()
+        val thresholdsInKg = AMOUNT_PROGRESSION_KG.filter { it / totalNeededKg in AMOUNT_FRACTION_RANGE }
+        if (thresholdsInKg.isEmpty()) return emptyList()
 
         val unitLabel = unit.name.lowercase()
         val verb = if (direction == GoalDirection.LOSE) "down" else "up"
-        fun titleFor(thresholdInUnit: Double) = "${formatOneDecimal(thresholdInUnit)} $unitLabel $verb"
+        // Rounded to a whole number in lb (values there tend to be larger, where a decimal reads
+        // as noise) but kept to one decimal in kg (where 0.5-1kg differences are meaningful).
+        fun formatForUnit(valueInUnit: Double) =
+            if (unit == WeightUnit.KG) formatOneDecimal(valueInUnit) else Math.round(valueInUnit).toString()
+        fun titleFor(thresholdKg: Double) = "${formatForUnit(unit.fromKg(thresholdKg))} $unitLabel $verb"
 
-        val latestAchieved = thresholdsInUnit.indexOfLast { movedKg >= unit.toKg(it) - 0.01 }
+        val latestAchieved = thresholdsInKg.indexOfLast { movedKg >= it - 0.01 }
         val result = mutableListOf<Milestone>()
-        if (latestAchieved >= 0) {
-            result += Milestone(MilestoneCategory.AMOUNT, titleFor(thresholdsInUnit[latestAchieved]), achieved = true)
+        for (i in 0..latestAchieved) {
+            result += Milestone(MilestoneCategory.AMOUNT, titleFor(thresholdsInKg[i]), achieved = true)
         }
-        thresholdsInUnit.getOrNull(latestAchieved + 1)?.let { thresholdInUnit ->
-            val remainingInUnit = unit.fromKg(unit.toKg(thresholdInUnit) - movedKg)
+        thresholdsInKg.getOrNull(latestAchieved + 1)?.let { thresholdKg ->
+            val remainingInUnit = unit.fromKg(thresholdKg - movedKg)
             result += Milestone(
                 MilestoneCategory.AMOUNT,
-                titleFor(thresholdInUnit),
+                titleFor(thresholdKg),
                 achieved = false,
-                hint = "${formatOneDecimal(remainingInUnit)} $unitLabel to go",
+                hint = "${formatForUnit(remainingInUnit)} $unitLabel to go",
             )
         }
         return result

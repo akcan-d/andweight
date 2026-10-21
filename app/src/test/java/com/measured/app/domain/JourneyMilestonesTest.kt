@@ -35,14 +35,14 @@ class JourneyMilestonesTest {
     }
 
     @Test
-    fun `time milestones show only the latest threshold reached, not every rung passed along the way`() {
+    fun `time milestones show every threshold reached, not just the latest`() {
         val logs = logsOverDays(8) // day 1 through day 8 logged
         val today = referenceDate.plusDays(7) // 8 days since first log, inclusive
         val milestones = JourneyMilestones.compute(loseProfile, stateWith(99.0), logs, today)
             .filter { it.category == MilestoneCategory.TIME }
 
         val achievedTitles = milestones.filter { it.achieved }.map { it.title }
-        assertEquals(listOf("One week in"), achievedTitles)
+        assertEquals(listOf("First check-in", "One week in"), achievedTitles)
 
         val next = milestones.first { !it.achieved }
         assertEquals("Two weeks in", next.title)
@@ -56,7 +56,9 @@ class JourneyMilestonesTest {
         val milestones = JourneyMilestones.compute(loseProfile, stateWith(98.0), logs, today)
             .filter { it.category == MilestoneCategory.STREAK }
 
-        assertTrue(milestones.any { it.achieved && it.title == "7-day streak" })
+        // Every rung up to and including the longest streak ever reached stays achieved, not just
+        // the top one.
+        assertEquals(listOf("3-day streak", "7-day streak"), milestones.filter { it.achieved }.map { it.title })
         val next = milestones.first { !it.achieved }
         assertEquals("Two-week streak", next.title)
     }
@@ -78,22 +80,28 @@ class JourneyMilestonesTest {
         val milestones = JourneyMilestones.compute(loseProfile, stateWith(currentWeightKg = 90.0, earliestKg = 100.0), logs, referenceDate.plusDays(2))
             .filter { it.category == MilestoneCategory.PROGRESS }
 
-        // Only the latest threshold reached is shown, not every one passed along the way.
+        // Every threshold passed along the way stays visible, not just the latest one.
         val achievedTitles = milestones.filter { it.achieved }.map { it.title }
-        assertEquals(listOf("Halfway there"), achievedTitles)
+        assertEquals(listOf("10% of the way there", "A quarter of the way there", "Halfway there"), achievedTitles)
         assertEquals("Three-quarters there", milestones.first { !it.achieved }.title)
     }
 
     @Test
-    fun `amount milestones use clean numbers in the person's own unit`() {
+    fun `amount milestone achievement is based on physical weight moved, not the display unit`() {
+        // Moving exactly 2kg should count as reached regardless of whether the person's profile
+        // displays kg or lb - an earlier version evaluated against a separately-curated lb
+        // progression, so switching the display unit alone (no actual weight change) could flip
+        // which thresholds counted as reached.
+        val kgLogs = logsOverDays(3)
+        val kgMilestones = JourneyMilestones.compute(loseProfile, stateWith(currentWeightKg = 98.0, earliestKg = 100.0), kgLogs, referenceDate.plusDays(2))
+            .filter { it.category == MilestoneCategory.AMOUNT }
         val lbProfile = loseProfile.copy(weightUnit = WeightUnit.LB)
-        val logs = logsOverDays(3)
-        // Moved 4.5 kg =~ 9.9 lb, so "5 lb down" should be achieved but "10 lb down" should not yet.
-        val milestones = JourneyMilestones.compute(lbProfile, stateWith(currentWeightKg = 95.5, earliestKg = 100.0), logs, referenceDate.plusDays(2))
+        val lbMilestones = JourneyMilestones.compute(lbProfile, stateWith(currentWeightKg = 98.0, earliestKg = 100.0), kgLogs, referenceDate.plusDays(2))
             .filter { it.category == MilestoneCategory.AMOUNT }
 
-        assertTrue(milestones.any { it.achieved && it.title == "5 lb down" })
-        assertTrue(milestones.any { !it.achieved && it.title == "10 lb down" })
+        assertEquals(kgMilestones.count { it.achieved }, lbMilestones.count { it.achieved })
+        assertTrue(kgMilestones.any { it.achieved && it.title == "2 kg down" })
+        assertTrue(lbMilestones.any { it.achieved && it.title == "4 lb down" })
     }
 
     @Test
@@ -111,6 +119,40 @@ class JourneyMilestonesTest {
         // twice the entire goal, so it'd never be reachable at all.
         assertTrue(milestones.none { it.title == "10 kg down" })
         assertTrue(milestones.any { it.title == "1 kg down" } || milestones.any { it.title == "2 kg down" })
+    }
+
+    @Test
+    fun `moving the goal farther away correctly un-achieves progress milestones`() {
+        val logs = logsOverDays(3)
+        val state = stateWith(currentWeightKg = 90.0, earliestKg = 100.0) // moved 10kg
+        // Against the original 20kg goal distance, 10kg moved is halfway there.
+        val before = JourneyMilestones.compute(loseProfile, state, logs, referenceDate.plusDays(2))
+        assertTrue(before.any { it.category == MilestoneCategory.PROGRESS && it.achieved && it.title == "Halfway there" })
+
+        // Every call recomputes fresh from the current profile - nothing here is cached from the
+        // previous call - so doubling the remaining distance should immediately drop the ratio
+        // back down, not leave "Halfway there" stuck as achieved.
+        val fartherGoalProfile = loseProfile.copy(goalWeightKg = 60.0) // now needs 40kg total
+        val after = JourneyMilestones.compute(fartherGoalProfile, state, logs, referenceDate.plusDays(2))
+        assertTrue(after.none { it.category == MilestoneCategory.PROGRESS && it.achieved && it.title == "Halfway there" })
+        assertTrue(after.any { it.category == MilestoneCategory.PROGRESS && it.achieved && it.title == "A quarter of the way there" })
+    }
+
+    @Test
+    fun `moving the goal much closer drops amount thresholds that no longer make sense`() {
+        val logs = logsOverDays(3)
+        val state = stateWith(currentWeightKg = 90.0, earliestKg = 100.0) // moved 10kg
+        val before = JourneyMilestones.compute(loseProfile, state, logs, referenceDate.plusDays(2))
+            .filter { it.category == MilestoneCategory.AMOUNT }
+        assertTrue(before.any { it.achieved && it.title == "10 kg down" })
+
+        // The goal is now only 10kg away in total, so a "10kg down" milestone would mean "goal
+        // reached" and a next rung past it would be nonsensical - it should drop out of the
+        // achieved list rather than stay stuck from the previous, more distant goal.
+        val closerGoalProfile = loseProfile.copy(goalWeightKg = 90.0) // now needs 10kg total
+        val after = JourneyMilestones.compute(closerGoalProfile, state, logs, referenceDate.plusDays(2))
+            .filter { it.category == MilestoneCategory.AMOUNT }
+        assertTrue(after.none { it.title == "10 kg down" })
     }
 
     @Test

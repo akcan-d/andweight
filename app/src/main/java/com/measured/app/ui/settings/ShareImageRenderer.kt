@@ -128,8 +128,8 @@ object ShareImageRenderer {
         canvas.drawText("$unitLabel ${directionWord(summary.direction)}", center, center + 150f, labelPaint)
     }
 
-    /** Two figures side by side - the weight moved and the days tracked - for anyone who wants
-     * the consistency story told alongside the number itself. */
+    /** Three figures side by side - the weight moved, milestones unlocked, and days tracked - for
+     * anyone who wants the fuller story told alongside the headline number. */
     private fun drawStats(canvas: Canvas, summary: SettingsViewModel.ShareSummary, boldTypeface: Typeface, bodyTypeface: Typeface) {
         val center = SIZE / 2f
 
@@ -143,31 +143,34 @@ object ShareImageRenderer {
 
         val unit = summary.unit
         val amount = formatOneDecimal(unit.fromKg(abs(summary.changeKg)))
-        val leftX = center - 220f
-        val rightX = center + 220f
+        val leftX = center - 300f
+        val rightX = center + 300f
         val statY = 560f
         val labelY = 630f
 
         val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = WHITE
             typeface = boldTypeface
-            textSize = 150f
+            textSize = 130f
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText(amount, leftX, statY, numberPaint)
+        canvas.drawText("${summary.milestoneCount}", center, statY, numberPaint)
         canvas.drawText("${summary.daysActive}", rightX, statY, numberPaint)
 
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = WHITE_SOFT
             typeface = bodyTypeface
-            textSize = 38f
+            textSize = 36f
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText("${unit.name.lowercase()} ${directionWord(summary.direction)}", leftX, labelY, labelPaint)
+        canvas.drawText(if (summary.milestoneCount == 1) "milestone" else "milestones", center, labelY, labelPaint)
         canvas.drawText(if (summary.daysActive == 1) "day tracked" else "days tracked", rightX, labelY, labelPaint)
 
         val dividerPaint = Paint().apply { color = DIVIDER; strokeWidth = 2f }
-        canvas.drawLine(center, statY - 110f, center, labelY + 20f, dividerPaint)
+        canvas.drawLine(leftX + 150f, statY - 80f, leftX + 150f, labelY + 20f, dividerPaint)
+        canvas.drawLine(rightX - 150f, statY - 80f, rightX - 150f, labelY + 20f, dividerPaint)
     }
 
     private fun directionWord(direction: GoalDirection): String = when (direction) {

@@ -11,6 +11,7 @@ import com.measured.app.data.SettingsRepository
 import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.GoalDirection
+import com.measured.app.domain.JourneyMilestones
 import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
@@ -181,6 +182,7 @@ class SettingsViewModel(
         val changeKg: Double,
         val direction: GoalDirection,
         val unit: WeightUnit,
+        val milestoneCount: Int,
     )
 
     /** Null when there's no profile yet to share progress against. */
@@ -190,12 +192,14 @@ class SettingsViewModel(
         val logs = repository.logsFlow.first()
         val firstLoggedDate = logs.minOfOrNull { it.date }
         val daysActive = firstLoggedDate?.let { ChronoUnit.DAYS.between(it, LocalDate.now()).toInt() + 1 } ?: 0
+        val milestoneCount = JourneyMilestones.compute(currentProfile, state, logs, LocalDate.now()).count { it.achieved }
 
         return ShareSummary(
             daysActive = daysActive,
             changeKg = state.currentWeightKg - state.earliestKnownWeightKg,
             direction = currentProfile.goalDirection,
             unit = currentProfile.weightUnit,
+            milestoneCount = milestoneCount,
         )
     }
 }

@@ -2,6 +2,7 @@ package com.measured.app.ui.journey
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,6 +66,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.measured.app.domain.DailyLog
@@ -448,12 +450,12 @@ private fun MilestonesMascot() {
     }
 }
 
-// Each milestone gets its own achievement card (icon badge + title + status) rather than a small
-// tappable chip - milestones are meant to feel like a reward for real effort, so they get room to
-// breathe instead of being squeezed into a single-line label. Still just one flat "unlocked" set
-// plus one flat "up next" set, not four separate per-category sections - milestone titles already
-// say what they're about ("7-day streak", "Halfway there"), so a category label per card was mostly
-// repeating information the title already carried.
+// Milestones are grouped by category rather than shown as one flat list, since each category can
+// now hold every rung ever reached (not just the latest) - the most recent rung in a category
+// shows as a full gold-accented card, with any earlier ones in that category tucked behind an
+// expandable row styled like a medal case (silver, then bronze, then plain for anything further
+// back) so the achievement history stays visible without the page turning into a long wall of
+// cards that all say roughly the same thing.
 @Composable
 private fun MilestonesSection(milestones: List<Milestone>) {
     if (milestones.isEmpty()) return
@@ -462,9 +464,14 @@ private fun MilestonesSection(milestones: List<Milestone>) {
 
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         if (achieved.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Unlocked", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                AchievementGrid(achieved)
+                MilestoneCategory.entries.forEach { category ->
+                    val inCategory = achieved.filter { it.category == category }
+                    if (inCategory.isNotEmpty()) {
+                        AchievementTierGroup(inCategory)
+                    }
+                }
             }
         } else {
             Text(
@@ -488,25 +495,79 @@ private fun MilestonesSection(milestones: List<Milestone>) {
     }
 }
 
+/** [achievedInCategory] is in the same oldest-to-newest order JourneyMilestones returns it in, so
+ * the last entry is always the most recently reached rung in this category. */
 @Composable
-private fun AchievementGrid(milestones: List<Milestone>) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        milestones.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { milestone -> AchievementCard(milestone, modifier = Modifier.weight(1f)) }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
+private fun AchievementTierGroup(achievedInCategory: List<Milestone>) {
+    var expanded by remember { mutableStateOf(false) }
+    val latest = achievedInCategory.last()
+    val earlier = achievedInCategory.dropLast(1).asReversed()
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AchievementCard(latest, tier = AchievementTier.GOLD, modifier = Modifier.fillMaxWidth())
+        if (earlier.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (expanded) "Hide earlier milestones" else "+${earlier.size} earlier in this category",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Icon(
+                    if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (expanded) {
+                AchievementGrid(
+                    earlier,
+                    tierFor = { index -> if (index == 0) AchievementTier.SILVER else if (index == 1) AchievementTier.BRONZE else AchievementTier.NONE },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AchievementCard(milestone: Milestone, modifier: Modifier = Modifier) {
+private fun AchievementGrid(milestones: List<Milestone>, tierFor: (Int) -> AchievementTier = { AchievementTier.NONE }) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        milestones.chunked(2).forEachIndexed { rowIndex, row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEachIndexed { columnIndex, milestone ->
+                    AchievementCard(milestone, tier = tierFor(rowIndex * 2 + columnIndex), modifier = Modifier.weight(1f))
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+private enum class AchievementTier(val ringColor: Color?) {
+    GOLD(Color(0xFFD4AF37)),
+    SILVER(Color(0xFFA8A8A8)),
+    BRONZE(Color(0xFFB08D57)),
+    NONE(null),
+}
+
+// A fixed height, with the title and hint both clamped to a line count, so a short title like
+// "Goal reached" and a long one like "A quarter of the way there" produce the exact same card
+// size instead of the grid's rows subtly drifting out of alignment with each other.
+private val ACHIEVEMENT_CARD_HEIGHT = 148.dp
+
+@Composable
+private fun AchievementCard(milestone: Milestone, tier: AchievementTier = AchievementTier.NONE, modifier: Modifier = Modifier) {
     val badgeColor = if (milestone.achieved) categoryContainerColor(milestone.category) else MaterialTheme.colorScheme.surfaceVariant
     val badgeContentColor = if (milestone.achieved) categoryContentColor(milestone.category) else MaterialTheme.colorScheme.onSurfaceVariant
 
     Card(
-        modifier = modifier,
+        modifier = modifier.height(ACHIEVEMENT_CARD_HEIGHT),
         colors = CardDefaults.cardColors(
             containerColor = if (milestone.achieved) {
                 MaterialTheme.colorScheme.surface
@@ -516,12 +577,16 @@ private fun AchievementCard(milestone: Milestone, modifier: Modifier = Modifier)
         ),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxSize().padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
             Box(
-                modifier = Modifier.size(48.dp).clip(CircleShape).background(badgeColor),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(badgeColor)
+                    .let { if (tier.ringColor != null) it.border(2.dp, tier.ringColor, CircleShape) else it },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -531,17 +596,22 @@ private fun AchievementCard(milestone: Milestone, modifier: Modifier = Modifier)
                     modifier = Modifier.size(24.dp),
                 )
             }
+            Spacer(Modifier.height(6.dp))
             Text(
                 milestone.title,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 if (milestone.achieved) "Unlocked" else (milestone.hint ?: ""),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (milestone.achieved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
