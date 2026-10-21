@@ -68,6 +68,7 @@ import com.measured.app.ui.settings.EditProfileScreen
 import com.measured.app.ui.settings.ReminderOptInViewModel
 import com.measured.app.ui.settings.SettingsScreen
 import com.measured.app.ui.settings.SupporterPromptViewModel
+import com.measured.app.ui.settings.SupporterScreen
 import com.measured.app.ui.settings.TdeeInfoScreen
 import com.measured.app.ui.settings.TipOfTheDayViewModel
 import com.measured.app.ui.tips.TipsScreen
@@ -81,6 +82,7 @@ private const val SETTINGS_TIPS_ROUTE = "settings/tips"
 private const val SETTINGS_TUTORIAL_ROUTE = "settings/tutorial"
 private const val SETTINGS_EDIT_PROFILE_ROUTE = "settings/profile"
 private const val SETTINGS_TDEE_INFO_ROUTE = "settings/tdee-info"
+private const val SETTINGS_SUPPORTER_ROUTE = "settings/supporter"
 private const val JOURNEY_MILESTONES_ROUTE = "journey/milestones"
 private const val JOURNEY_RESEARCH_ROUTE = "journey/research"
 
@@ -196,6 +198,7 @@ fun MainScreen(onDataErased: () -> Unit) {
                             onShowTutorial = { navController.navigate(SETTINGS_TUTORIAL_ROUTE) },
                             onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
                             onShowTdeeInfo = { navController.navigate(SETTINGS_TDEE_INFO_ROUTE) },
+                            onShowSupporter = { navController.navigate(SETTINGS_SUPPORTER_ROUTE) },
                             onDataErased = onDataErased,
                         )
                     }
@@ -212,6 +215,9 @@ fun MainScreen(onDataErased: () -> Unit) {
             }
             composable(SETTINGS_TDEE_INFO_ROUTE) {
                 TdeeInfoScreen(contentPadding = padding, onBack = { navController.popBackStack() })
+            }
+            composable(SETTINGS_SUPPORTER_ROUTE) {
+                SupporterScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             }
             composable(JOURNEY_MILESTONES_ROUTE) {
                 MilestonesScreen(contentPadding = padding, onBack = { navController.popBackStack() })

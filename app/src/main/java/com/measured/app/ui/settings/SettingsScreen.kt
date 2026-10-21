@@ -95,6 +95,7 @@ fun SettingsScreen(
     onShowTutorial: () -> Unit,
     onEditProfile: () -> Unit,
     onShowTdeeInfo: () -> Unit,
+    onShowSupporter: () -> Unit,
     onDataErased: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
@@ -176,13 +177,30 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        SupporterSection(
-            isSupporter = isSupporter,
-            accentTheme = accentTheme,
-            onSetSupporter = viewModel::setSupporter,
-            onSetAccentTheme = viewModel::setAccentTheme,
-            onSyncIconToTheme = viewModel::syncIconToTheme,
-        )
+        // Just an entry point here - the full description, the toggle, and the perk list all
+        // live on their own screen now, so a free user scrolling past this sees three lines
+        // instead of a whole section's worth of chips and copy.
+        Text("Support the app", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (isSupporter) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    Icons.Outlined.Favorite,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text("You're a supporter - thank you!", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            }
+        } else {
+            Text(
+                "A cheap one-time unlock adds a few extra perks.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        OutlinedButton(onClick = onShowSupporter, modifier = Modifier.fillMaxWidth()) {
+            Text(if (isSupporter) "Manage" else "Learn more")
+        }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -211,6 +229,34 @@ fun SettingsScreen(
                 )
             }
         }
+
+        Text("Color theme", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AccentTheme.entries.forEach { theme ->
+                val locked = theme.isSupporterOnly && !isSupporter
+                FilterChip(
+                    selected = accentTheme == theme,
+                    enabled = !locked,
+                    onClick = { viewModel.setAccentTheme(theme) },
+                    label = { Text(theme.label) },
+                    leadingIcon = if (locked) {
+                        { Icon(Icons.Outlined.Lock, contentDescription = "Supporter only", modifier = Modifier.size(16.dp)) }
+                    } else {
+                        null
+                    },
+                    colors = themedFilterChipColors(),
+                )
+            }
+        }
+        // Only shown when there's actually something to sync - the icon's real, persisted
+        // component state is the source of truth for "current", not a separately-tracked value
+        // that could drift out of sync with it.
+        if (!AppIconSwitcher.isAlreadyApplied(context, accentTheme)) {
+            OutlinedButton(onClick = viewModel::syncIconToTheme) {
+                Text("Sync icon")
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -330,83 +376,6 @@ private fun ShareDesignPickerDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
-}
-
-@Composable
-private fun SupporterSection(
-    isSupporter: Boolean,
-    accentTheme: AccentTheme,
-    onSetSupporter: (Boolean) -> Unit,
-    onSetAccentTheme: (AccentTheme) -> Unit,
-    onSyncIconToTheme: () -> Unit,
-) {
-    Text("Support the app", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    Text(
-        "The core app is free, always - both Journey charts included. A cheap one-time supporter " +
-            "unlock adds a couple of extra color themes, switching charts to a bar style, a choice " +
-            "of share-card designs, and the home-screen widgets.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
-    if (isSupporter) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(
-                Icons.Outlined.Favorite,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(18.dp),
-            )
-            Text("You're a supporter - thank you!", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(value = isSupporter, onValueChange = onSetSupporter, role = Role.Switch),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(if (isSupporter) "Supporter" else "Become a supporter")
-            Text(
-                "Real in-app purchases aren't wired up yet - this is a placeholder switch for testing.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(checked = isSupporter, onCheckedChange = null)
-    }
-
-    Text("Color theme", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AccentTheme.entries.forEach { theme ->
-            val locked = theme.isSupporterOnly && !isSupporter
-            FilterChip(
-                selected = accentTheme == theme,
-                enabled = !locked,
-                onClick = { onSetAccentTheme(theme) },
-                label = { Text(theme.label) },
-                leadingIcon = if (locked) {
-                    { Icon(Icons.Outlined.Lock, contentDescription = "Supporter only", modifier = Modifier.size(16.dp)) }
-                } else {
-                    null
-                },
-                colors = themedFilterChipColors(),
-            )
-        }
-    }
-
-    // Only shown when there's actually something to sync - the icon's real, persisted component
-    // state is the source of truth for "current", not a separately-tracked value that could drift
-    // out of sync with it.
-    val context = LocalContext.current
-    if (!AppIconSwitcher.isAlreadyApplied(context, accentTheme)) {
-        OutlinedButton(onClick = onSyncIconToTheme) {
-            Text("Sync icon")
-        }
-    }
 }
 
 @Composable
