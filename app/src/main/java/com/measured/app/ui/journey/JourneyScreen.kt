@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Lock
@@ -37,6 +36,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -79,18 +79,19 @@ import com.measured.app.domain.Milestone
 import com.measured.app.domain.MilestoneCategory
 import com.measured.app.domain.Phrasing
 import com.measured.app.domain.UserProfile
-import com.measured.app.domain.WeekGrouping
 import com.measured.app.domain.WeekSummary
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.IntakeChip
 import com.measured.app.ui.theme.themedFilterChipColors
-import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 private val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
+private val dayOfMonthFormatter = DateTimeFormatter.ofPattern("EEE, d")
+private val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
 private enum class JourneyViewMode(val label: String) {
     DAILY("Daily"),
@@ -115,7 +116,6 @@ fun JourneyScreen(
     val dataFillRate by viewModel.dataFillRate.collectAsState()
     val isSupporter by viewModel.isSupporter.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
-    var visibleWeeks by remember { mutableStateOf(1) }
     var chartStyle by remember { mutableStateOf(ChartStyle.LINE) }
 
     val hasAnyData = logs.isNotEmpty()
@@ -196,35 +196,38 @@ fun JourneyScreen(
 
             when (viewMode) {
                 JourneyViewMode.DAILY -> {
-                    val firstDayOfWeek = profile?.weightUnit?.firstDayOfWeek ?: DayOfWeek.MONDAY
-                    val currentWeekStart = WeekGrouping.weekStart(viewModel.actualToday, firstDayOfWeek)
-                    val oldestVisibleWeekStart = currentWeekStart.minusWeeks((visibleWeeks - 1).toLong())
-                    val visibleLogs = logs
-                        .filter { !it.date.isBefore(oldestVisibleWeekStart) }
-                        .sortedByDescending { it.date }
+                    // Grouped by month with one compact row per day, rather than a full card per
+                    // day loaded one week at a time - that old pattern meant someone with a year
+                    // of history had to tap "Previous week" dozens of times just to scroll back,
+                    // and still ended up with hundreds of bulky cards once they did. The LazyColumn
+                    // this all lives in already only composes what's on screen, so there's no need
+                    // to hide older entries behind a button at all - just group them for scanning.
+                    val monthGroups = logs.sortedByDescending { it.date }.groupBy { YearMonth.from(it.date) }
 
-                    items(visibleLogs) { log ->
-                        DailyCard(log, profile, onEdit = { onEditDay(log.date) }, onDelete = { viewModel.deleteLog(log.date) })
-                    }
-
-                    val earliestLogDate = logs.minOfOrNull { it.date }
-                    val earliestWeekStart = earliestLogDate?.let { WeekGrouping.weekStart(it, firstDayOfWeek) }
-                    if (visibleLogs.isEmpty()) {
-                        item {
+                    monthGroups.forEach { (month, daysInMonth) ->
+                        item(key = "month-$month") {
                             Text(
-                                "No entries this week.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                month.format(monthFormatter),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 4.dp),
                             )
                         }
-                    }
-                    if (earliestWeekStart != null && oldestVisibleWeekStart.isAfter(earliestWeekStart)) {
-                        item {
-                            TextButton(
-                                onClick = { visibleWeeks += 1 },
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text("Previous week")
+                        item(key = "month-card-$month") {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column {
+                                    daysInMonth.forEachIndexed { index, log ->
+                                        DayRow(
+                                            log = log,
+                                            profile = profile,
+                                            onEdit = { onEditDay(log.date) },
+                                            onDelete = { viewModel.deleteLog(log.date) },
+                                        )
+                                        if (index != daysInMonth.lastIndex) {
+                                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -926,30 +929,36 @@ private fun LockedChartTeaser() {
     }
 }
 
+// One compact line per day instead of a full card - these are meant to sit stacked by the dozen
+// inside a single month card, so a date, the day's numbers, and a tap target for edit/delete is
+// all there's room (and need) for. The date already omits the month/year, since those are said
+// once in the month header above this row rather than repeated on every single line.
 @Composable
-private fun DailyCard(log: DailyLog, profile: UserProfile?, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun DayRow(log: DailyLog, profile: UserProfile?, onEdit: () -> Unit, onDelete: () -> Unit) {
     val unit = profile?.weightUnit
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(log.date.format(dateFormatter), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit).padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(log.date.format(dayOfMonthFormatter), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (log.weightKg != null && unit != null) {
-                    Text("Weight: ${Phrasing.formatWeight(log.weightKg, unit)}", style = MaterialTheme.typography.bodySmall)
+                    Text(Phrasing.formatWeight(log.weightKg, unit), style = MaterialTheme.typography.bodySmall)
                 }
                 IntakeChip(log, style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Outlined.Edit, contentDescription = "Edit this day")
-            }
-            IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Outlined.Delete, contentDescription = "Delete this day", tint = MaterialTheme.colorScheme.error)
-            }
+        }
+        IconButton(onClick = { showDeleteConfirm = true }) {
+            Icon(
+                Icons.Outlined.Delete,
+                contentDescription = "Delete this day",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 
