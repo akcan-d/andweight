@@ -3,6 +3,7 @@ package com.measured.app.ui.today
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.measured.app.data.AndWeightRepository
@@ -16,9 +17,11 @@ import com.measured.app.domain.SafetyLimits
 import com.measured.app.domain.TdeeEngine
 import com.measured.app.domain.TdeeState
 import com.measured.app.domain.UserProfile
+import com.measured.app.domain.WeightUnit
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -83,8 +86,18 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     var mealState by mutableStateOf(MealEntryState())
         private set
 
+    // Reacts to the saved log for whichever day is selected, rather than loading it once per
+    // navigation action - so a day's entry disappearing or changing because of something done
+    // elsewhere (e.g. deleting today's entry from the Journey tab) is picked up immediately here
+    // too, instead of needing to navigate away and back to force a reload.
     init {
-        loadDay(selectedDate)
+        viewModelScope.launch {
+            combine(logs, profile, snapshotFlow { selectedDate }) { logList, userProfile, date ->
+                Triple(logList.firstOrNull { it.date == date }, userProfile?.weightUnit, date)
+            }
+                .distinctUntilChanged()
+                .collect { (log, unit, _) -> syncDraftState(log, unit) }
+        }
     }
 
     /** Derived from the saved log itself rather than a transient post-save flag - an exact entry's
@@ -113,36 +126,27 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
     fun goToPreviousDay() {
         selectedDate = selectedDate.minusDays(1)
-        loadDay(selectedDate)
     }
 
     fun goToNextDay() {
         if (!canGoToNextDay()) return
         selectedDate = selectedDate.plusDays(1)
-        loadDay(selectedDate)
     }
 
     fun jumpToToday() {
         if (!canJumpToToday()) return
         selectedDate = actualToday
-        loadDay(selectedDate)
     }
 
     /** Jumps straight to an arbitrary date - used when arriving from the Journey tab's "edit this
      * day" action, rather than stepping one day at a time via [goToPreviousDay]/[goToNextDay]. */
     fun jumpToDate(date: LocalDate) {
-        if (date == selectedDate) return
         selectedDate = date
-        loadDay(selectedDate)
     }
 
     fun deleteDay() {
-        val dateBeingDeleted = selectedDate
         viewModelScope.launch {
-            repository.deleteLog(dateBeingDeleted)
-            if (dateBeingDeleted == selectedDate) {
-                loadDay(selectedDate)
-            }
+            repository.deleteLog(selectedDate)
         }
     }
 
@@ -193,7 +197,6 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
                 intakeLevel = existing?.intakeLevel,
                 wasExact = existing?.wasExactEntry ?: false,
             )
-            if (dateBeingSaved == selectedDate) loadDay(selectedDate)
         }
     }
 
@@ -270,9 +273,6 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
                 intakeLevel = if (mealState.useExact) null else mealState.selectedIntake,
                 wasExact = mealState.useExact,
             )
-            if (dateBeingSaved == selectedDate) {
-                loadDay(selectedDate)
-            }
         }
     }
 
@@ -334,37 +334,28 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
                 intakeLevel = if (hasMealInput && !mealState.useExact) mealState.selectedIntake else null,
                 wasExact = hasMealInput && mealState.useExact,
             )
-            if (dateBeingSaved == selectedDate) {
-                loadDay(selectedDate)
-            }
         }
     }
 
-    private fun loadDay(date: LocalDate) {
-        viewModelScope.launch {
-            val unit = profile.value?.weightUnit ?: repository.getProfileOnce()?.weightUnit
-            val saved = repository.getLogForDate(date)
-            if (selectedDate != date) return@launch // a later navigation superseded this load
+    private fun syncDraftState(saved: DailyLog?, unit: WeightUnit?) {
+        existingLog = saved
 
-            existingLog = saved
+        isEditingWeight = saved?.weightKg == null
+        weightState = if (saved?.weightKg != null && unit != null) {
+            WeightEntryState(text = formatWeight(unit.fromKg(saved.weightKg)))
+        } else {
+            WeightEntryState()
+        }
 
-            isEditingWeight = saved?.weightKg == null
-            weightState = if (saved?.weightKg != null && unit != null) {
-                WeightEntryState(text = formatWeight(unit.fromKg(saved.weightKg)))
-            } else {
-                WeightEntryState()
-            }
-
-            isEditingMeal = saved?.calories == null
-            mealState = if (saved?.calories != null) {
-                MealEntryState(
-                    selectedIntake = saved.intakeLevel,
-                    useExact = saved.wasExactEntry,
-                    exactCaloriesText = if (saved.wasExactEntry) saved.calories.toInt().toString() else "",
-                )
-            } else {
-                MealEntryState()
-            }
+        isEditingMeal = saved?.calories == null
+        mealState = if (saved?.calories != null) {
+            MealEntryState(
+                selectedIntake = saved.intakeLevel,
+                useExact = saved.wasExactEntry,
+                exactCaloriesText = if (saved.wasExactEntry) saved.calories.toInt().toString() else "",
+            )
+        } else {
+            MealEntryState()
         }
     }
 
