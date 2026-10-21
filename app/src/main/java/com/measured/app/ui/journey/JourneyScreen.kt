@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Delete
@@ -88,6 +91,8 @@ private enum class JourneyViewMode(val label: String) {
     WEEKLY("Weekly trend"),
 }
 
+private enum class ChartStyle { LINE, BAR }
+
 @Composable
 fun JourneyScreen(
     contentPadding: PaddingValues,
@@ -105,6 +110,7 @@ fun JourneyScreen(
     val isSupporter by viewModel.isSupporter.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
     var visibleWeeks by remember { mutableStateOf(1) }
+    var chartStyle by remember { mutableStateOf(ChartStyle.LINE) }
 
     val hasAnyData = logs.isNotEmpty()
 
@@ -143,11 +149,22 @@ fun JourneyScreen(
 
             dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
 
-            item { WeightTrendCard(logs, profile) }
+            item {
+                WeightTrendCard(
+                    logs = logs,
+                    profile = profile,
+                    chartStyle = chartStyle,
+                    onChartStyleChange = { chartStyle = it },
+                )
+            }
 
             item {
                 if (isSupporter) {
-                    CalorieTrendCard(logs)
+                    CalorieTrendCard(
+                        logs = logs,
+                        chartStyle = chartStyle,
+                        onChartStyleChange = { chartStyle = it },
+                    )
                 } else {
                     LockedChartTeaser()
                 }
@@ -593,14 +610,22 @@ private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
 }
 
 @Composable
-private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?) {
+private fun WeightTrendCard(
+    logs: List<DailyLog>,
+    profile: UserProfile?,
+    chartStyle: ChartStyle,
+    onChartStyleChange: (ChartStyle) -> Unit,
+) {
     val points = logs.filter { it.weightKg != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.primary
     val goalColor = MaterialTheme.colorScheme.tertiary
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                if (points.size >= 2) ChartStyleToggle(chartStyle, onChartStyleChange)
+            }
 
             if (points.size < 2 || profile == null) {
                 Text(
@@ -620,40 +645,56 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?) {
 
             val weightChartDescription = "Weight trend chart, from ${oneDecimal(weights.first())} to " +
                 "${oneDecimal(weights.last())} ${unit.name.lowercase()}, goal ${oneDecimal(goalWeight)} ${unit.name.lowercase()}"
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .padding(vertical = 4.dp)
-                    .semantics { contentDescription = weightChartDescription },
-            ) {
-                val chartHeight = size.height
-                val chartWidth = size.width
-                fun xFor(index: Int): Float =
-                    if (points.size == 1) chartWidth / 2f else chartWidth * index / (points.size - 1).toFloat()
-                fun yFor(weight: Double): Float =
-                    (chartHeight - ((weight - minWeight) / range * chartHeight)).toFloat()
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .padding(vertical = 4.dp)
+                        .semantics { contentDescription = weightChartDescription },
+                ) {
+                    val chartHeight = size.height
+                    val chartWidth = size.width
+                    fun xFor(index: Int): Float =
+                        if (points.size == 1) chartWidth / 2f else chartWidth * index / (points.size - 1).toFloat()
+                    fun yFor(weight: Double): Float =
+                        (chartHeight - ((weight - minWeight) / range * chartHeight)).toFloat()
 
-                val goalY = yFor(goalWeight)
-                drawLine(
-                    color = goalColor,
-                    start = Offset(0f, goalY),
-                    end = Offset(chartWidth, goalY),
-                    strokeWidth = 2f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
-                )
-
-                for (i in 0 until weights.size - 1) {
+                    val goalY = yFor(goalWeight)
                     drawLine(
-                        color = lineColor,
-                        start = Offset(xFor(i), yFor(weights[i])),
-                        end = Offset(xFor(i + 1), yFor(weights[i + 1])),
-                        strokeWidth = 4f,
+                        color = goalColor,
+                        start = Offset(0f, goalY),
+                        end = Offset(chartWidth, goalY),
+                        strokeWidth = 2f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
                     )
+
+                    if (chartStyle == ChartStyle.BAR) {
+                        val barWidth = (chartWidth / weights.size) * 0.6f
+                        weights.forEachIndexed { i, weight ->
+                            val x = xFor(i)
+                            drawRect(
+                                color = lineColor,
+                                topLeft = Offset(x - barWidth / 2f, yFor(weight)),
+                                size = Size(barWidth, chartHeight - yFor(weight)),
+                            )
+                        }
+                    } else {
+                        for (i in 0 until weights.size - 1) {
+                            drawLine(
+                                color = lineColor,
+                                start = Offset(xFor(i), yFor(weights[i])),
+                                end = Offset(xFor(i + 1), yFor(weights[i + 1])),
+                                strokeWidth = 4f,
+                            )
+                        }
+                        weights.forEachIndexed { i, weight ->
+                            drawCircle(color = lineColor, radius = 5f, center = Offset(xFor(i), yFor(weight)))
+                        }
+                    }
                 }
-                weights.forEachIndexed { i, weight ->
-                    drawCircle(color = lineColor, radius = 5f, center = Offset(xFor(i), yFor(weight)))
-                }
+                AxisLabel("${oneDecimal(maxWeight)} ${unit.name.lowercase()}", Alignment.TopStart)
+                AxisLabel("${oneDecimal(minWeight)} ${unit.name.lowercase()}", Alignment.BottomStart)
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -672,13 +713,20 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?) {
 // A supporter-only perk - the weight trend above is the one chart everyone needs, this is a nice
 // extra for anyone curious about their calorie history specifically.
 @Composable
-private fun CalorieTrendCard(logs: List<DailyLog>) {
+private fun CalorieTrendCard(
+    logs: List<DailyLog>,
+    chartStyle: ChartStyle,
+    onChartStyleChange: (ChartStyle) -> Unit,
+) {
     val points = logs.filter { it.calories != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.secondary
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                if (points.size >= 2) ChartStyleToggle(chartStyle, onChartStyleChange)
+            }
 
             if (points.size < 2) {
                 Text(
@@ -696,31 +744,47 @@ private fun CalorieTrendCard(logs: List<DailyLog>) {
 
             val calorieChartDescription =
                 "Calorie trend chart, from ${calories.first().toInt()} to ${calories.last().toInt()} calories"
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .padding(vertical = 4.dp)
-                    .semantics { contentDescription = calorieChartDescription },
-            ) {
-                val chartHeight = size.height
-                val chartWidth = size.width
-                fun xFor(index: Int): Float =
-                    if (points.size == 1) chartWidth / 2f else chartWidth * index / (points.size - 1).toFloat()
-                fun yFor(value: Double): Float =
-                    (chartHeight - ((value - minCalories) / range * chartHeight)).toFloat()
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .padding(vertical = 4.dp)
+                        .semantics { contentDescription = calorieChartDescription },
+                ) {
+                    val chartHeight = size.height
+                    val chartWidth = size.width
+                    fun xFor(index: Int): Float =
+                        if (points.size == 1) chartWidth / 2f else chartWidth * index / (points.size - 1).toFloat()
+                    fun yFor(value: Double): Float =
+                        (chartHeight - ((value - minCalories) / range * chartHeight)).toFloat()
 
-                for (i in 0 until calories.size - 1) {
-                    drawLine(
-                        color = lineColor,
-                        start = Offset(xFor(i), yFor(calories[i])),
-                        end = Offset(xFor(i + 1), yFor(calories[i + 1])),
-                        strokeWidth = 4f,
-                    )
+                    if (chartStyle == ChartStyle.BAR) {
+                        val barWidth = (chartWidth / calories.size) * 0.6f
+                        calories.forEachIndexed { i, value ->
+                            val x = xFor(i)
+                            drawRect(
+                                color = lineColor,
+                                topLeft = Offset(x - barWidth / 2f, yFor(value)),
+                                size = Size(barWidth, chartHeight - yFor(value)),
+                            )
+                        }
+                    } else {
+                        for (i in 0 until calories.size - 1) {
+                            drawLine(
+                                color = lineColor,
+                                start = Offset(xFor(i), yFor(calories[i])),
+                                end = Offset(xFor(i + 1), yFor(calories[i + 1])),
+                                strokeWidth = 4f,
+                            )
+                        }
+                        calories.forEachIndexed { i, value ->
+                            drawCircle(color = lineColor, radius = 5f, center = Offset(xFor(i), yFor(value)))
+                        }
+                    }
                 }
-                calories.forEachIndexed { i, value ->
-                    drawCircle(color = lineColor, radius = 5f, center = Offset(xFor(i), yFor(value)))
-                }
+                AxisLabel("${maxCalories.toInt()} kcal", Alignment.TopStart)
+                AxisLabel("${minCalories.toInt()} kcal", Alignment.BottomStart)
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -729,6 +793,44 @@ private fun CalorieTrendCard(logs: List<DailyLog>) {
             }
         }
     }
+}
+
+/** A compact line/bar switch shared by both trend cards - picking one style applies to both
+ * charts at once, since there's no reason to view them differently. */
+@Composable
+private fun ChartStyleToggle(selected: ChartStyle, onChange: (ChartStyle) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { onChange(ChartStyle.LINE) }) {
+            Icon(
+                Icons.AutoMirrored.Outlined.ShowChart,
+                contentDescription = "Line chart",
+                tint = if (selected == ChartStyle.LINE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = { onChange(ChartStyle.BAR) }) {
+            Icon(
+                Icons.Outlined.BarChart,
+                contentDescription = "Bar chart",
+                tint = if (selected == ChartStyle.BAR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** A small value label pinned to a corner of a chart's Box, with a translucent backing so it
+ * stays readable regardless of what the chart itself drew underneath it - the minimal way to
+ * show what range a chart spans without adding gridlines or a full axis. */
+@Composable
+private fun BoxScope.AxisLabel(text: String, alignment: Alignment) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .align(alignment)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), MaterialTheme.shapes.extraSmall)
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+    )
 }
 
 @Composable
