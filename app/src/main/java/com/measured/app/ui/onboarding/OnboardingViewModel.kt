@@ -28,10 +28,10 @@ private const val MAX_AGE = 120
 data class OnboardingUiState(
     val weightUnit: WeightUnit = WeightUnit.KG,
     val startWeightText: String = "",
-    /** Explicitly chosen by the person, rather than inferred from the two weight fields - so the
-     * stated intent ("I want to lose weight") is always the source of truth, and a goal weight
-     * that doesn't match it is treated as a typo to correct rather than a silent reinterpretation. */
-    val goalDirection: GoalDirection? = null,
+    /** Left blank means "maintain this weight" - lose/maintain/gain is inferred from comparing
+     * this to [startWeightText] rather than asked as its own separate question, with the
+     * inferred direction echoed back on screen (see OnboardingScreen) so a typo'd goal weight is
+     * still visible, just not a hard validation error. */
     val goalWeightText: String = "",
     val selectedPace: PaceOption? = null,
     val sex: Sex = Sex.UNSPECIFIED,
@@ -54,6 +54,20 @@ data class OnboardingUiState(
             val feet = heightFeetText.toDoubleOrNull() ?: 0.0
             val inches = heightInchesText.toDoubleOrNull() ?: 0.0
             if (heightFeetText.isBlank() && heightInchesText.isBlank()) null else HeightConversion.feetInchesToCm(feet, inches)
+        }
+
+    /** Null only when there's nothing to infer from yet (current weight not entered). A blank
+     * goal weight infers MAINTAIN - see [goalWeightText]. */
+    val inferredDirection: GoalDirection?
+        get() {
+            val start = startWeightText.toDoubleOrNull() ?: return null
+            if (goalWeightText.isBlank()) return GoalDirection.MAINTAIN
+            val goal = goalWeightText.toDoubleOrNull() ?: return null
+            return when {
+                goal < start - 0.01 -> GoalDirection.LOSE
+                goal > start + 0.01 -> GoalDirection.GAIN
+                else -> GoalDirection.MAINTAIN
+            }
         }
 }
 
@@ -112,10 +126,6 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
         uiState = uiState.copy(goalWeightText = text, errorMessage = null)
     }
 
-    fun onGoalDirectionChange(direction: GoalDirection) {
-        uiState = uiState.copy(goalDirection = direction, errorMessage = null)
-    }
-
     fun onPaceSelected(option: PaceOption) {
         uiState = uiState.copy(selectedPace = option, errorMessage = null)
     }
@@ -166,19 +176,13 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             return
         }
 
-        val direction = uiState.goalDirection
-        if (direction == null) {
-            uiState = uiState.copy(errorMessage = "Choose whether you want to lose, maintain, or gain weight.")
-            return
-        }
-
         val goalWeightKg: Double
-        if (direction == GoalDirection.MAINTAIN) {
+        if (uiState.goalWeightText.isBlank()) {
             goalWeightKg = startWeightKg
         } else {
             val goalWeight = uiState.goalWeightText.toDoubleOrNull()
             if (goalWeight == null || goalWeight <= 0.0) {
-                uiState = uiState.copy(errorMessage = "Enter your goal weight.")
+                uiState = uiState.copy(errorMessage = "Enter your goal weight, or leave it blank to maintain your current weight.")
                 return
             }
             val candidateKg = unit.toKg(goalWeight)
@@ -186,17 +190,15 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
                 uiState = uiState.copy(errorMessage = "Enter a realistic goal weight.")
                 return
             }
-            val matchesDirection = if (direction == GoalDirection.LOSE) {
-                candidateKg < startWeightKg - 0.01
-            } else {
-                candidateKg > startWeightKg + 0.01
-            }
-            if (!matchesDirection) {
-                val hint = if (direction == GoalDirection.LOSE) "lower" else "higher"
-                uiState = uiState.copy(errorMessage = "Your goal weight should be $hint than your current weight to ${direction.name.lowercase()} weight.")
-                return
-            }
             goalWeightKg = candidateKg
+        }
+
+        // Lose/maintain/gain is inferred from how the two weights compare, not asked separately
+        // (see OnboardingUiState.inferredDirection, echoed on screen so a typo is still visible).
+        val direction = when {
+            goalWeightKg < startWeightKg - 0.01 -> GoalDirection.LOSE
+            goalWeightKg > startWeightKg + 0.01 -> GoalDirection.GAIN
+            else -> GoalDirection.MAINTAIN
         }
 
         val pace = uiState.selectedPace

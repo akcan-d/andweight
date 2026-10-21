@@ -20,6 +20,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -84,39 +85,34 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // Lose/maintain/gain used to be its own question, asked before the goal weight -
+            // but it's fully determined by how that number compares to the current weight, so
+            // asking it separately was one more decision for no extra information. The inferred
+            // meaning is echoed back below instead, so a typo'd goal weight is still visible.
             Text("What's your goal?", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    colors = themedFilterChipColors(),
-                    selected = state.goalDirection == GoalDirection.LOSE,
-                    onClick = { viewModel.onGoalDirectionChange(GoalDirection.LOSE) },
-                    label = { Text("Lose weight") },
-                )
-                FilterChip(
-                    colors = themedFilterChipColors(),
-                    selected = state.goalDirection == GoalDirection.MAINTAIN,
-                    onClick = { viewModel.onGoalDirectionChange(GoalDirection.MAINTAIN) },
-                    label = { Text("Maintain") },
-                )
-                FilterChip(
-                    colors = themedFilterChipColors(),
-                    selected = state.goalDirection == GoalDirection.GAIN,
-                    onClick = { viewModel.onGoalDirectionChange(GoalDirection.GAIN) },
-                    label = { Text("Gain weight") },
-                )
-            }
+            OutlinedTextField(
+                value = state.goalWeightText,
+                onValueChange = viewModel::onGoalWeightChange,
+                label = { Text("Goal weight (${state.weightUnit.name.lowercase()})") },
+                placeholder = { Text("Leave blank to maintain your current weight") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-            val direction = state.goalDirection
+            val direction = state.inferredDirection
             val startWeightKg = state.startWeightText.toDoubleOrNull()?.let { state.weightUnit.toKg(it) }
 
-            if (direction == GoalDirection.LOSE || direction == GoalDirection.GAIN) {
-                OutlinedTextField(
-                    value = state.goalWeightText,
-                    onValueChange = viewModel::onGoalWeightChange,
-                    label = { Text("Goal weight (${state.weightUnit.name.lowercase()})") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+            if (direction != null) {
+                Text(
+                    when (direction) {
+                        GoalDirection.LOSE -> "This means: losing weight"
+                        GoalDirection.GAIN -> "This means: gaining weight"
+                        GoalDirection.MAINTAIN -> "This means: maintaining your current weight"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
 

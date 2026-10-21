@@ -28,7 +28,6 @@ data class EditProfileUiState(
     val loaded: Boolean = false,
     val weightUnit: WeightUnit = WeightUnit.KG,
     val startWeightText: String = "",
-    val goalDirection: GoalDirection? = null,
     val goalWeightText: String = "",
     val selectedPace: PaceOption? = null,
     val sex: Sex = Sex.UNSPECIFIED,
@@ -48,6 +47,20 @@ data class EditProfileUiState(
             val feet = heightFeetText.toDoubleOrNull() ?: 0.0
             val inches = heightInchesText.toDoubleOrNull() ?: 0.0
             if (heightFeetText.isBlank() && heightInchesText.isBlank()) null else HeightConversion.feetInchesToCm(feet, inches)
+        }
+
+    /** Null only when there's nothing to infer from yet. Mirrors
+     * [com.measured.app.ui.onboarding.OnboardingUiState.inferredDirection]. */
+    val inferredDirection: GoalDirection?
+        get() {
+            val start = startWeightText.toDoubleOrNull() ?: return null
+            if (goalWeightText.isBlank()) return GoalDirection.MAINTAIN
+            val goal = goalWeightText.toDoubleOrNull() ?: return null
+            return when {
+                goal < start - 0.01 -> GoalDirection.LOSE
+                goal > start + 0.01 -> GoalDirection.GAIN
+                else -> GoalDirection.MAINTAIN
+            }
         }
 }
 
@@ -83,7 +96,6 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
                 loaded = true,
                 weightUnit = unit,
                 startWeightText = formatOneDecimal(unit.fromKg(profile.startWeightKg)),
-                goalDirection = profile.goalDirection,
                 goalWeightText = formatOneDecimal(unit.fromKg(profile.goalWeightKg)),
                 selectedPace = profile.pace,
                 sex = profile.sex,
@@ -123,10 +135,6 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
 
     fun onStartWeightChange(text: String) {
         uiState = uiState.copy(startWeightText = text, errorMessage = null)
-    }
-
-    fun onGoalDirectionChange(direction: GoalDirection) {
-        uiState = uiState.copy(goalDirection = direction, errorMessage = null)
     }
 
     fun onGoalWeightChange(text: String) {
@@ -178,19 +186,13 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
             return
         }
 
-        val direction = uiState.goalDirection
-        if (direction == null) {
-            uiState = uiState.copy(errorMessage = "Choose whether you want to lose, maintain, or gain weight.")
-            return
-        }
-
         val goalWeightKg: Double
-        if (direction == GoalDirection.MAINTAIN) {
+        if (uiState.goalWeightText.isBlank()) {
             goalWeightKg = startWeightKg
         } else {
             val goalWeight = uiState.goalWeightText.toDoubleOrNull()
             if (goalWeight == null || goalWeight <= 0.0) {
-                uiState = uiState.copy(errorMessage = "Enter your goal weight.")
+                uiState = uiState.copy(errorMessage = "Enter your goal weight, or leave it blank to maintain your current weight.")
                 return
             }
             val candidateKg = unit.toKg(goalWeight)
@@ -198,17 +200,15 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
                 uiState = uiState.copy(errorMessage = "Enter a realistic goal weight.")
                 return
             }
-            val matchesDirection = if (direction == GoalDirection.LOSE) {
-                candidateKg < startWeightKg - 0.01
-            } else {
-                candidateKg > startWeightKg + 0.01
-            }
-            if (!matchesDirection) {
-                val hint = if (direction == GoalDirection.LOSE) "lower" else "higher"
-                uiState = uiState.copy(errorMessage = "Your goal weight should be $hint than your current weight to ${direction.name.lowercase()} weight.")
-                return
-            }
             goalWeightKg = candidateKg
+        }
+
+        // Lose/maintain/gain is inferred from how the two weights compare, not asked separately
+        // (see EditProfileUiState.inferredDirection, echoed on screen so a typo is still visible).
+        val direction = when {
+            goalWeightKg < startWeightKg - 0.01 -> GoalDirection.LOSE
+            goalWeightKg > startWeightKg + 0.01 -> GoalDirection.GAIN
+            else -> GoalDirection.MAINTAIN
         }
 
         val pace = uiState.selectedPace
