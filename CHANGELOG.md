@@ -7,6 +7,51 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-21
+
+### Added
+- A choice of chart style (line or bar) for the weight and calorie trend charts, plus clean axis
+  labels showing each chart's range
+- An "i" info icon next to the Status page's accuracy badge, the meal quick-pick levels, and the
+  weight entry field, explaining what each means in place of longer always-visible text
+- A small green dot on fully-logged days in Journey's history list
+- Three new home-screen widgets (weight progress, goal %, time left) replacing the old single
+  widget - each a transparent ring, resizable from a single cell up to 2x2
+- A choice of share-card designs (Classic, Minimal, Two stats) when sharing progress
+
+### Changed
+- The calorie trend chart is free for everyone now; switching chart style, the three widgets, and
+  the new share-card design picker are the supporter perks instead
+- Milestones scale to the size of your own goal instead of using the same fixed kg/lb thresholds
+  for everyone, and only show the latest threshold reached plus the next one, instead of every one
+  passed along the way
+- The Milestones page shows each milestone as its own icon-badged achievement card; the Research
+  page's findings are a plainer expandable list, intentionally calmer than Milestones
+- Journey's daily history is grouped by month with a compact row per day, instead of one card per
+  day loaded one week at a time
+- Today's check-in card keeps a fixed order and shows a border when something's missing, instead
+  of reordering itself; a small dot can appear on the Status tab icon as a reminder, toggleable in
+  Settings
+- The Status card demotes the exact calorie number behind "Show details", shows weight lost and
+  time remaining together, and lets you edit your goal weight inline instead of needing the full
+  Edit Profile screen
+- Onboarding and Edit Profile infer whether you're losing, maintaining, or gaining from your goal
+  weight instead of asking separately, with a confirmation line so a typo'd goal weight is still
+  visible
+- The Status card's progress ring is now consistently weight-based for both its fill and its
+  center number, with the time estimate shown as a separate line below it
+- Reversed theme colors on several buttons and chips (Settings, Today's meal picker, onboarding,
+  Edit Profile) now follow the selected accent theme correctly, as does the share-progress card's
+  background
+- "Match app icon color" is a one-time "Sync icon now" button instead of a toggle that restarted
+  the app on every theme change
+
+### Fixed
+- Milestone and health-benefit unlocks show up immediately instead of needing an app restart
+- The Status tab could keep showing a day's entry after it was deleted from the Journey tab, until
+  the day was navigated away from and back
+- The Status tab's icon no longer reads as a brightness/sun symbol
+
 ## [0.23.0] - 2026-10-20
 
 ### Changed
