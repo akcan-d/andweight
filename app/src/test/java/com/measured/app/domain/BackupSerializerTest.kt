@@ -66,6 +66,15 @@ class BackupSerializerTest {
     }
 
     @Test
+    fun `a backup file from the AndWeight era still restores`() {
+        val legacyText = BackupSerializer.build(profile, settings, logs)
+            .replaceFirst("MEASURED_BACKUP v1", "ANDWEIGHT_BACKUP v1")
+        val result = BackupSerializer.parse(legacyText)
+        assertEquals(profile, result?.profile)
+        assertEquals(2, result?.logs?.size)
+    }
+
+    @Test
     fun `skips unreadable log rows but keeps the rest`() {
         val text = BackupSerializer.build(profile, null, emptyList()) +
             "not,a,valid,row,here\n2026-02-01,88.0,,,false\n"

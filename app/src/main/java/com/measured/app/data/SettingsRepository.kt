@@ -39,7 +39,6 @@ class SettingsRepository(private val context: Context) {
         val SUPPORTER_PROMPT_SHOWN_COUNT = intPreferencesKey("supporter_prompt_shown_count")
         val LAST_SUPPORTER_PROMPT_EPOCH_DAY = longPreferencesKey("last_supporter_prompt_epoch_day")
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
-        val CHECK_IN_BADGE_ENABLED = booleanPreferencesKey("check_in_badge_enabled")
         val SEEN_MILESTONE_TITLES = stringSetPreferencesKey("seen_milestone_titles")
         val MILESTONE_BASELINE_DONE = booleanPreferencesKey("milestone_baseline_done")
     }
@@ -168,14 +167,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHighContrast(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
-    }
-
-    // On by default - a small dot on the Status tab's icon when today hasn't been checked in
-    // yet, so it reminds without the layout jump the badge is meant to replace.
-    val checkInBadgeEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.CHECK_IN_BADGE_ENABLED] ?: true }
-
-    suspend fun setCheckInBadgeEnabled(enabled: Boolean) {
-        context.settingsDataStore.edit { it[Keys.CHECK_IN_BADGE_ENABLED] = enabled }
     }
 
     /** Titles of milestones already announced via the in-app notification, so reaching one only

@@ -22,8 +22,6 @@ import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -73,7 +71,6 @@ import com.measured.app.ui.settings.SupporterPromptViewModel
 import com.measured.app.ui.settings.TdeeInfoScreen
 import com.measured.app.ui.settings.TipOfTheDayViewModel
 import com.measured.app.ui.tips.TipsScreen
-import com.measured.app.ui.today.CheckInReminderViewModel
 import com.measured.app.ui.today.TodayScreen
 import com.measured.app.ui.tutorial.TutorialScreen
 import java.time.LocalDate
@@ -115,8 +112,6 @@ fun MainScreen(onDataErased: () -> Unit) {
     // A brief, dismissible notification rather than a dialog - reaching a milestone is good news
     // to glance at, not something that needs an explicit "OK".
     val milestoneViewModel: MilestoneUnlockViewModel = viewModel(factory = AppViewModelProvider.Factory)
-    val checkInReminderViewModel: CheckInReminderViewModel = viewModel(factory = AppViewModelProvider.Factory)
-    val showCheckInBadge by checkInReminderViewModel.showBadge.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val milestoneMessage = milestoneViewModel.newMilestoneMessage
     LaunchedEffect(milestoneMessage) {
@@ -159,7 +154,6 @@ fun MainScreen(onDataErased: () -> Unit) {
                         icon = Icons.Outlined.Today,
                         label = "Status",
                         onClick = { goToTab(TAB_STATUS) },
-                        showBadge = showCheckInBadge,
                     )
                     NavPillItem(
                         selected = onTabs && pagerState.currentPage == TAB_JOURNEY,
@@ -232,7 +226,7 @@ fun MainScreen(onDataErased: () -> Unit) {
 /** A floating rounded pill rather than an edge-to-edge bar - the active tab gets a soft tinted
  * background instead of just a color change, matching the chip language used everywhere else. */
 @Composable
-private fun NavPillItem(selected: Boolean, icon: ImageVector, label: String, onClick: () -> Unit, showBadge: Boolean = false) {
+private fun NavPillItem(selected: Boolean, icon: ImageVector, label: String, onClick: () -> Unit) {
     val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
     val contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -245,11 +239,7 @@ private fun NavPillItem(selected: Boolean, icon: ImageVector, label: String, onC
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        // A plain theme-colored dot, not the error/red Badge default - this app avoids
-        // red "something's wrong" framing for an ordinary daily reminder.
-        BadgedBox(badge = { if (showBadge) Badge(containerColor = MaterialTheme.colorScheme.primary) }) {
-            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(21.dp))
-        }
+        Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(21.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = contentColor, fontWeight = FontWeight.SemiBold)
     }
 }

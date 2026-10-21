@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.automirrored.outlined.TrendingDown
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -124,9 +125,10 @@ fun TodayScreen(
         // Always the same order - the check-in card used to jump to the top whenever the
         // selected day still needed input, which read as the whole screen lurching around.
         // Instead, the check-in card itself visually asks for attention (a colored border) when
-        // it still needs something, rather than physically relocating.
-        item { CheckInCard(viewModel, profile) }
+        // it still needs something, rather than physically relocating - so the status overview
+        // can lead, with the already-self-announcing check-in card below it.
         item { StatusCard(profile, tdeeState, confidence, onEditProfile, viewModel::saveGoalWeight) }
+        item { CheckInCard(viewModel, profile) }
     }
 }
 
@@ -170,10 +172,12 @@ private fun StatusCard(
                     MaterialTheme.colorScheme.onErrorContainer,
                     Icons.Outlined.WarningAmber,
                 )
+                // Deliberately not the same glyph the app uses elsewhere for a tappable "i" -
+                // this icon isn't interactive, and there's nothing more to show behind it.
                 AdviceSentiment.NEUTRAL -> Triple(
                     MaterialTheme.colorScheme.surfaceVariant,
                     MaterialTheme.colorScheme.onSurfaceVariant,
-                    Icons.Outlined.Info,
+                    Icons.Outlined.Schedule,
                 )
             }
             Row(
@@ -221,7 +225,7 @@ private fun StatusCard(
                     StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
                 }
                 StatRow("Current weight", "${oneDecimal(unit.fromKg(tdeeState.currentWeightKg))} ${unit.name.lowercase()}")
-                StatRow("Estimated TDEE", "${tdeeState.currentTdee.roundToInt()} kcal/day")
+                TdeeStatRow(tdeeState.currentTdee)
                 WeightTrendStatRow(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit)
             }
         }
@@ -438,6 +442,24 @@ private fun StatRow(label: String, value: String) {
 }
 
 @Composable
+private fun TdeeStatRow(currentTdee: Double) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Estimated TDEE", style = MaterialTheme.typography.bodyMedium)
+            InfoTooltipIcon(
+                title = "Estimated TDEE",
+                text = "Total Daily Energy Expenditure - roughly how many calories you'd need to eat to " +
+                    "hold your weight steady right now. It starts as a formula-based guess, then adapts to " +
+                    "match your own logged weight and eating over time - including moving a lot if your " +
+                    "quick-pick choices (\"a bit less\", \"much more\", etc.) don't quite match what the " +
+                    "scale shows, since your real results are what it trusts most.",
+            )
+        }
+        Text("${currentTdee.roundToInt()} kcal/day", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun WeightTrendStatRow(deltaKg: Double, unit: WeightUnit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text("Since you started", style = MaterialTheme.typography.bodyMedium)
@@ -620,6 +642,19 @@ private fun WeightSectionHeading() {
 }
 
 @Composable
+private fun MealSectionHeading() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Meals", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        InfoTooltipIcon(
+            title = "Logging meals",
+            text = "Pick how much you ate compared to your own usual day, or tap \"Enter exact calories\" " +
+                "if you know the number. Either way is fine - this is the only part of your day the app " +
+                "needs besides your weight, tracked separately above.",
+        )
+    }
+}
+
+@Composable
 private fun BlankDayForm(viewModel: TodayViewModel, profile: UserProfile?) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -627,7 +662,7 @@ private fun BlankDayForm(viewModel: TodayViewModel, profile: UserProfile?) {
             WeightInputField(viewModel, profile)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Meals", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            MealSectionHeading()
             MealInputFields(viewModel)
         }
         Button(onClick = viewModel::saveDay, modifier = Modifier.fillMaxWidth()) {
@@ -681,7 +716,7 @@ private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
 @Composable
 private fun MealSection(viewModel: TodayViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Meals", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        MealSectionHeading()
 
         if (viewModel.isEditingMeal) {
             MealForm(viewModel)

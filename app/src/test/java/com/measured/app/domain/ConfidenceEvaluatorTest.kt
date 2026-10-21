@@ -66,4 +66,44 @@ class ConfidenceEvaluatorTest {
         assertEquals(ConfidenceLevel.MEDIUM, assessment.level)
         assertTrue(!assessment.promptProfileDetails)
     }
+
+    private fun completedWeek(index: Int) = WeekSummary(
+        weekIndex = index,
+        startDate = today.minusWeeks((4 - index).toLong()),
+        endDate = today.minusWeeks((4 - index).toLong()).plusDays(6),
+        hasWeightData = true,
+        hasCalorieData = true,
+        avgWeightKg = 88.0,
+        avgCalories = 2000.0,
+        weightDeltaKg = -0.3,
+        tdee = 2500.0,
+    )
+
+    private fun recentLogs() = (0..2).map { DailyLog(today.minusDays(it.toLong()), weightKg = 88.0, calories = 2000.0) }
+
+    @Test
+    fun `an estimate that has drifted far from its starting guess reads as low accuracy`() {
+        // A reported real scenario: a LOT of logged history, but quick-pick entries that don't
+        // track real results closely, so the estimate has climbed well past a sane multiple of
+        // the original formula-based guess - that drift itself should read as "don't trust this",
+        // even though there's plenty of data behind it.
+        val state = TdeeEngine.compute(profile, emptyList(), today).copy(
+            initialTdeeGuess = 3000.0,
+            currentTdee = 5000.0,
+            weeklyHistory = listOf(completedWeek(1), completedWeek(2), completedWeek(3), completedWeek(4)),
+        )
+        val assessment = ConfidenceEvaluator.assess(profile, state, recentLogs(), today)
+        assertEquals(ConfidenceLevel.LOW, assessment.level)
+    }
+
+    @Test
+    fun `a modest, plausible adjustment away from the starting guess is not treated as drift`() {
+        val state = TdeeEngine.compute(profile, emptyList(), today).copy(
+            initialTdeeGuess = 3000.0,
+            currentTdee = 3600.0,
+            weeklyHistory = listOf(completedWeek(1), completedWeek(2), completedWeek(3), completedWeek(4)),
+        )
+        val assessment = ConfidenceEvaluator.assess(profile, state, recentLogs(), today)
+        assertEquals(ConfidenceLevel.HIGH, assessment.level)
+    }
 }

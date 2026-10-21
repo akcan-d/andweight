@@ -15,6 +15,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,7 +27,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
@@ -86,6 +87,7 @@ private val timeFormatter24h = DateTimeFormatter.ofPattern("HH:mm")
 private const val PRIVACY_POLICY_URL = "https://akcan-d.github.io/andweight/privacy-policy.html"
 private const val FEEDBACK_EMAIL = "andweight.app@gmail.com"
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     contentPadding: PaddingValues,
@@ -233,21 +235,6 @@ fun SettingsScreen(
             onTimeChange = viewModel::setReminderTime,
         )
 
-        val checkInBadgeEnabled by viewModel.checkInBadgeEnabled.collectAsState()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .toggleable(value = checkInBadgeEnabled, onValueChange = viewModel::setCheckInBadgeEnabled, role = Role.Switch),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.Circle, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Status tab reminder dot")
-            }
-            Switch(checked = checkInBadgeEnabled, onCheckedChange = null)
-        }
-
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         Text("Tips", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -268,11 +255,13 @@ fun SettingsScreen(
             }
             Switch(checked = tipsEnabled, onCheckedChange = null)
         }
-        TextButton(onClick = onViewAllTips) {
-            Text("View all tips")
-        }
-        TextButton(onClick = viewModel::resetTipHistory) {
-            Text("Reset tip history")
+        FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = onViewAllTips) {
+                Text("View all tips")
+            }
+            TextButton(onClick = viewModel::resetTipHistory) {
+                Text("Reset tip history")
+            }
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -409,15 +398,14 @@ private fun SupporterSection(
         }
     }
 
-    Text("Match app icon color")
-    Text(
-        "A one-time sync, not something that follows you around - picks the home screen icon's " +
-            "color to match whatever theme is selected above right now. Restarts the app.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    OutlinedButton(onClick = onSyncIconToTheme) {
-        Text("Sync icon now")
+    // Only shown when there's actually something to sync - the icon's real, persisted component
+    // state is the source of truth for "current", not a separately-tracked value that could drift
+    // out of sync with it.
+    val context = LocalContext.current
+    if (!AppIconSwitcher.isAlreadyApplied(context, accentTheme)) {
+        OutlinedButton(onClick = onSyncIconToTheme) {
+            Text("Sync icon")
+        }
     }
 }
 
@@ -457,7 +445,7 @@ private fun BackupRestoreSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     OutlinedButton(
-        onClick = { createDocumentLauncher.launch("andweight_backup_${LocalDate.now()}.txt") },
+        onClick = { createDocumentLauncher.launch("measured_backup_${LocalDate.now()}.txt") },
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text("Create a full backup")

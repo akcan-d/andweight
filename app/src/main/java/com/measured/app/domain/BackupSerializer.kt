@@ -26,7 +26,12 @@ object BackupSerializer {
         val skippedLogRowCount: Int,
     )
 
-    private const val MAGIC_HEADER = "ANDWEIGHT_BACKUP v1"
+    private const val MAGIC_HEADER = "MEASURED_BACKUP v1"
+
+    // Accepted on restore for anyone with a backup file from before the AndWeight -> Measured
+    // rename - the format itself hasn't changed, just the app's name.
+    private const val LEGACY_MAGIC_HEADER = "ANDWEIGHT_BACKUP v1"
+
     private val logsHeader = listOf("date", "weight_kg", "calories", "intake_level", "exact_entry")
 
     fun build(profile: UserProfile?, settings: Settings?, logs: List<DailyLog>): String {
@@ -69,11 +74,12 @@ object BackupSerializer {
         return lines.joinToString("\n") + "\n"
     }
 
-    /** Null means the file isn't recognizable as an AndWeight backup at all - distinct from a
+    /** Null means the file isn't recognizable as a Measured backup at all - distinct from a
      * recognizable-but-partial file, which still restores whatever sections did parse. */
     fun parse(text: String): BackupData? {
         val lines = text.lines()
-        if (lines.firstOrNull()?.trim() != MAGIC_HEADER) return null
+        val header = lines.firstOrNull()?.trim()
+        if (header != MAGIC_HEADER && header != LEGACY_MAGIC_HEADER) return null
 
         val sections = mutableMapOf<String, MutableList<String>>()
         var currentSection: String? = null

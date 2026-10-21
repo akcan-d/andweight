@@ -53,9 +53,6 @@ class SettingsViewModel(
     val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    val checkInBadgeEnabled: StateFlow<Boolean> = settingsRepository.checkInBadgeEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
-
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
     var didEraseData by mutableStateOf(false)
@@ -120,10 +117,6 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.setHighContrast(enabled) }
     }
 
-    fun setCheckInBadgeEnabled(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setCheckInBadgeEnabled(enabled) }
-    }
-
     /** One-shot: makes the launcher icon match whatever theme is selected right now, then does
      * nothing further - it does not keep following future theme changes. Skips the restart if
      * the icon already happens to match, so tapping this when there's nothing to fix is a
@@ -157,7 +150,7 @@ class SettingsViewModel(
         return BackupSerializer.build(repository.getProfileOnce(), currentSettings, repository.logsFlow.first())
     }
 
-    /** Null means the file wasn't recognizable as an AndWeight backup at all, so nothing was
+    /** Null means the file wasn't recognizable as a Measured backup at all, so nothing was
      * touched - distinct from a recognizable file that's missing a section, which restores
      * whatever did parse (e.g. an older backup with no [settings] block still restores the
      * profile and logs). */

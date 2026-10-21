@@ -80,7 +80,10 @@ object CoachingAdvisor {
                     AdviceSentiment.CAUTION,
                 )
             }
-            else -> Advice("You're doing great - right on pace for your goal. $targetSentence", AdviceSentiment.POSITIVE)
+            // No imperative here - targetSentence always reads as "eat less" for a LOSE goal
+            // (the plan calls for a deficit by definition), which would read as a correction
+            // right after telling someone they're already doing exactly what's needed.
+            else -> Advice("You're doing great - right on pace for your goal. Keep it up.", AdviceSentiment.POSITIVE)
         }
     }
 }

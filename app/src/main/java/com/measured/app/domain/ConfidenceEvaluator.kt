@@ -31,6 +31,15 @@ object ConfidenceEvaluator {
     private const val MIN_RECENT_DAYS_LOGGED = 3
     private const val MIN_WEEKS_BEFORE_STALENESS_APPLIES = 2
 
+    /** How far the estimate can drift from its starting formula-based guess before treating that
+     * drift itself as a reason to doubt it, rather than trust. The adaptive algorithm is supposed
+     * to move the estimate toward whatever number reconciles logged calories with real weight
+     * change - that's correct behavior when someone's own sense of "usual" eating turns out to be
+     * off. But a 60%+ swing either way usually means recent quick-pick choices don't track real
+     * results closely enough for the number to mean much yet, not that a real metabolism actually
+     * moved that far. */
+    private const val DRIFT_RATIO_THRESHOLD = 1.6
+
     /** Out of 3 - each is independently used (with a population-average fallback for whichever is
      * missing) by [TdeeEngine.initialTdeeGuess], so a profile with 2 of 3 filled in is genuinely
      * more accurate than one with none, not just "not fully done yet". */
@@ -57,6 +66,10 @@ object ConfidenceEvaluator {
         }
         val isStale = completedWeeks >= MIN_WEEKS_BEFORE_STALENESS_APPLIES && recentDaysLogged < MIN_RECENT_DAYS_LOGGED
 
+        val hasDrifted = completedWeeks >= MIN_WEEKS_BEFORE_STALENESS_APPLIES &&
+            state.initialTdeeGuess > 0.0 &&
+            (state.currentTdee / state.initialTdeeGuess).let { it > DRIFT_RATIO_THRESHOLD || it < 1.0 / DRIFT_RATIO_THRESHOLD }
+
         // "N more days" assumes logging daily from here on - the honest, achievable version of that
         // promise, since a completed week only needs one day of each kind of entry somewhere in it.
         fun daysToNextLevel(targetWeeks: Int): String {
@@ -73,6 +86,13 @@ object ConfidenceEvaluator {
                         "data for $daysNeeded more day${if (daysNeeded == 1) "" else "s"} this week to bring it back up.",
                 )
             }
+            hasDrifted -> ConfidenceAssessment(
+                ConfidenceLevel.LOW,
+                "This estimate has moved a lot from where it started - usually that means recent " +
+                    "quick-pick choices (\"a bit less\", \"much more\", etc.) don't quite match what " +
+                    "actually happened on the scale. Logging exact calories for a few days can help it " +
+                    "settle on the right number faster.",
+            )
             completedWeeks >= 4 -> ConfidenceAssessment(
                 ConfidenceLevel.HIGH,
                 "Built from several weeks of your actual results - this is a solid, personalized estimate.",
