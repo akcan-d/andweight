@@ -110,6 +110,8 @@ private fun ring(diameterDp: Dp, stat: WidgetStat, scheme: ColorScheme): Bitmap 
         trackColor = scheme.surfaceVariant.toArgb(),
         ringColor = scheme.primary.toArgb(),
         textColor = scheme.onBackground.toArgb(),
-        numberText = stat.numberText,
+        // A lock glyph takes the same center spot a number normally would, rather than adding a
+        // whole separate "locked" rendering path just for this one case.
+        numberText = if (stat.locked) "🔒" else stat.numberText,
     )
 }

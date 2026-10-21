@@ -16,8 +16,9 @@ import kotlin.math.abs
 
 /**
  * Draws a simple branded square card with android.graphics directly, rather than capturing a
- * Compose screen - this only ever needs to produce one fixed layout, so plain Canvas/Paint calls
- * are more predictable than trying to snapshot a composable to a bitmap.
+ * Compose screen - a handful of fixed layouts are more predictable than trying to snapshot a
+ * composable to a bitmap. Picking which of [ShareCardDesign]'s layouts to use is a supporter
+ * perk (see SettingsScreen's share button); everyone else always gets [ShareCardDesign.CLASSIC].
  */
 object ShareImageRenderer {
 
@@ -33,7 +34,12 @@ object ShareImageRenderer {
      * white text this card draws unreadable. Callers should resolve it with
      * `accentPaletteFor(theme, darkTheme = false).primary`, regardless of the system's actual
      * dark-mode state, so the shared card always looks like a deep, rich brand card. */
-    fun render(context: Context, summary: SettingsViewModel.ShareSummary, backgroundColor: Int): Bitmap {
+    fun render(
+        context: Context,
+        summary: SettingsViewModel.ShareSummary,
+        backgroundColor: Int,
+        design: ShareCardDesign = ShareCardDesign.CLASSIC,
+    ): Bitmap {
         val bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(backgroundColor)
@@ -45,6 +51,16 @@ object ShareImageRenderer {
         val boldTypeface = quicksand?.let { Typeface.create(it, Typeface.BOLD) } ?: Typeface.DEFAULT_BOLD
         val bodyTypeface = ResourcesCompat.getFont(context, R.font.figtree_variable) ?: Typeface.DEFAULT
 
+        when (design) {
+            ShareCardDesign.CLASSIC -> drawClassic(canvas, summary, boldTypeface, bodyTypeface)
+            ShareCardDesign.MINIMAL -> drawMinimal(canvas, summary, boldTypeface, bodyTypeface)
+            ShareCardDesign.STATS -> drawStats(canvas, summary, boldTypeface, bodyTypeface)
+        }
+
+        return bitmap
+    }
+
+    private fun drawClassic(canvas: Canvas, summary: SettingsViewModel.ShareSummary, boldTypeface: Typeface, bodyTypeface: Typeface) {
         val center = SIZE / 2f
 
         val eyebrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -55,14 +71,8 @@ object ShareImageRenderer {
         }
         canvas.drawText("M E A S U R E D", center, 170f, eyebrowPaint)
 
-        val direction = summary.direction
         val unit = summary.unit
         val amount = formatOneDecimal(unit.fromKg(abs(summary.changeKg)))
-        val directionWord = when (direction) {
-            GoalDirection.LOSE -> "down"
-            GoalDirection.GAIN -> "up"
-            GoalDirection.MAINTAIN -> "maintained"
-        }
 
         val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = WHITE
@@ -79,7 +89,7 @@ object ShareImageRenderer {
             textSize = 50f
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("$unitLabel $directionWord", center, 660f, unitPaint)
+        canvas.drawText("$unitLabel ${directionWord(summary.direction)}", center, 660f, unitPaint)
 
         val dividerPaint = Paint().apply { color = DIVIDER; strokeWidth = 2f }
         canvas.drawLine(center - 160f, 760f, center + 160f, 760f, dividerPaint)
@@ -92,8 +102,78 @@ object ShareImageRenderer {
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText("${summary.daysActive} $dayWord tracked", center, 870f, daysPaint)
+    }
 
-        return bitmap
+    /** As bare as this card gets: just the number, nothing else competing for attention. */
+    private fun drawMinimal(canvas: Canvas, summary: SettingsViewModel.ShareSummary, boldTypeface: Typeface, bodyTypeface: Typeface) {
+        val center = SIZE / 2f
+        val unit = summary.unit
+        val amount = formatOneDecimal(unit.fromKg(abs(summary.changeKg)))
+
+        val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = WHITE
+            typeface = boldTypeface
+            textSize = 280f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText(amount, center, center + 40f, numberPaint)
+
+        val unitLabel = unit.name.lowercase()
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = WHITE_SOFT
+            typeface = bodyTypeface
+            textSize = 56f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("$unitLabel ${directionWord(summary.direction)}", center, center + 150f, labelPaint)
+    }
+
+    /** Two figures side by side - the weight moved and the days tracked - for anyone who wants
+     * the consistency story told alongside the number itself. */
+    private fun drawStats(canvas: Canvas, summary: SettingsViewModel.ShareSummary, boldTypeface: Typeface, bodyTypeface: Typeface) {
+        val center = SIZE / 2f
+
+        val eyebrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = WHITE_SOFT
+            typeface = boldTypeface
+            textSize = 34f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("M E A S U R E D", center, 150f, eyebrowPaint)
+
+        val unit = summary.unit
+        val amount = formatOneDecimal(unit.fromKg(abs(summary.changeKg)))
+        val leftX = center - 220f
+        val rightX = center + 220f
+        val statY = 560f
+        val labelY = 630f
+
+        val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = WHITE
+            typeface = boldTypeface
+            textSize = 150f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText(amount, leftX, statY, numberPaint)
+        canvas.drawText("${summary.daysActive}", rightX, statY, numberPaint)
+
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = WHITE_SOFT
+            typeface = bodyTypeface
+            textSize = 38f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("${unit.name.lowercase()} ${directionWord(summary.direction)}", leftX, labelY, labelPaint)
+        canvas.drawText(if (summary.daysActive == 1) "day tracked" else "days tracked", rightX, labelY, labelPaint)
+
+        val dividerPaint = Paint().apply { color = DIVIDER; strokeWidth = 2f }
+        canvas.drawLine(center, statY - 110f, center, labelY + 20f, dividerPaint)
+    }
+
+    private fun directionWord(direction: GoalDirection): String = when (direction) {
+        GoalDirection.LOSE -> "down"
+        GoalDirection.GAIN -> "up"
+        GoalDirection.MAINTAIN -> "maintained"
     }
 
     fun share(context: Context, bitmap: Bitmap) {

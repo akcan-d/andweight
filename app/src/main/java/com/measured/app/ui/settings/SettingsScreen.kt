@@ -11,10 +11,13 @@ import android.provider.Settings as AndroidSettings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,6 +55,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -107,6 +112,10 @@ fun SettingsScreen(
         if (viewModel.didEraseData) onDataErased()
     }
 
+    // Holds the fetched summary while a supporter is choosing a design - non-supporters never
+    // see this, since the share button sends them straight to ShareImageRenderer.share().
+    var pendingShareSummary by remember { mutableStateOf<SettingsViewModel.ShareSummary?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -130,15 +139,37 @@ fun SettingsScreen(
                 onClick = {
                     coroutineScope.launch {
                         val summary = viewModel.buildShareSummary() ?: return@launch
-                        val backgroundColor = accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb()
-                        val bitmap = ShareImageRenderer.render(context, summary, backgroundColor)
-                        ShareImageRenderer.share(context, bitmap)
+                        if (isSupporter) {
+                            pendingShareSummary = summary
+                        } else {
+                            val backgroundColor = accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb()
+                            val bitmap = ShareImageRenderer.render(context, summary, backgroundColor)
+                            ShareImageRenderer.share(context, bitmap)
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f),
             ) {
                 Text("Share progress")
             }
+        }
+
+        pendingShareSummary?.let { summary ->
+            ShareDesignPickerDialog(
+                summary = summary,
+                backgroundColor = accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb(),
+                onDesignSelected = { design ->
+                    pendingShareSummary = null
+                    val bitmap = ShareImageRenderer.render(
+                        context,
+                        summary,
+                        accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb(),
+                        design,
+                    )
+                    ShareImageRenderer.share(context, bitmap)
+                },
+                onDismiss = { pendingShareSummary = null },
+            )
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -270,6 +301,48 @@ fun SettingsScreen(
     }
 }
 
+/** Only ever shown to supporters - everyone else's share button skips straight to sharing the
+ * default design, so this is the one and only place the choice itself exists. */
+@Composable
+private fun ShareDesignPickerDialog(
+    summary: SettingsViewModel.ShareSummary,
+    backgroundColor: Int,
+    onDesignSelected: (ShareCardDesign) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose a design") },
+        text = {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ShareCardDesign.entries.forEach { design ->
+                    val bitmap = ShareImageRenderer.render(context, summary, backgroundColor, design)
+                    Column(
+                        modifier = Modifier.weight(1f).clickable { onDesignSelected(design) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = design.label,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(MaterialTheme.shapes.small),
+                        )
+                        Text(design.label, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
 @Composable
 private fun SupporterSection(
     isSupporter: Boolean,
@@ -280,8 +353,9 @@ private fun SupporterSection(
 ) {
     Text("Support the app", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text(
-        "The core app is free, always. A cheap one-time supporter unlock adds a couple of extra " +
-            "color themes and an extra chart on your Journey page.",
+        "The core app is free, always - both Journey charts included. A cheap one-time supporter " +
+            "unlock adds a couple of extra color themes, switching charts to a bar style, a choice " +
+            "of share-card designs, and the home-screen widgets.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

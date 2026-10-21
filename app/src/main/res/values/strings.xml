@@ -2,11 +2,11 @@
     <string name="app_name">Measured</string>
 
     <string name="widget_weight_lost_label">Measured: Weight progress</string>
-    <string name="widget_weight_lost_description">A small ring showing how much weight you\'ve moved toward your goal.</string>
+    <string name="widget_weight_lost_description">A small ring showing how much weight you\'ve moved toward your goal. A supporter perk - see Settings.</string>
 
     <string name="widget_percent_progress_label">Measured: Goal %</string>
-    <string name="widget_percent_progress_description">A small ring showing what percent of the way to your goal you\'ve come.</string>
+    <string name="widget_percent_progress_description">A small ring showing what percent of the way to your goal you\'ve come. A supporter perk - see Settings.</string>
 
     <string name="widget_time_remaining_label">Measured: Time left</string>
-    <string name="widget_time_remaining_description">A small ring with a rough countdown to your goal date.</string>
+    <string name="widget_time_remaining_description">A small ring with a rough countdown to your goal date. A supporter perk - see Settings.</string>
 </resources>

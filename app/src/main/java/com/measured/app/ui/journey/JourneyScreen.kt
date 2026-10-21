@@ -165,19 +165,19 @@ fun JourneyScreen(
                     profile = profile,
                     chartStyle = chartStyle,
                     onChartStyleChange = { chartStyle = it },
+                    isSupporter = isSupporter,
                 )
             }
 
+            // Everyone gets both trend charts now - a supporter perk is switching between line
+            // and bar for them (see ChartStyleToggle), not seeing the calorie chart at all.
             item {
-                if (isSupporter) {
-                    CalorieTrendCard(
-                        logs = logs,
-                        chartStyle = chartStyle,
-                        onChartStyleChange = { chartStyle = it },
-                    )
-                } else {
-                    LockedChartTeaser()
-                }
+                CalorieTrendCard(
+                    logs = logs,
+                    chartStyle = chartStyle,
+                    onChartStyleChange = { chartStyle = it },
+                    isSupporter = isSupporter,
+                )
             }
 
             item { Text("History", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold) }
@@ -694,16 +694,21 @@ private fun WeightTrendCard(
     profile: UserProfile?,
     chartStyle: ChartStyle,
     onChartStyleChange: (ChartStyle) -> Unit,
+    isSupporter: Boolean,
 ) {
     val points = logs.filter { it.weightKg != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.primary
     val goalColor = MaterialTheme.colorScheme.tertiary
+    // Switching to a bar chart is a supporter perk - if someone switched while a supporter and
+    // then stopped being one, this still falls back to the line chart rather than honoring a
+    // style choice they no longer have access to.
+    val effectiveChartStyle = if (isSupporter) chartStyle else ChartStyle.LINE
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                if (points.size >= 2) ChartStyleToggle(chartStyle, onChartStyleChange)
+                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter)
             }
 
             if (points.size < 2 || profile == null) {
@@ -748,7 +753,7 @@ private fun WeightTrendCard(
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
                     )
 
-                    if (chartStyle == ChartStyle.BAR) {
+                    if (effectiveChartStyle == ChartStyle.BAR) {
                         val barWidth = (chartWidth / weights.size) * 0.6f
                         weights.forEachIndexed { i, weight ->
                             val x = xFor(i)
@@ -789,22 +794,22 @@ private fun WeightTrendCard(
     }
 }
 
-// A supporter-only perk - the weight trend above is the one chart everyone needs, this is a nice
-// extra for anyone curious about their calorie history specifically.
 @Composable
 private fun CalorieTrendCard(
     logs: List<DailyLog>,
     chartStyle: ChartStyle,
     onChartStyleChange: (ChartStyle) -> Unit,
+    isSupporter: Boolean,
 ) {
     val points = logs.filter { it.calories != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.secondary
+    val effectiveChartStyle = if (isSupporter) chartStyle else ChartStyle.LINE
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                if (points.size >= 2) ChartStyleToggle(chartStyle, onChartStyleChange)
+                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter)
             }
 
             if (points.size < 2) {
@@ -838,7 +843,7 @@ private fun CalorieTrendCard(
                     fun yFor(value: Double): Float =
                         (chartHeight - ((value - minCalories) / range * chartHeight)).toFloat()
 
-                    if (chartStyle == ChartStyle.BAR) {
+                    if (effectiveChartStyle == ChartStyle.BAR) {
                         val barWidth = (chartWidth / calories.size) * 0.6f
                         calories.forEachIndexed { i, value ->
                             val x = xFor(i)
@@ -875,9 +880,12 @@ private fun CalorieTrendCard(
 }
 
 /** A compact line/bar switch shared by both trend cards - picking one style applies to both
- * charts at once, since there's no reason to view them differently. */
+ * charts at once, since there's no reason to view them differently. Switching to a bar chart is
+ * a supporter perk, shown the same way as a locked color theme in Settings: still visible and
+ * tappable, but with a small lock badge instead of actually switching, rather than disappearing
+ * outright (so the perk is discoverable, not just absent). */
 @Composable
-private fun ChartStyleToggle(selected: ChartStyle, onChange: (ChartStyle) -> Unit) {
+private fun ChartStyleToggle(selected: ChartStyle, onChange: (ChartStyle) -> Unit, isSupporter: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onChange(ChartStyle.LINE) }) {
             Icon(
@@ -886,12 +894,27 @@ private fun ChartStyleToggle(selected: ChartStyle, onChange: (ChartStyle) -> Uni
                 tint = if (selected == ChartStyle.LINE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        IconButton(onClick = { onChange(ChartStyle.BAR) }) {
-            Icon(
-                Icons.Outlined.BarChart,
-                contentDescription = "Bar chart",
-                tint = if (selected == ChartStyle.BAR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Box {
+            IconButton(onClick = { if (isSupporter) onChange(ChartStyle.BAR) }) {
+                Icon(
+                    Icons.Outlined.BarChart,
+                    contentDescription = if (isSupporter) "Bar chart" else "Bar chart - supporters only",
+                    tint = if (selected == ChartStyle.BAR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (!isSupporter) {
+                Icon(
+                    Icons.Outlined.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 6.dp, end = 6.dp)
+                        .size(12.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                        .padding(1.dp),
+                )
+            }
         }
     }
 }
@@ -912,26 +935,6 @@ private fun BoxScope.AxisLabel(text: String, alignment: Alignment) {
     )
 }
 
-@Composable
-private fun LockedChartTeaser() {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Column {
-                Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    "An extra chart for supporters - see Settings to learn more.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
 
 // One compact line per day instead of a full card - these are meant to sit stacked by the dozen
 // inside a single month card, so a date, the day's numbers, and a tap target for edit/delete is

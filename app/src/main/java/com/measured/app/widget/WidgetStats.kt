@@ -12,8 +12,11 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** What a single widget instance shows: how full its ring is, the number at its center, and the
- * short label underneath that number (shown only at the larger sizes - see [MinimalWidgetContent]). */
-data class WidgetStat(val ringProgress: Float, val numberText: String, val label: String)
+ * short label underneath that number (shown only at the larger sizes - see [MinimalWidgetContent]).
+ * [locked] means the person placed the widget but isn't a supporter - rendered as a lock instead
+ * of real data rather than leaving the widget off the picker entirely, since the perk is a nicer
+ * placement rather than something to hide from non-supporters. */
+data class WidgetStat(val ringProgress: Float, val numberText: String, val label: String, val locked: Boolean = false)
 
 /** The three widget types all share one ring (always weight-based progress toward the goal, same
  * meaning as the in-app Status ring) and only differ in what number sits at its center - rather
@@ -26,6 +29,9 @@ object WidgetStats {
     suspend fun compute(context: Context, metric: Metric): WidgetStat? {
         val app = context.applicationContext as AndWeightApplication
         val profile = app.repository.getProfileOnce() ?: return null
+        if (!app.settingsRepository.isSupporterOnce()) {
+            return WidgetStat(ringProgress = 0f, numberText = "", label = "Supporter perk", locked = true)
+        }
         val today = LocalDate.now()
         val logs = app.repository.logsFlow.first()
         val tdeeState = TdeeEngine.compute(profile, logs, today)
