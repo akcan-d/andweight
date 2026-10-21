@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static preview shown in the widget picker (API 31+) - mirrors the real widget's ring+number+
+     label layout with plausible sample data, standing in for a live render the picker can't do. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:src="@drawable/widget_preview_ring" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="4.2"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#1C1C1C" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="4dp"
+        android:text="kg lost"
+        android:textSize="11sp"
+        android:textColor="#1C1C1C" />
+
+</FrameLayout>

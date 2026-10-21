@@ -60,7 +60,10 @@ fun MinimalWidgetContent(stat: WidgetStat?, scheme: ColorScheme) {
         }
 
         val size = LocalSize.current
-        val ringDiameterDp = if (size == SIZE_LARGE) 64.dp else 32.dp
+        // At SIZE_LARGE the ring used to stay fixed at 64dp inside a 110dp box, leaving most of
+        // the placed widget as blank margin - sized up here to fill the space, leaving room only
+        // for the label underneath.
+        val ringDiameterDp = if (size == SIZE_LARGE) 86.dp else 32.dp
         val ringBitmap = ring(ringDiameterDp, stat, scheme)
 
         when (size) {

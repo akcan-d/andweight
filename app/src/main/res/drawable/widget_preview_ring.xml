@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A static stand-in for the real progress ring (which is rendered dynamically from live data) -
+     used only in the widget picker's preview layouts, so a plausible ring shows up there instead
+     of the app icon. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="ring"
+    android:innerRadiusRatio="3.2"
+    android:thicknessRatio="9"
+    android:useLevel="false">
+    <solid android:color="#2D7D55" />
+</shape>
