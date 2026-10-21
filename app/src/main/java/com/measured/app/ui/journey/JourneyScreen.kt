@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,10 +31,10 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -45,6 +44,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,6 +76,7 @@ import com.measured.app.domain.DailyLog
 import com.measured.app.domain.DataFillRateResult
 import com.measured.app.domain.HealthBenefit
 import com.measured.app.domain.Milestone
+import com.measured.app.domain.MilestoneCategory
 import com.measured.app.domain.Phrasing
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeekGrouping
@@ -453,8 +459,10 @@ private fun MilestonesMascot() {
     }
 }
 
-// One flat set of achieved milestones plus one flat set of what's coming up next, rather than four
-// separate per-category cards each with their own achieved/next split - milestone titles already
+// Each milestone gets its own achievement card (icon badge + title + status) rather than a small
+// tappable chip - milestones are meant to feel like a reward for real effort, so they get room to
+// breathe instead of being squeezed into a single-line label. Still just one flat "unlocked" set
+// plus one flat "up next" set, not four separate per-category sections - milestone titles already
 // say what they're about ("7-day streak", "Halfway there"), so a category label per card was mostly
 // repeating information the title already carried.
 @Composable
@@ -463,28 +471,11 @@ private fun MilestonesSection(milestones: List<Milestone>) {
     val achieved = milestones.filter { it.achieved }
     val upNext = milestones.filter { !it.achieved }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         if (achieved.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(achieved) { milestone ->
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(milestone.title) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Outlined.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        ),
-                        border = null,
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Unlocked", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                AchievementGrid(achieved)
             }
         } else {
             Text(
@@ -495,22 +486,99 @@ private fun MilestonesSection(milestones: List<Milestone>) {
         }
 
         if (upNext.isNotEmpty()) {
-            Text("Up next", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(upNext) { milestone ->
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(milestone.hint?.let { hint -> "${milestone.title} - $hint" } ?: milestone.title) },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                        border = null,
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Up next",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                AchievementGrid(upNext)
             }
         }
     }
+}
+
+@Composable
+private fun AchievementGrid(milestones: List<Milestone>) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        milestones.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { milestone -> AchievementCard(milestone, modifier = Modifier.weight(1f)) }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AchievementCard(milestone: Milestone, modifier: Modifier = Modifier) {
+    val badgeColor = if (milestone.achieved) categoryContainerColor(milestone.category) else MaterialTheme.colorScheme.surfaceVariant
+    val badgeContentColor = if (milestone.achieved) categoryContentColor(milestone.category) else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = if (milestone.achieved) {
+                MaterialTheme.colorScheme.surface
+            } else {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+            },
+        ),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier.size(48.dp).clip(CircleShape).background(badgeColor),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    categoryIcon(milestone.category),
+                    contentDescription = null,
+                    tint = badgeContentColor,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Text(
+                milestone.title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                if (milestone.achieved) "Unlocked" else (milestone.hint ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (milestone.achieved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+private fun categoryIcon(category: MilestoneCategory): ImageVector = when (category) {
+    MilestoneCategory.TIME -> Icons.Outlined.Schedule
+    MilestoneCategory.STREAK -> Icons.Outlined.LocalFireDepartment
+    MilestoneCategory.PROGRESS -> Icons.Outlined.Flag
+    MilestoneCategory.AMOUNT -> Icons.Outlined.MonitorWeight
+}
+
+@Composable
+private fun categoryContainerColor(category: MilestoneCategory): Color = when (category) {
+    MilestoneCategory.TIME -> MaterialTheme.colorScheme.primaryContainer
+    MilestoneCategory.STREAK -> MaterialTheme.colorScheme.tertiaryContainer
+    MilestoneCategory.PROGRESS -> MaterialTheme.colorScheme.secondaryContainer
+    MilestoneCategory.AMOUNT -> MaterialTheme.colorScheme.primaryContainer
+}
+
+@Composable
+private fun categoryContentColor(category: MilestoneCategory): Color = when (category) {
+    MilestoneCategory.TIME -> MaterialTheme.colorScheme.onPrimaryContainer
+    MilestoneCategory.STREAK -> MaterialTheme.colorScheme.onTertiaryContainer
+    MilestoneCategory.PROGRESS -> MaterialTheme.colorScheme.onSecondaryContainer
+    MilestoneCategory.AMOUNT -> MaterialTheme.colorScheme.onPrimaryContainer
 }
 
 @Composable
@@ -531,17 +599,18 @@ private fun DataFillRateCard(fillRate: DataFillRateResult) {
     }
 }
 
-// Matches the Milestones section's chip layout, for the same reason: unlocked findings as short
-// tappable chips (title only, full text on tap) instead of a full card per finding stacked
-// vertically, so unlocking several at once doesn't turn this into a wall of paragraphs.
+// Deliberately calmer than the Milestones page's achievement cards: this is citing real research
+// findings, not celebrating a personal win, so it reads like a short reference list rather than a
+// row of unlockable rewards - a plain row per finding that expands in place to show the full
+// explanation and citation, instead of badges, colors, or a popup dialog.
 @Composable
 private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
     if (benefits.isEmpty()) return
     val achieved = benefits.filter { it.achieved }
     val next = benefits.firstOrNull { !it.achieved }
-    var expandedFact by remember { mutableStateOf<HealthBenefit?>(null) }
+    var expandedTitle by remember { mutableStateOf<String?>(null) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             "Population averages from published research, not a guarantee for you personally - " +
                 "always follow your own doctor's guidance.",
@@ -550,24 +619,12 @@ private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
         )
 
         if (achieved.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(achieved) { fact ->
-                    AssistChip(
-                        onClick = { expandedFact = fact },
-                        label = { Text(fact.title) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Outlined.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        ),
-                        border = null,
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                achieved.forEach { fact ->
+                    ResearchFactRow(
+                        fact = fact,
+                        expanded = expandedTitle == fact.title,
+                        onToggle = { expandedTitle = if (expandedTitle == fact.title) null else fact.title },
                     )
                 }
             }
@@ -587,25 +644,40 @@ private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
             )
         }
     }
+}
 
-    expandedFact?.let { fact ->
-        AlertDialog(
-            onDismissRequest = { expandedFact = null },
-            title = { Text(fact.title) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(fact.body, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        "Source: ${fact.source}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { expandedFact = null }) { Text("Got it") }
-            },
-        )
+@Composable
+private fun ResearchFactRow(fact: HealthBenefit, expanded: Boolean, onToggle: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    fact.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (expanded) {
+                Text(fact.body, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Source: ${fact.source}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
