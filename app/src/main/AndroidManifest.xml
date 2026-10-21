@@ -79,14 +79,39 @@
         </receiver>
 
         <receiver
-            android:name=".widget.AndWeightWidgetReceiver"
-            android:exported="false">
+            android:name=".widget.WeightLostWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_weight_lost_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/andweight_widget_info" />
+                android:resource="@xml/weight_lost_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.PercentProgressWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_percent_progress_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/percent_progress_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TimeRemainingWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_time_remaining_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/time_remaining_widget_info" />
         </receiver>
 
         <provider

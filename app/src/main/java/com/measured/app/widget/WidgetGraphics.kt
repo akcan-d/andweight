@@ -8,13 +8,23 @@ import android.graphics.RectF
 /**
  * Hand-drawn with android.graphics directly (same reasoning as ShareImageRenderer: a fixed,
  * simple shape is more predictable than trying to snapshot a composable), rendered onto a
- * transparent bitmap so it sits naturally on whatever background the home screen gives it.
+ * transparent bitmap so it sits naturally on whatever home-screen background the widget has -
+ * the widgets built on this are deliberately background-free, floating directly on the wallpaper.
  */
 object WidgetGraphics {
 
     /** A ring that mirrors the Today screen's goal-progress ring - track plus a swept arc,
-     * starting at 12 o'clock. */
-    fun progressRing(sizePx: Int, progress: Float, trackColor: Int, ringColor: Int): Bitmap {
+     * starting at 12 o'clock - with its number drawn directly into the same bitmap rather than as
+     * separate overlaid text, so it can carry a soft shadow for legibility against whatever
+     * wallpaper is behind it (Glance's own Text styling has no shadow support). */
+    fun progressRingWithNumber(
+        sizePx: Int,
+        progress: Float,
+        trackColor: Int,
+        ringColor: Int,
+        textColor: Int,
+        numberText: String,
+    ): Bitmap {
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val ringStrokeWidth = sizePx * 0.14f
@@ -34,40 +44,18 @@ object WidgetGraphics {
             val ringPaint = Paint(trackPaint).apply { color = ringColor }
             canvas.drawArc(rect, -90f, sweep, false, ringPaint)
         }
-        return bitmap
-    }
 
-    /** A simple connected-line trend, mirroring Journey's WeightTrendCard chart but scaled down
-     * for the widget. Expects at least two values. */
-    fun sparkline(widthPx: Int, heightPx: Int, values: List<Double>, lineColor: Int): Bitmap {
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        if (values.size < 2) return bitmap
-
-        val minValue = values.min()
-        val maxValue = values.max()
-        val range = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
-        val dotRadius = heightPx * 0.07f
-        val verticalInset = dotRadius + heightPx * 0.08f
-
-        fun xFor(index: Int) = widthPx * index / (values.size - 1).toFloat()
-        fun yFor(value: Double): Float {
-            val t = ((value - minValue) / range).toFloat()
-            return heightPx - verticalInset - t * (heightPx - 2 * verticalInset)
+        if (numberText.isNotEmpty()) {
+            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = textColor
+                textSize = sizePx * 0.26f
+                textAlign = Paint.Align.CENTER
+                isFakeBoldText = true
+                setShadowLayer(sizePx * 0.05f, 0f, 0f, 0x55000000)
+            }
+            val textY = sizePx / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+            canvas.drawText(numberText, sizePx / 2f, textY, textPaint)
         }
-
-        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = lineColor
-            style = Paint.Style.STROKE
-            strokeWidth = heightPx * 0.06f
-            strokeCap = Paint.Cap.ROUND
-        }
-        for (i in 0 until values.size - 1) {
-            canvas.drawLine(xFor(i), yFor(values[i]), xFor(i + 1), yFor(values[i + 1]), linePaint)
-        }
-
-        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = lineColor }
-        canvas.drawCircle(xFor(values.lastIndex), yFor(values.last()), dotRadius, dotPaint)
 
         return bitmap
     }
