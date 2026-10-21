@@ -77,4 +77,38 @@ class CoachingAdvisorTest {
         val advice = CoachingAdvisor.advise(maintainProfile, state)
         assertEquals(AdviceSentiment.POSITIVE, advice.sentiment)
     }
+
+    // Reported as "weird numbers": backfilling realistic, steadily-decreasing daily weights still
+    // produced "eat less" advice. Traced through the real TdeeEngine pipeline (not the synthetic
+    // WeekSummary helper above) to confirm this is by design, not a miscalculation - the advisor
+    // compares actual loss against the *chosen pace's own target rate*, which scales with body
+    // weight (see PaceGuidance), not against "any weight loss at all". The same 0.2 kg/week real
+    // trajectory below reads as "too slow" under a faster-than-RELAXED pace, and "on track" under
+    // RELAXED - same data, different verdict, because the target itself is different.
+    private fun flatWeekLogs(startDate: LocalDate, weeklyWeights: List<Double>, dailyCalories: Double): List<DailyLog> =
+        weeklyWeights.flatMapIndexed { weekIndex, weight ->
+            (0 until 7).map { day -> DailyLog(startDate.plusDays(weekIndex * 7L + day), weight, dailyCalories) }
+        }
+
+    @Test
+    fun `realistic slow backfill reads as behind a moderate pace but on track for a relaxed one`() {
+        val profile = UserProfile(
+            weightUnit = WeightUnit.KG,
+            startWeightKg = 88.0,
+            goalWeightKg = 75.0,
+            pace = PaceOption.MODERATE,
+        )
+        // Three weeks, losing a real-world-plausible 0.2 kg/week throughout - not a crash diet,
+        // not a plateau.
+        val logs = flatWeekLogs(referenceDate, listOf(88.0, 87.8, 87.6), dailyCalories = 2000.0)
+        val today = referenceDate.plusDays(20)
+
+        val moderateState = TdeeEngine.compute(profile, logs, today)
+        val moderateAdvice = CoachingAdvisor.advise(profile, moderateState)
+        assertEquals(AdviceSentiment.CAUTION, moderateAdvice.sentiment)
+
+        val relaxedState = TdeeEngine.compute(profile.copy(pace = PaceOption.RELAXED), logs, today)
+        val relaxedAdvice = CoachingAdvisor.advise(profile.copy(pace = PaceOption.RELAXED), relaxedState)
+        assertEquals(AdviceSentiment.POSITIVE, relaxedAdvice.sentiment)
+    }
 }

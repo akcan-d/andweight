@@ -53,9 +53,6 @@ class SettingsViewModel(
     val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    val matchIconToTheme: StateFlow<Boolean> = settingsRepository.matchIconToThemeFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
     var didEraseData by mutableStateOf(false)
@@ -109,32 +106,25 @@ class SettingsViewModel(
     }
 
     fun setAccentTheme(theme: AccentTheme) {
-        viewModelScope.launch {
-            val previousTheme = settingsRepository.accentThemeOnce()
-            settingsRepository.setAccentTheme(theme)
-            // Only switching away from the icon currently in use needs a restart to clean it up -
-            // re-tapping the already-selected theme is a no-op for the launcher icon. And only
-            // bother at all if the person has opted into the icon following the theme - most
-            // people trying out colors don't want the app to restart every time.
-            if (theme != previousTheme && settingsRepository.matchIconToThemeOnce()) {
-                AppIconSwitcher.applyAndRestart(application, theme)
-            }
-        }
+        // Just the in-app colors - changing themes never touches the launcher icon on its own
+        // anymore. Anyone who wants the icon to match uses the explicit one-time sync button
+        // instead (see syncIconToTheme), since restarting the app on every theme change (even
+        // just to try out colors) was reported as disruptive.
+        viewModelScope.launch { settingsRepository.setAccentTheme(theme) }
     }
 
     fun setHighContrast(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setHighContrast(enabled) }
     }
 
-    fun setMatchIconToTheme(enabled: Boolean) {
+    /** One-shot: makes the launcher icon match whatever theme is selected right now, then does
+     * nothing further - it does not keep following future theme changes. Skips the restart if
+     * the icon already happens to match, so tapping this when there's nothing to fix is a
+     * harmless no-op instead of a pointless restart. */
+    fun syncIconToTheme() {
         viewModelScope.launch {
-            settingsRepository.setMatchIconToTheme(enabled)
-            // Turning it on should take effect right away, against whatever theme is already
-            // selected - otherwise the icon would stay wrong until the next theme change. Skip
-            // the restart if the icon already happens to match (e.g. still on the default Sage
-            // theme), so flipping this on doesn't restart the app for no visible reason.
             val currentTheme = settingsRepository.accentThemeOnce()
-            if (enabled && !AppIconSwitcher.isAlreadyApplied(application, currentTheme)) {
+            if (!AppIconSwitcher.isAlreadyApplied(application, currentTheme)) {
                 AppIconSwitcher.applyAndRestart(application, currentTheme)
             }
         }

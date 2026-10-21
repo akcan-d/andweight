@@ -39,7 +39,6 @@ class SettingsRepository(private val context: Context) {
         val SUPPORTER_PROMPT_SHOWN_COUNT = intPreferencesKey("supporter_prompt_shown_count")
         val LAST_SUPPORTER_PROMPT_EPOCH_DAY = longPreferencesKey("last_supporter_prompt_epoch_day")
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
-        val MATCH_ICON_TO_THEME = booleanPreferencesKey("match_icon_to_theme")
         val SEEN_MILESTONE_TITLES = stringSetPreferencesKey("seen_milestone_titles")
         val MILESTONE_BASELINE_DONE = booleanPreferencesKey("milestone_baseline_done")
     }
@@ -168,17 +167,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHighContrast(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
-    }
-
-    // Off by default - switching the in-app color theme only recolors the app's own screens
-    // unless someone explicitly opts into also recoloring the launcher icon, since that requires
-    // briefly restarting the app (see AppIconSwitcher).
-    val matchIconToThemeFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.MATCH_ICON_TO_THEME] ?: false }
-
-    suspend fun matchIconToThemeOnce(): Boolean = matchIconToThemeFlow.first()
-
-    suspend fun setMatchIconToTheme(enabled: Boolean) {
-        context.settingsDataStore.edit { it[Keys.MATCH_ICON_TO_THEME] = enabled }
     }
 
     /** Titles of milestones already announced via the in-app notification, so reaching one only

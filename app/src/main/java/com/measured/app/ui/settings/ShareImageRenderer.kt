@@ -23,17 +23,20 @@ object ShareImageRenderer {
 
     private const val SIZE = 1080
 
-    // Mirrors Color.kt's LightPrimary/LightSurface - duplicated here since this file works in
-    // plain android.graphics ints rather than Compose Color, and only needs these two.
-    private const val BACKGROUND_COLOR = 0xFF2D7D55.toInt()
     private const val WHITE = 0xFFFFFFFF.toInt()
     private const val WHITE_SOFT = 0xCCFFFFFF.toInt()
     private const val DIVIDER = 0x40FFFFFF
 
-    fun render(context: Context, summary: SettingsViewModel.ShareSummary): Bitmap {
+    /** [backgroundColor] should be the light-mode primary for the person's selected accent theme
+     * (not whatever [androidx.compose.material3.ColorScheme.primary] currently resolves to) -
+     * dark mode's "primary" is a light tone meant to pair with dark text, which would make the
+     * white text this card draws unreadable. Callers should resolve it with
+     * `accentPaletteFor(theme, darkTheme = false).primary`, regardless of the system's actual
+     * dark-mode state, so the shared card always looks like a deep, rich brand card. */
+    fun render(context: Context, summary: SettingsViewModel.ShareSummary, backgroundColor: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        canvas.drawColor(BACKGROUND_COLOR)
+        canvas.drawColor(backgroundColor)
 
         // ResourcesCompat gives back the variable font at its default instance - synthetic-bolding
         // it is good enough for a share image, rather than threading a font-variation-settings
@@ -95,7 +98,7 @@ object ShareImageRenderer {
 
     fun share(context: Context, bitmap: Bitmap) {
         val directory = File(context.cacheDir, "shared_images").apply { mkdirs() }
-        val file = File(directory, "andweight_progress.png")
+        val file = File(directory, "measured_progress.png")
         FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
 
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

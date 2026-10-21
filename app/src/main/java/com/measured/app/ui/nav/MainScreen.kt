@@ -20,7 +20,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -151,7 +151,7 @@ fun MainScreen(onDataErased: () -> Unit) {
                 ) {
                     NavPillItem(
                         selected = onTabs && pagerState.currentPage == TAB_STATUS,
-                        icon = Icons.Outlined.WbSunny,
+                        icon = Icons.Outlined.Today,
                         label = "Status",
                         onClick = { goToTab(TAB_STATUS) },
                     )

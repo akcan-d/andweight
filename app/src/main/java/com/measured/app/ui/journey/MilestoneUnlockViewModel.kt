@@ -8,16 +8,20 @@ import androidx.lifecycle.viewModelScope
 import com.measured.app.data.AndWeightRepository
 import com.measured.app.data.SettingsRepository
 import com.measured.app.domain.JourneyMilestones
-import com.measured.app.domain.TdeeEngine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
- * Checks once, at launch, for any milestone that became achieved since the last time this ran -
- * surfaced as a brief in-app notification (see MainScreen's SnackbarHost) rather than a dialog,
- * since this is good news to glance at, not something that needs an explicit dismissal. A title is
- * only ever announced once, tracked the same way as seen tips.
+ * Watches for any milestone that becomes achieved - surfaced as a brief in-app notification (see
+ * MainScreen's SnackbarHost) rather than a dialog, since this is good news to glance at, not
+ * something that needs an explicit dismissal. A title is only ever announced once, tracked the
+ * same way as seen tips.
+ *
+ * Reacts live to [AndWeightRepository.logsFlow]/[AndWeightRepository.profileFlow] rather than
+ * checking once at launch - an earlier version only checked in `init {}` against a one-shot
+ * snapshot, so a milestone reached by a log saved *during* the current session never announced
+ * itself until the app was restarted.
  */
 class MilestoneUnlockViewModel(
     private val repository: AndWeightRepository,
@@ -29,32 +33,36 @@ class MilestoneUnlockViewModel(
 
     init {
         viewModelScope.launch {
-            val profile = repository.getProfileOnce() ?: return@launch
             val today = LocalDate.now()
-            val logs = repository.logsFlow.first()
-            val state = TdeeEngine.compute(profile, logs, today)
-            val achievedTitles = JourneyMilestones.compute(profile, state, logs, today)
-                .filter { it.achieved }
-                .map { it.title }
-                .toSet()
+            combine(repository.profileFlow, repository.logsFlow, repository.tdeeStateFlow(today)) { profile, logs, state ->
+                Triple(profile, logs, state)
+            }.collect { (profile, logs, state) ->
+                if (profile == null || state == null) return@collect
 
-            if (!settingsRepository.isMilestoneBaselineDoneOnce()) {
-                // First time this check has ever run - whatever's already achieved becomes the
-                // starting point silently, rather than announcing it all as if it just happened.
-                settingsRepository.markMilestonesSeen(achievedTitles)
-                settingsRepository.setMilestoneBaselineDone()
-                return@launch
-            }
+                val achievedTitles = JourneyMilestones.compute(profile, state, logs, today)
+                    .filter { it.achieved }
+                    .map { it.title }
+                    .toSet()
 
-            val seenTitles = settingsRepository.seenMilestoneTitlesOnce()
-            val newlyAchieved = achievedTitles - seenTitles
-            if (newlyAchieved.isNotEmpty()) {
-                newMilestoneMessage = if (newlyAchieved.size == 1) {
-                    "Milestone unlocked: ${newlyAchieved.first()}"
-                } else {
-                    "${newlyAchieved.size} new milestones unlocked"
+                if (!settingsRepository.isMilestoneBaselineDoneOnce()) {
+                    // First time this check has ever run - whatever's already achieved becomes
+                    // the starting point silently, rather than announcing it all as if it just
+                    // happened.
+                    settingsRepository.markMilestonesSeen(achievedTitles)
+                    settingsRepository.setMilestoneBaselineDone()
+                    return@collect
                 }
-                settingsRepository.markMilestonesSeen(newlyAchieved)
+
+                val seenTitles = settingsRepository.seenMilestoneTitlesOnce()
+                val newlyAchieved = achievedTitles - seenTitles
+                if (newlyAchieved.isNotEmpty()) {
+                    newMilestoneMessage = if (newlyAchieved.size == 1) {
+                        "Milestone unlocked: ${newlyAchieved.first()}"
+                    } else {
+                        "${newlyAchieved.size} new milestones unlocked"
+                    }
+                    settingsRepository.markMilestonesSeen(newlyAchieved)
+                }
             }
         }
     }

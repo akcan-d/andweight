@@ -31,6 +31,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
@@ -67,6 +69,7 @@ import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.theme.accentPaletteFor
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
@@ -123,7 +126,8 @@ fun SettingsScreen(
                 onClick = {
                     coroutineScope.launch {
                         val summary = viewModel.buildShareSummary() ?: return@launch
-                        val bitmap = ShareImageRenderer.render(context, summary)
+                        val backgroundColor = accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb()
+                        val bitmap = ShareImageRenderer.render(context, summary, backgroundColor)
                         ShareImageRenderer.share(context, bitmap)
                     }
                 },
@@ -135,14 +139,12 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        val matchIconToTheme by viewModel.matchIconToTheme.collectAsState()
         SupporterSection(
             isSupporter = isSupporter,
             accentTheme = accentTheme,
-            matchIconToTheme = matchIconToTheme,
             onSetSupporter = viewModel::setSupporter,
             onSetAccentTheme = viewModel::setAccentTheme,
-            onSetMatchIconToTheme = viewModel::setMatchIconToTheme,
+            onSyncIconToTheme = viewModel::syncIconToTheme,
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -154,6 +156,7 @@ fun SettingsScreen(
                     selected = profile?.weightUnit == unit,
                     onClick = { viewModel.setWeightUnit(unit) },
                     label = { Text(if (unit == WeightUnit.KG) "Metric (kg, cm)" else "Imperial (lb, ft/in)") },
+                    colors = themedFilterChipColors(),
                 )
             }
         }
@@ -167,6 +170,7 @@ fun SettingsScreen(
                     selected = themeMode == mode,
                     onClick = { viewModel.setThemeMode(mode) },
                     label = { Text(mode.label) },
+                    colors = themedFilterChipColors(),
                 )
             }
         }
@@ -247,14 +251,26 @@ fun SettingsScreen(
     }
 }
 
+// Material3's FilterChip defaults its selected state to secondaryContainer, not primaryContainer.
+// Harmless for a chip whose selected color is incidental, but every accent theme's secondary is
+// deliberately a different hue from its primary (Sage's secondary is blue, Ocean's is green) -
+// so left at the default, the theme-picker chips themselves looked backwards: picking Sage
+// highlighted blue, picking Ocean highlighted green. Every FilterChip in this screen should
+// instead reflect whichever theme is actually active right now.
+@Composable
+private fun themedFilterChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+)
+
 @Composable
 private fun SupporterSection(
     isSupporter: Boolean,
     accentTheme: AccentTheme,
-    matchIconToTheme: Boolean,
     onSetSupporter: (Boolean) -> Unit,
     onSetAccentTheme: (AccentTheme) -> Unit,
-    onSetMatchIconToTheme: (Boolean) -> Unit,
+    onSyncIconToTheme: () -> Unit,
 ) {
     Text("Support the app", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text(
@@ -308,26 +324,20 @@ private fun SupporterSection(
                 } else {
                     null
                 },
+                colors = themedFilterChipColors(),
             )
         }
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(value = matchIconToTheme, onValueChange = onSetMatchIconToTheme, role = Role.Switch),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("Match app icon color")
-            Text(
-                "Recolors your home screen icon too - requires restarting the app.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(checked = matchIconToTheme, onCheckedChange = null)
+    Text("Match app icon color")
+    Text(
+        "A one-time sync, not something that follows you around - picks the home screen icon's " +
+            "color to match whatever theme is selected above right now. Restarts the app.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    OutlinedButton(onClick = onSyncIconToTheme) {
+        Text("Sync icon now")
     }
 }
 
