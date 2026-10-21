@@ -22,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
@@ -118,6 +119,9 @@ fun SettingsScreen(
             ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // Every other section here has its own heading - these two buttons were the one thing
+        // that didn't, which read as adrift rather than intentional.
+        Text("Your profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = onEditProfile, modifier = Modifier.weight(1f)) {
                 Text("Edit profile")
@@ -197,6 +201,21 @@ fun SettingsScreen(
             onEnabledChange = viewModel::setReminderEnabled,
             onTimeChange = viewModel::setReminderTime,
         )
+
+        val checkInBadgeEnabled by viewModel.checkInBadgeEnabled.collectAsState()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(value = checkInBadgeEnabled, onValueChange = viewModel::setCheckInBadgeEnabled, role = Role.Switch),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Outlined.Circle, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Status tab reminder dot")
+            }
+            Switch(checked = checkInBadgeEnabled, onCheckedChange = null)
+        }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

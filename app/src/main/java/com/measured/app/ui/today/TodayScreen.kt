@@ -2,6 +2,7 @@ package com.measured.app.ui.today
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -111,21 +111,6 @@ fun TodayScreen(
         }
     }
 
-    // Whatever day is currently open leads with the check-in card while it still needs input -
-    // that's the actionable thing, especially for a new user who hasn't logged anything yet and
-    // would otherwise have to scroll past a stats card to find it. Once the day is fully logged,
-    // the status card leads instead, since there's nothing left to act on and the progress is now
-    // the more interesting thing to see first.
-    val items = buildList<@Composable () -> Unit> {
-        if (viewModel.isDayComplete) {
-            add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
-            add { CheckInCard(viewModel, profile) }
-        } else {
-            add { CheckInCard(viewModel, profile) }
-            add { StatusCard(profile, tdeeState, confidence, onEditProfile) }
-        }
-    }
-
     LazyColumn(
         contentPadding = PaddingValues(
             start = 20.dp,
@@ -135,7 +120,12 @@ fun TodayScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        items(items) { it() }
+        // Always the same order - the check-in card used to jump to the top whenever the
+        // selected day still needed input, which read as the whole screen lurching around.
+        // Instead, the check-in card itself visually asks for attention (a colored border) when
+        // it still needs something, rather than physically relocating.
+        item { CheckInCard(viewModel, profile) }
+        item { StatusCard(profile, tdeeState, confidence, onEditProfile) }
     }
 }
 
@@ -241,16 +231,25 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
                 Text("Nice work getting here.", style = MaterialTheme.typography.bodyMedium)
             }
             else -> {
-                val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
-                val countdown = Phrasing.goalCountdown(daysToGoal)
+                // The ring's fill and its center number used to measure two different things -
+                // the fill was how much weight had been lost/gained so far, but the number in the
+                // middle was a time countdown. Early weight loss is often faster than the average
+                // pace a countdown assumes, so the two could read as flatly contradicting each
+                // other (a ring that looks a quarter full next to a countdown that's barely
+                // moved). The ring now always means one thing: weight progress toward the goal.
+                val unit = profile.weightUnit
+                val remainingKg = abs(profile.goalWeightKg - tdeeState.currentWeightKg)
                 ProgressRing(
                     progress = goalProgress(profile, tdeeState) ?: 0f,
-                    value = if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}",
-                    label = "${countdown.unitLabel} to go",
+                    value = oneDecimal(unit.fromKg(remainingKg)),
+                    label = "${unit.name.lowercase()} to go",
                 )
+                val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
+                val countdown = Phrasing.goalCountdown(daysToGoal)
+                val countdownText = if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}"
                 tdeeState.goalDate?.let {
                     Text(
-                        "Target date: ${Phrasing.formatTargetDate(it)}",
+                        "$countdownText ${countdown.unitLabel} to go • target ${Phrasing.formatTargetDate(it)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -337,7 +336,15 @@ private fun WeightTrendStatRow(deltaKg: Double, unit: WeightUnit) {
 
 @Composable
 private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    // Asks for attention with a border when the selected day still needs something, instead of
+    // jumping to the top of the screen - a fixed layout that calmly points at what's missing
+    // beats one that physically rearranges itself.
+    val borderModifier = if (!viewModel.isDayComplete) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
+    } else {
+        Modifier
+    }
+    Card(modifier = Modifier.fillMaxWidth().then(borderModifier)) {
         Column(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -53,6 +53,9 @@ class SettingsViewModel(
     val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val checkInBadgeEnabled: StateFlow<Boolean> = settingsRepository.checkInBadgeEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
     var didEraseData by mutableStateOf(false)
@@ -115,6 +118,10 @@ class SettingsViewModel(
 
     fun setHighContrast(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setHighContrast(enabled) }
+    }
+
+    fun setCheckInBadgeEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setCheckInBadgeEnabled(enabled) }
     }
 
     /** One-shot: makes the launcher icon match whatever theme is selected right now, then does
