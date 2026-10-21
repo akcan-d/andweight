@@ -93,6 +93,10 @@ private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
 private val dayOfMonthFormatter = DateTimeFormatter.ofPattern("EEE, d")
 private val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
+// Same green used for the Today screen's "high confidence" accuracy indicator - a neutral,
+// theme-independent "done" signal, not a judgment on any of the day's actual numbers.
+private val DAY_COMPLETE_COLOR = Color(0xFF43A047)
+
 private enum class JourneyViewMode(val label: String) {
     DAILY("Daily"),
     WEEKLY("Weekly trend"),
@@ -944,7 +948,20 @@ private fun DayRow(log: DailyLog, profile: UserProfile?, onEdit: () -> Unit, onD
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(log.date.format(dayOfMonthFormatter), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // A fully logged day (both weight and calories) earns a small green dot, the same
+                // "done" signal used for the accuracy indicator elsewhere - a quiet confirmation
+                // while scanning a month at a glance, not a judgment on any of the numbers in it.
+                if (log.weightKg != null && log.calories != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(DAY_COMPLETE_COLOR),
+                    )
+                }
+                Text(log.date.format(dayOfMonthFormatter), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (log.weightKg != null && unit != null) {
                     Text(Phrasing.formatWeight(log.weightKg, unit), style = MaterialTheme.typography.bodySmall)

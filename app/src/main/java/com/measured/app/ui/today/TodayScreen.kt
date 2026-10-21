@@ -77,6 +77,7 @@ import com.measured.app.domain.TdeeState
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.IntakeChip
 import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.Instant
@@ -605,10 +606,24 @@ private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
 }
 
 @Composable
+private fun WeightSectionHeading() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Weight", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        InfoTooltipIcon(
+            title = "Getting a reliable reading",
+            text = "Weight can swing by a kilogram or two across a single day from water, food, and " +
+                "salt - what matters is the trend over time, not any one number. For readings that are " +
+                "actually comparable day to day, weigh in around the same time, ideally right after " +
+                "waking and before eating or drinking.",
+        )
+    }
+}
+
+@Composable
 private fun BlankDayForm(viewModel: TodayViewModel, profile: UserProfile?) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Weight", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            WeightSectionHeading()
             WeightInputField(viewModel, profile)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -638,7 +653,7 @@ private fun WeightInputField(viewModel: TodayViewModel, profile: UserProfile?) {
 @Composable
 private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Weight", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        WeightSectionHeading()
 
         if (viewModel.isEditingWeight) {
             WeightInputField(viewModel, profile)
@@ -708,11 +723,20 @@ private fun MealInputFields(viewModel: TodayViewModel) {
     val state = viewModel.mealState
 
     if (!state.useExact) {
-        Text(
-            "vs. your usual",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "vs. your usual",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            InfoTooltipIcon(
+                title = "vs. your usual",
+                text = "These compare today to your own typical eating, not a fixed calorie amount - the " +
+                    "app learns what's usual for you from what you've logged so far. Pick whichever best " +
+                    "matches how much you ate today compared to a normal day for you. If you know the " +
+                    "exact number, \"Enter exact calories\" gives a more precise estimate than any of these.",
+            )
+        }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             IntakeLevel.entries.forEach { level ->
                 FilterChip(
@@ -805,6 +829,12 @@ private fun ConfidenceBadge(confidence: ConfidenceAssessment, onEditProfile: () 
                 .background(color),
         )
         Text(confidence.level.label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = "What does this mean?",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(13.dp),
+        )
     }
 
     if (showExplanation) {

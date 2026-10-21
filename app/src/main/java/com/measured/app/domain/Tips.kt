@@ -17,11 +17,6 @@ object Tips {
                 "locks onto your real metabolic rate - and the more you can trust what it tells you.",
         ),
         Tip(
-            "Weigh in at the same time each day",
-            "Try to step on the scale around the same time every day, ideally right after waking up " +
-                "and before eating or drinking anything. This keeps your readings comparable day to day.",
-        ),
-        Tip(
             "It gets smarter the longer you use it",
             "This isn't a one-time calculation. Every entry refines the app's estimate of your " +
                 "metabolism, so your numbers become more accurate the longer you stick with it.",
@@ -29,7 +24,8 @@ object Tips {
         Tip(
             "You don't need to be precise",
             "There's no need to count calories exactly. A quick, honest sense of how much you ate - " +
-                "much less, about the same, much more - is all the app needs to work with.",
+                "much less, about the same, much more - is all the app needs to work with. The \"i\" " +
+                "next to \"vs. your usual\" on the check-in card explains how to pick one.",
         ),
         Tip(
             "This is about health, not just a number",
