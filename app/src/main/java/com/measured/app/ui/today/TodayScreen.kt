@@ -125,12 +125,18 @@ fun TodayScreen(
         // Instead, the check-in card itself visually asks for attention (a colored border) when
         // it still needs something, rather than physically relocating.
         item { CheckInCard(viewModel, profile) }
-        item { StatusCard(profile, tdeeState, confidence, onEditProfile) }
+        item { StatusCard(profile, tdeeState, confidence, onEditProfile, viewModel::saveGoalWeight) }
     }
 }
 
 @Composable
-private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence: ConfidenceAssessment?, onEditProfile: () -> Unit) {
+private fun StatusCard(
+    profile: UserProfile?,
+    tdeeState: TdeeState?,
+    confidence: ConfidenceAssessment?,
+    onEditProfile: () -> Unit,
+    onSaveGoalWeight: (Double) -> Unit,
+) {
     var showDetails by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -147,7 +153,7 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
                 }
             }
 
-            HeroSection(profile, tdeeState)
+            HeroSection(profile, tdeeState, onSaveGoalWeight)
 
             HorizontalDivider()
 
@@ -189,9 +195,13 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
                 )
             }
 
-            StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
-
+            // The exact kcal figure is a calculated detail, not the headline - the chip above
+            // already says the thing that actually matters ("eat a bit less today"). The one
+            // exception is the safety-floor case: when the target's been raised for safety, the
+            // number is part of that disclosure, so it stays visible rather than hiding behind
+            // a tap.
             if (tdeeState.recommendedCaloriesFloorApplied) {
+                StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
                 Text(
                     "Your goal pace would call for fewer calories than is safe, so today's target has been raised to a safe minimum.",
                     style = MaterialTheme.typography.bodySmall,
@@ -206,6 +216,9 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
             }
 
             if (showDetails) {
+                if (!tdeeState.recommendedCaloriesFloorApplied) {
+                    StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
+                }
                 StatRow("Current weight", "${oneDecimal(unit.fromKg(tdeeState.currentWeightKg))} ${unit.name.lowercase()}")
                 StatRow("Estimated TDEE", "${tdeeState.currentTdee.roundToInt()} kcal/day")
                 WeightTrendStatRow(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit)
@@ -215,7 +228,7 @@ private fun StatusCard(profile: UserProfile?, tdeeState: TdeeState?, confidence:
 }
 
 @Composable
-private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
+private fun HeroSection(profile: UserProfile, tdeeState: TdeeState, onSaveGoalWeight: (Double) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -244,19 +257,119 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState) {
                     value = oneDecimal(unit.fromKg(remainingKg)),
                     label = "${unit.name.lowercase()} to go",
                 )
+
                 val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
                 val countdown = Phrasing.goalCountdown(daysToGoal)
                 val countdownText = if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}"
+
+                // The ring alone only shows what's left - pairing it with what's already been
+                // done (so far) and how long that's likely to still take gives a fuller picture
+                // without needing a second ring.
+                val soFarKg = tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg
+                val soFarLabel = when {
+                    abs(soFarKg) < 0.05 -> "so far"
+                    soFarKg < 0 -> "${unit.name.lowercase()} down"
+                    else -> "${unit.name.lowercase()} up"
+                }
+                val soFarValue = if (abs(soFarKg) < 0.05) "0" else oneDecimal(unit.fromKg(abs(soFarKg)))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    MiniStat(value = soFarValue, label = soFarLabel)
+                    MiniStat(value = countdownText, label = "${countdown.unitLabel} to go")
+                }
+
                 tdeeState.goalDate?.let {
                     Text(
-                        "$countdownText ${countdown.unitLabel} to go • target ${Phrasing.formatTargetDate(it)}",
+                        "Target: ${Phrasing.formatTargetDate(it)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
+
+        GoalWeightRow(profile, onSaveGoalWeight)
     }
+}
+
+/** A one-number quick edit for the goal weight, right where it's displayed - previously the only
+ * way to change it was the full Edit Profile screen. [UserProfile.goalDirection] is derived from
+ * how the saved value compares to the current weight, so lose/maintain/gain updates on its own. */
+@Composable
+private fun GoalWeightRow(profile: UserProfile, onSaveGoalWeight: (Double) -> Unit) {
+    var showDialog by remember { mutableStateOf(false) }
+    val unit = profile.weightUnit
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            "Goal: ${oneDecimal(unit.fromKg(profile.goalWeightKg))} ${unit.name.lowercase()}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        IconButton(onClick = { showDialog = true }, modifier = Modifier.size(28.dp)) {
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = "Edit goal weight",
+                modifier = Modifier.size(15.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    if (showDialog) {
+        EditGoalWeightDialog(
+            currentGoalKg = profile.goalWeightKg,
+            unit = unit,
+            onDismiss = { showDialog = false },
+            onSave = { newKg ->
+                onSaveGoalWeight(newKg)
+                showDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditGoalWeightDialog(currentGoalKg: Double, unit: WeightUnit, onDismiss: () -> Unit, onSave: (Double) -> Unit) {
+    var text by remember { mutableStateOf(oneDecimal(unit.fromKg(currentGoalKg))) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Goal weight") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it; error = null },
+                    label = { Text("Goal weight (${unit.name.lowercase()})") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    isError = error != null,
+                )
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val value = text.toDoubleOrNull()
+                if (value == null || value <= 0.0) {
+                    error = "Enter a valid weight."
+                    return@TextButton
+                }
+                val kg = unit.toKg(value)
+                if (kg < 20.0 || kg > 400.0) {
+                    error = "Enter a realistic weight."
+                    return@TextButton
+                }
+                onSave(kg)
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 /** A ring instead of a linear bar for the goal countdown - it's the one number on this screen
@@ -295,6 +408,14 @@ private fun ProgressRing(progress: Float, value: String, label: String) {
             Text(value, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+private fun MiniStat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

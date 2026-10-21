@@ -146,6 +146,17 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         }
     }
 
+    /** A quick way to change just the goal weight from the status card, instead of needing the
+     * full Edit Profile screen for a one-number change. [UserProfile.goalDirection] is derived
+     * from how this compares to the current weight, so lose/maintain/gain follows automatically -
+     * nothing else needs updating here. */
+    fun saveGoalWeight(newGoalWeightKg: Double) {
+        viewModelScope.launch {
+            val currentProfile = profile.value ?: return@launch
+            repository.saveProfile(currentProfile.copy(goalWeightKg = newGoalWeightKg))
+        }
+    }
+
     // --- Weight ---
 
     fun onStartEditingWeight() {
