@@ -82,6 +82,7 @@ import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeekSummary
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.IntakeChip
+import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.LocalDate
 import java.time.YearMonth
@@ -121,6 +122,17 @@ fun JourneyScreen(
     val isSupporter by viewModel.isSupporter.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
     var chartStyle by remember { mutableStateOf(ChartStyle.LINE) }
+    var showSupporterLockedDialog by remember { mutableStateOf(false) }
+
+    if (showSupporterLockedDialog) {
+        SupporterOnlyDialog(
+            onDismiss = { showSupporterLockedDialog = false },
+            onBecomeSupporter = {
+                showSupporterLockedDialog = false
+                viewModel.setSupporter(true)
+            },
+        )
+    }
 
     val hasAnyData = logs.isNotEmpty()
 
@@ -166,6 +178,7 @@ fun JourneyScreen(
                     chartStyle = chartStyle,
                     onChartStyleChange = { chartStyle = it },
                     isSupporter = isSupporter,
+                    onLockedTap = { showSupporterLockedDialog = true },
                 )
             }
 
@@ -177,6 +190,7 @@ fun JourneyScreen(
                     chartStyle = chartStyle,
                     onChartStyleChange = { chartStyle = it },
                     isSupporter = isSupporter,
+                    onLockedTap = { showSupporterLockedDialog = true },
                 )
             }
 
@@ -695,6 +709,7 @@ private fun WeightTrendCard(
     chartStyle: ChartStyle,
     onChartStyleChange: (ChartStyle) -> Unit,
     isSupporter: Boolean,
+    onLockedTap: () -> Unit,
 ) {
     val points = logs.filter { it.weightKg != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.primary
@@ -708,7 +723,7 @@ private fun WeightTrendCard(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter)
+                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter, onLockedTap)
             }
 
             if (points.size < 2 || profile == null) {
@@ -800,6 +815,7 @@ private fun CalorieTrendCard(
     chartStyle: ChartStyle,
     onChartStyleChange: (ChartStyle) -> Unit,
     isSupporter: Boolean,
+    onLockedTap: () -> Unit,
 ) {
     val points = logs.filter { it.calories != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.secondary
@@ -809,7 +825,7 @@ private fun CalorieTrendCard(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter)
+                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter, onLockedTap)
             }
 
             if (points.size < 2) {
@@ -885,7 +901,12 @@ private fun CalorieTrendCard(
  * tappable, but with a small lock badge instead of actually switching, rather than disappearing
  * outright (so the perk is discoverable, not just absent). */
 @Composable
-private fun ChartStyleToggle(selected: ChartStyle, onChange: (ChartStyle) -> Unit, isSupporter: Boolean) {
+private fun ChartStyleToggle(
+    selected: ChartStyle,
+    onChange: (ChartStyle) -> Unit,
+    isSupporter: Boolean,
+    onLockedTap: () -> Unit,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onChange(ChartStyle.LINE) }) {
             Icon(
@@ -895,7 +916,7 @@ private fun ChartStyleToggle(selected: ChartStyle, onChange: (ChartStyle) -> Uni
             )
         }
         Box {
-            IconButton(onClick = { if (isSupporter) onChange(ChartStyle.BAR) }) {
+            IconButton(onClick = { if (isSupporter) onChange(ChartStyle.BAR) else onLockedTap() }) {
                 Icon(
                     Icons.Outlined.BarChart,
                     contentDescription = if (isSupporter) "Bar chart" else "Bar chart - supporters only",

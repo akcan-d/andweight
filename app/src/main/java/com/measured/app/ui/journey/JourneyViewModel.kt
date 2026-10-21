@@ -64,4 +64,11 @@ class JourneyViewModel(
     fun deleteLog(date: LocalDate) {
         viewModelScope.launch { repository.deleteLog(date) }
     }
+
+    // There's no real billing wired up yet - same placeholder as SettingsViewModel.setSupporter,
+    // used here so tapping "Become a supporter" from a locked-chart prompt doesn't need a trip
+    // back to Settings first.
+    fun setSupporter(isSupporter: Boolean) {
+        viewModelScope.launch { settingsRepository.setSupporter(isSupporter) }
+    }
 }

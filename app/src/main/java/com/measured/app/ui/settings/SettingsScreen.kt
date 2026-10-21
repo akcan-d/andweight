@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -56,6 +57,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
@@ -75,6 +77,7 @@ import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.accentPaletteFor
 import com.measured.app.ui.theme.themedFilterChipColors
 import kotlinx.coroutines.launch
@@ -118,6 +121,7 @@ fun SettingsScreen(
     // Holds the fetched summary while a supporter is choosing a design - non-supporters never
     // see this, since the share button sends them straight to ShareImageRenderer.share().
     var pendingShareSummary by remember { mutableStateOf<SettingsViewModel.ShareSummary?>(null) }
+    var showSupporterLockedDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -141,14 +145,7 @@ fun SettingsScreen(
             OutlinedButton(
                 onClick = {
                     coroutineScope.launch {
-                        val summary = viewModel.buildShareSummary() ?: return@launch
-                        if (isSupporter) {
-                            pendingShareSummary = summary
-                        } else {
-                            val backgroundColor = accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb()
-                            val bitmap = ShareImageRenderer.render(context, summary, backgroundColor)
-                            ShareImageRenderer.share(context, bitmap)
-                        }
+                        pendingShareSummary = viewModel.buildShareSummary() ?: return@launch
                     }
                 },
                 modifier = Modifier.weight(1f),
@@ -161,6 +158,7 @@ fun SettingsScreen(
             ShareDesignPickerDialog(
                 summary = summary,
                 backgroundColor = accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb(),
+                isSupporter = isSupporter,
                 onDesignSelected = { design ->
                     pendingShareSummary = null
                     val bitmap = ShareImageRenderer.render(
@@ -171,7 +169,18 @@ fun SettingsScreen(
                     )
                     ShareImageRenderer.share(context, bitmap)
                 },
+                onLockedDesignTapped = { showSupporterLockedDialog = true },
                 onDismiss = { pendingShareSummary = null },
+            )
+        }
+
+        if (showSupporterLockedDialog) {
+            SupporterOnlyDialog(
+                onDismiss = { showSupporterLockedDialog = false },
+                onBecomeSupporter = {
+                    showSupporterLockedDialog = false
+                    viewModel.setSupporter(true)
+                },
             )
         }
 
@@ -236,8 +245,7 @@ fun SettingsScreen(
                 val locked = theme.isSupporterOnly && !isSupporter
                 FilterChip(
                     selected = accentTheme == theme,
-                    enabled = !locked,
-                    onClick = { viewModel.setAccentTheme(theme) },
+                    onClick = { if (locked) showSupporterLockedDialog = true else viewModel.setAccentTheme(theme) },
                     label = { Text(theme.label) },
                     leadingIcon = if (locked) {
                         { Icon(Icons.Outlined.Lock, contentDescription = "Supporter only", modifier = Modifier.size(16.dp)) }
@@ -342,7 +350,9 @@ fun SettingsScreen(
 private fun ShareDesignPickerDialog(
     summary: SettingsViewModel.ShareSummary,
     backgroundColor: Int,
+    isSupporter: Boolean,
     onDesignSelected: (ShareCardDesign) -> Unit,
+    onLockedDesignTapped: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -351,22 +361,38 @@ private fun ShareDesignPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text("Choose a design") },
         text = {
+            // All designs stay visible even for a free user - a locked one shown as locked is
+            // discoverable; one left out of the picker entirely isn't.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ShareCardDesign.entries.forEach { design ->
+                    val locked = design.isSupporterOnly && !isSupporter
                     val bitmap = ShareImageRenderer.render(context, summary, backgroundColor, design)
                     Column(
-                        modifier = Modifier.weight(1f).clickable { onDesignSelected(design) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { if (locked) onLockedDesignTapped() else onDesignSelected(design) },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = design.label,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                                .clip(MaterialTheme.shapes.small),
-                        )
+                        Box {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = if (locked) "${design.label} - supporters only" else design.label,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                                    .clip(MaterialTheme.shapes.small)
+                                    .alpha(if (locked) 0.4f else 1f),
+                            )
+                            if (locked) {
+                                Icon(
+                                    Icons.Outlined.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.align(Alignment.Center).size(20.dp),
+                                )
+                            }
+                        }
                         Text(design.label, style = MaterialTheme.typography.labelSmall)
                     }
                 }

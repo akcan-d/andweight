@@ -1,9 +1,10 @@
 package com.measured.app.ui.settings
 
-/** Picking a design is a supporter perk - everyone else always gets [CLASSIC], the original
- * design, with no picker shown at all. */
-enum class ShareCardDesign(val label: String) {
-    CLASSIC("Classic"),
-    MINIMAL("Minimal"),
-    STATS("Two stats"),
+/** [CLASSIC] is free for everyone; the rest are a supporter perk. The picker itself is always
+ * shown so the other designs stay discoverable - a locked one shows as locked rather than being
+ * left out of the picker entirely. */
+enum class ShareCardDesign(val label: String, val isSupporterOnly: Boolean) {
+    CLASSIC("Classic", isSupporterOnly = false),
+    MINIMAL("Minimal", isSupporterOnly = true),
+    STATS("Two stats", isSupporterOnly = true),
 }
