@@ -38,6 +38,7 @@ import com.measured.app.domain.PaceOption
 import com.measured.app.domain.Sex
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.theme.themedFilterChipColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,11 +87,13 @@ fun EditProfileScreen(
             Text("Units", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.weightUnit == WeightUnit.KG,
                     onClick = { viewModel.onWeightUnitChange(WeightUnit.KG) },
                     label = { Text("Metric (kg, cm)") },
                 )
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.weightUnit == WeightUnit.LB,
                     onClick = { viewModel.onWeightUnitChange(WeightUnit.LB) },
                     label = { Text("Imperial (lb, ft/in)") },
@@ -109,16 +112,19 @@ fun EditProfileScreen(
             Text("What's your goal?", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.goalDirection == GoalDirection.LOSE,
                     onClick = { viewModel.onGoalDirectionChange(GoalDirection.LOSE) },
                     label = { Text("Lose weight") },
                 )
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.goalDirection == GoalDirection.MAINTAIN,
                     onClick = { viewModel.onGoalDirectionChange(GoalDirection.MAINTAIN) },
                     label = { Text("Maintain") },
                 )
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.goalDirection == GoalDirection.GAIN,
                     onClick = { viewModel.onGoalDirectionChange(GoalDirection.GAIN) },
                     label = { Text("Gain weight") },
@@ -146,6 +152,7 @@ fun EditProfileScreen(
                         val rateKg = PaceGuidance.rateForOption(option, startWeightKg, direction)
                         val rateInUnit = state.weightUnit.fromKg(rateKg)
                         FilterChip(
+                            colors = themedFilterChipColors(),
                             selected = state.selectedPace == option,
                             onClick = { viewModel.onPaceSelected(option) },
                             label = {
@@ -171,16 +178,19 @@ fun EditProfileScreen(
             Text("Sex", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.sex == Sex.FEMALE,
                     onClick = { viewModel.onSexChange(Sex.FEMALE) },
                     label = { Text("Female") },
                 )
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.sex == Sex.MALE,
                     onClick = { viewModel.onSexChange(Sex.MALE) },
                     label = { Text("Male") },
                 )
                 FilterChip(
+                    colors = themedFilterChipColors(),
                     selected = state.sex == Sex.UNSPECIFIED,
                     onClick = { viewModel.onSexChange(Sex.UNSPECIFIED) },
                     label = { Text("Prefer not to say") },
@@ -240,6 +250,7 @@ fun EditProfileScreen(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 ActivityLevel.entries.forEach { level ->
                     FilterChip(
+                        colors = themedFilterChipColors(),
                         selected = state.activityLevel == level,
                         onClick = { viewModel.onActivityLevelChange(level) },
                         label = { Text(level.label) },

@@ -74,6 +74,7 @@ import com.measured.app.domain.WeekGrouping
 import com.measured.app.domain.WeekSummary
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.IntakeChip
+import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -164,6 +165,7 @@ fun JourneyScreen(
                             selected = viewMode == mode,
                             onClick = { viewMode = mode },
                             label = { Text(mode.label) },
+                            colors = themedFilterChipColors(),
                         )
                     }
                 }

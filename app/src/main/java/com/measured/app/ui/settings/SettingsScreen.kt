@@ -31,7 +31,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +69,7 @@ import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.theme.accentPaletteFor
+import com.measured.app.ui.theme.themedFilterChipColors
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
@@ -250,19 +250,6 @@ fun SettingsScreen(
         EraseDataSection(onErase = viewModel::eraseAllData)
     }
 }
-
-// Material3's FilterChip defaults its selected state to secondaryContainer, not primaryContainer.
-// Harmless for a chip whose selected color is incidental, but every accent theme's secondary is
-// deliberately a different hue from its primary (Sage's secondary is blue, Ocean's is green) -
-// so left at the default, the theme-picker chips themselves looked backwards: picking Sage
-// highlighted blue, picking Ocean highlighted green. Every FilterChip in this screen should
-// instead reflect whichever theme is actually active right now.
-@Composable
-private fun themedFilterChipColors() = FilterChipDefaults.filterChipColors(
-    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-)
 
 @Composable
 private fun SupporterSection(

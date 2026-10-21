@@ -78,6 +78,7 @@ import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.IntakeChip
+import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -591,6 +592,7 @@ private fun MealInputFields(viewModel: TodayViewModel) {
                     onClick = { viewModel.onIntakeSelected(level) },
                     label = { Text(level.label) },
                     modifier = Modifier.fillMaxWidth(),
+                    colors = themedFilterChipColors(),
                 )
             }
         }
