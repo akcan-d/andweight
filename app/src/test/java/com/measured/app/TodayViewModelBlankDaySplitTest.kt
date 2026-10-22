@@ -3,6 +3,7 @@ package com.measured.app
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.measured.app.domain.IntakeLevel
+import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.PaceOption
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
@@ -10,6 +11,7 @@ import com.measured.app.ui.today.TodayViewModel
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,6 +23,11 @@ import org.robolectric.annotation.Config
  * On a blank day, the combined form's single Save button writes two separate rows - this day's
  * weight and the day before's meal info (see [TodayViewModel.mealDate]) - rather than one row
  * with both fields, since those two answers are now about different calendar days.
+ *
+ * Explicitly sets [MealTimingMode.PREVIOUS_DAY] rather than relying on it being the default -
+ * unlike the Room database, the DataStore file backing settings isn't reset between test classes
+ * in the same run, so a different test leaving it on [MealTimingMode.SAME_DAY] would otherwise
+ * leak in here.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -36,15 +43,16 @@ class TodayViewModelBlankDaySplitTest {
         app.repository.saveProfile(
             UserProfile(weightUnit = WeightUnit.KG, startWeightKg = 80.0, goalWeightKg = 70.0, pace = PaceOption.MODERATE),
         )
+        app.settingsRepository.setMealTimingMode(MealTimingMode.PREVIOUS_DAY)
 
         val viewModel = TodayViewModel(app.repository, app.settingsRepository)
-        idleUntil(5_000) { viewModel.profile.value != null }
+        idleUntil(10_000) { viewModel.profile.value != null && viewModel.mealTimingMode.value == MealTimingMode.PREVIOUS_DAY }
 
         viewModel.onWeightTextChange("78.5")
         viewModel.onIntakeSelected(IntakeLevel.LESS_THAN_NORMAL)
         viewModel.saveDay()
 
-        idleUntil(5_000) { viewModel.weightLog?.weightKg != null && viewModel.mealLog?.intakeLevel != null }
+        idleUntil(10_000) { viewModel.weightLog?.weightKg != null && viewModel.mealLog?.intakeLevel != null }
         assertEquals(78.5, viewModel.weightLog?.weightKg ?: 0.0, 0.01)
         assertEquals(IntakeLevel.LESS_THAN_NORMAL, viewModel.mealLog?.intakeLevel)
         assertNull("today's weight row shouldn't also carry the previous day's calories", viewModel.weightLog?.calories)
@@ -56,5 +64,6 @@ class TodayViewModelBlankDaySplitTest {
             shadowOf(android.os.Looper.getMainLooper()).idle()
             Thread.sleep(20)
         }
+        assertTrue("condition not met within ${timeoutMs}ms", condition())
     }
 }

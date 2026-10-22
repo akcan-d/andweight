@@ -48,6 +48,25 @@ class AndWeightRepository(context: Context) {
         WidgetUpdater.refresh(appContext)
     }
 
+    /** Used only when restoring from a backup file - merges the backup's row into whatever's
+     * already saved for that date instead of blindly overwriting it, so a field the backup
+     * doesn't carry (e.g. an older export taken before that day's meal was logged) can't wipe out
+     * a field that only ever existed on this device. Weight is merged on its own; calories,
+     * intake level and the exact-entry flag are merged as one group, since intake level and
+     * exact-entry only mean anything together with a specific calories value. */
+    suspend fun restoreLog(log: DailyLog) {
+        val existing = getLogForDate(log.date)
+        val weightKg = log.weightKg ?: existing?.weightKg
+        val backupHasCalories = log.calories != null
+        saveLog(
+            date = log.date,
+            weightKg = weightKg,
+            calories = if (backupHasCalories) log.calories else existing?.calories,
+            intakeLevel = if (backupHasCalories) log.intakeLevel else existing?.intakeLevel,
+            wasExact = if (backupHasCalories) log.wasExactEntry else (existing?.wasExactEntry ?: false),
+        )
+    }
+
     suspend fun saveLog(date: LocalDate, weightKg: Double?, calories: Double?, intakeLevel: IntakeLevel?, wasExact: Boolean) {
         logDao.upsert(
             DailyLogEntity(

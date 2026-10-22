@@ -1,18 +1,22 @@
 package com.measured.app.ui.onboarding
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.measured.app.data.AndWeightRepository
+import com.measured.app.data.SettingsRepository
 import com.measured.app.domain.ActivityLevel
+import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.GoalDirection
 import com.measured.app.domain.HeightConversion
 import com.measured.app.domain.PaceOption
 import com.measured.app.domain.Sex
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
+import com.measured.app.notifications.ReminderScheduler
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -71,7 +75,11 @@ data class OnboardingUiState(
         }
 }
 
-class OnboardingViewModel(private val repository: AndWeightRepository) : ViewModel() {
+class OnboardingViewModel(
+    private val repository: AndWeightRepository,
+    private val settingsRepository: SettingsRepository,
+    private val application: Application,
+) : ViewModel() {
 
     var uiState by mutableStateOf(OnboardingUiState())
         private set
@@ -264,6 +272,42 @@ class OnboardingViewModel(private val repository: AndWeightRepository) : ViewMod
             // Trigger navigation via a state change observed in its own effect (see OnboardingScreen),
             // rather than calling a navigation callback directly off this coroutine - navigating right
             // after a suspend database call resumes is not guaranteed to land back on the main thread.
+            uiState = uiState.copy(didSave = true)
+        }
+    }
+
+    /** An alternative to [save] for anyone who already has a Measured backup file - skips re-typing
+     * everything the file already has. Mirrors [com.measured.app.ui.settings.SettingsViewModel]'s
+     * restore, including the same field-level merge for logs via
+     * [AndWeightRepository.restoreLog] - harmless here since there's nothing on the device yet to
+     * merge against, but keeping one restore behavior means a file always restores the same way
+     * regardless of where it's loaded from. */
+    fun restoreFromBackup(text: String) {
+        viewModelScope.launch {
+            val result = BackupSerializer.parse(text)
+            if (result == null) {
+                uiState = uiState.copy(errorMessage = "That file doesn't look like a Measured backup.")
+                return@launch
+            }
+            if (result.profile == null) {
+                uiState = uiState.copy(errorMessage = "This backup doesn't include your profile info, so it can't finish setup on its own.")
+                return@launch
+            }
+
+            repository.saveProfile(result.profile)
+            result.logs.forEach { log -> repository.restoreLog(log) }
+            result.settings?.let { settings ->
+                settingsRepository.setThemeMode(settings.themeMode)
+                settingsRepository.setTipsEnabled(settings.tipsEnabled)
+                settingsRepository.setReminderEnabled(settings.reminderEnabled)
+                settingsRepository.setReminderTime(settings.reminderHour, settings.reminderMinute)
+                if (settings.reminderEnabled) {
+                    ReminderScheduler.schedule(application, settings.reminderHour, settings.reminderMinute)
+                } else {
+                    ReminderScheduler.cancel(application)
+                }
+            }
+
             uiState = uiState.copy(didSave = true)
         }
     }

@@ -162,14 +162,15 @@ class SettingsViewModel(
     /** Null means the file wasn't recognizable as a Measured backup at all, so nothing was
      * touched - distinct from a recognizable file that's missing a section, which restores
      * whatever did parse (e.g. an older backup with no [settings] block still restores the
-     * profile and logs). */
+     * profile and logs). The profile and settings are replaced outright, but each day's log is
+     * merged field-by-field via [AndWeightRepository.restoreLog] rather than overwritten
+     * wholesale, so a field the backup doesn't carry for a given day can't erase one that only
+     * exists on this device. */
     suspend fun restoreFullBackup(text: String): BackupSerializer.BackupData? {
         val result = BackupSerializer.parse(text) ?: return null
 
         result.profile?.let { repository.saveProfile(it) }
-        result.logs.forEach { log ->
-            repository.saveLog(log.date, log.weightKg, log.calories, log.intakeLevel, log.wasExactEntry)
-        }
+        result.logs.forEach { log -> repository.restoreLog(log) }
         result.settings?.let { settings ->
             settingsRepository.setThemeMode(settings.themeMode)
             settingsRepository.setTipsEnabled(settings.tipsEnabled)

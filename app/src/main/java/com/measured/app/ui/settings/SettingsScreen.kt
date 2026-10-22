@@ -439,6 +439,7 @@ private fun BackupRestoreSection(
     val coroutineScope = rememberCoroutineScope()
     var restoreResult by remember { mutableStateOf<BackupSerializer.BackupData?>(null) }
     var restoreFailed by remember { mutableStateOf(false) }
+    var pendingRestoreText by remember { mutableStateOf<String?>(null) }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -452,10 +453,9 @@ private fun BackupRestoreSection(
         if (uri == null) return@rememberLauncherForActivityResult
         coroutineScope.launch {
             val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            if (text != null) {
-                val result = onRestoreBackup(text)
-                if (result == null) restoreFailed = true else restoreResult = result
-            }
+            // Confirmed before actually restoring, rather than applying it immediately - unlike
+            // onboarding's restore, there's real data on this device that the file could affect.
+            if (text != null) pendingRestoreText = text
         }
     }
 
@@ -476,6 +476,36 @@ private fun BackupRestoreSection(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text("Restore from a backup")
+    }
+
+    pendingRestoreText?.let { text ->
+        AlertDialog(
+            onDismissRequest = { pendingRestoreText = null },
+            title = { Text("Restore from this backup?") },
+            text = {
+                Text(
+                    "Your profile and preferences will be replaced with what's in the file. Any day " +
+                        "the file also has an entry for will be overwritten too - but only for the " +
+                        "fields the file actually has for that day, so a day logged more fully on " +
+                        "this device than in the file keeps what the file doesn't cover. Days this " +
+                        "device has that the file doesn't are left alone.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingRestoreText = null
+                    coroutineScope.launch {
+                        val result = onRestoreBackup(text)
+                        if (result == null) restoreFailed = true else restoreResult = result
+                    }
+                }) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRestoreText = null }) { Text("Cancel") }
+            },
+        )
     }
 
     restoreResult?.let { result ->

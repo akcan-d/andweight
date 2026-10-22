@@ -25,7 +25,7 @@ import com.measured.app.ui.today.TodayViewModel
  */
 object AppViewModelProvider {
     val Factory: ViewModelProvider.Factory = viewModelFactory {
-        initializer { OnboardingViewModel(repository()) }
+        initializer { OnboardingViewModel(repository(), settingsRepository(), application()) }
         initializer { TodayViewModel(repository(), settingsRepository()) }
         initializer { JourneyViewModel(repository(), settingsRepository()) }
         initializer { SettingsViewModel(settingsRepository(), repository(), application()) }

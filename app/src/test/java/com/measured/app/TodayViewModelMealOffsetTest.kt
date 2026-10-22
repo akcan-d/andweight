@@ -3,6 +3,7 @@ package com.measured.app
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.measured.app.domain.IntakeLevel
+import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.PaceOption
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
@@ -10,6 +11,7 @@ import com.measured.app.ui.today.TodayViewModel
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,6 +28,11 @@ import org.robolectric.annotation.Config
  * Kept as its own class (one test) rather than bundled with the other - [AppDatabase]'s singleton
  * instance outlives `deleteDatabase()` within a single Robolectric test class, so a second
  * `@Test` method here would see the first one's leftover row instead of a clean database.
+ *
+ * Explicitly sets [MealTimingMode.PREVIOUS_DAY] rather than relying on it being the default -
+ * unlike the Room database, the DataStore file backing settings isn't reset between test classes
+ * in the same run, so a different test leaving it on [MealTimingMode.SAME_DAY] would otherwise
+ * leak in here.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -41,14 +48,15 @@ class TodayViewModelMealOffsetTest {
         app.repository.saveProfile(
             UserProfile(weightUnit = WeightUnit.KG, startWeightKg = 80.0, goalWeightKg = 70.0, pace = PaceOption.MODERATE),
         )
+        app.settingsRepository.setMealTimingMode(MealTimingMode.PREVIOUS_DAY)
 
         val viewModel = TodayViewModel(app.repository, app.settingsRepository)
-        idleUntil(5_000) { viewModel.profile.value != null }
+        idleUntil(10_000) { viewModel.profile.value != null && viewModel.mealTimingMode.value == MealTimingMode.PREVIOUS_DAY }
 
         viewModel.onIntakeSelected(IntakeLevel.AVERAGE)
         viewModel.saveMeal()
 
-        idleUntil(5_000) { viewModel.mealLog?.intakeLevel == IntakeLevel.AVERAGE }
+        idleUntil(10_000) { viewModel.mealLog?.intakeLevel == IntakeLevel.AVERAGE }
         assertEquals(IntakeLevel.AVERAGE, viewModel.mealLog?.intakeLevel)
         assertNull("today's own row shouldn't gain calories meant for the day before", viewModel.weightLog?.calories)
     }
@@ -59,5 +67,6 @@ class TodayViewModelMealOffsetTest {
             shadowOf(android.os.Looper.getMainLooper()).idle()
             Thread.sleep(20)
         }
+        assertTrue("condition not met within ${timeoutMs}ms", condition())
     }
 }

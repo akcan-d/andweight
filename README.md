@@ -60,6 +60,28 @@ different for everyone.
 There's also an "exact calories" mode for anyone who wants to enter a precise number instead.
 Both paths go through the same safety floor before being saved.
 
+## Backups
+
+Settings has an export/import for a plain-text backup file (profile, preferences, and the full
+log history). Restoring one asks for confirmation first, then merges it into whatever's already
+on the device rather than blindly overwriting: each day's weight is merged on its own, and
+calories/intake-level/exact-entry are merged together as one group (since intake level and the
+exact-entry flag only mean anything alongside a specific calories value). A field the backup
+doesn't carry for a given day - say, an older export taken before that day's meal was logged -
+leaves whatever's already saved for that field alone instead of wiping it out. Days the device
+has that the file doesn't are untouched either way. See `AndWeightRepository.restoreLog()`.
+
+The onboarding flow also has a "restore instead" button at the bottom of the form, for anyone
+who already has a backup file and would rather not re-type their starting numbers. It runs
+through the same merge-safe restore logic (`OnboardingViewModel.restoreFromBackup()`), which
+matters less there since there's nothing yet on the device to merge against, but keeps restore
+behaving the same regardless of where it's triggered from.
+
+Android's own automatic backup (tied to the user's Google account) is also enabled for the app's
+database and settings, but it only restores through the Play Store install flow or a device's
+"restore from backup" setup step - not when sideloading an APK directly, which is normally how
+this app gets tested during development.
+
 ## Project structure
 
 ```

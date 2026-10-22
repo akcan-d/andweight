@@ -58,7 +58,7 @@ class CrashReproTest {
         val app = ApplicationProvider.getApplicationContext<AndWeightApplication>()
         app.deleteDatabase("andweight.db")
 
-        val viewModel = OnboardingViewModel(app.repository)
+        val viewModel = OnboardingViewModel(app.repository, app.settingsRepository, app)
         viewModel.onStartWeightChange("80")
         viewModel.onGoalWeightChange("70")
         viewModel.onPaceSelected(PaceOption.MODERATE)

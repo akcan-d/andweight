@@ -1,5 +1,7 @@
 package com.measured.app.ui.onboarding
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,7 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -32,6 +36,7 @@ import com.measured.app.domain.Sex
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.theme.themedFilterChipColors
+import kotlinx.coroutines.launch
 
 @Composable
 fun OnboardingScreen(
@@ -39,9 +44,19 @@ fun OnboardingScreen(
     viewModel: OnboardingViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state = viewModel.uiState
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(state.didSave) {
         if (state.didSave) onDone()
+    }
+
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            if (text != null) viewModel.restoreFromBackup(text)
+        }
     }
 
     Scaffold { padding ->
@@ -275,6 +290,15 @@ fun OnboardingScreen(
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp),
             )
+
+            // Low-emphasis and last on the page - most people setting up for the first time are
+            // entering real numbers, not restoring a file, so this shouldn't compete with that.
+            TextButton(
+                onClick = { restoreLauncher.launch("*/*") },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Already have a Measured backup? Restore it instead")
+            }
         }
     }
 }
