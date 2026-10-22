@@ -7,6 +7,30 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-22
+
+### Added
+- Week/Month/Year charts now page through real calendar periods with prev/next navigation, instead
+  of always showing a rolling window ending today
+- Month charts show weekly averages and Year charts show monthly averages; date labels read as
+  actual periods ("September", "Week of Oct 6") instead of "last 30 days"
+
+### Changed
+- The supporter prompt now only shows once the install itself is at least 2 days old and has been
+  opened at least 3 times, so restoring an old backup on a fresh install can no longer make it pop
+  up immediately
+- Weight/calorie chart axis min/max now hug the actual logged range with a little rounding leeway,
+  instead of a fixed scale that could dwarf a narrow range
+- The widget's theme is now fully independent of the app's own theme - they only match when "Sync
+  widget theme" is tapped, same as the app icon
+- "Sync widget theme" now hides itself once the widget theme already matches, and reliably
+  reapplies every time it's tapped instead of only working the first time
+- Supporter section copy updated to mention the newer chart and widget features
+
+### Fixed
+- The chart section's style-toggle buttons (line/bar/area) could get silently clipped off-screen on
+  narrow phones; the chip row now scrolls horizontally instead of overflowing
+
 ## [0.26.0] - 2026-10-22
 
 ### Added
