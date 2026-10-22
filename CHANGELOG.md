@@ -7,6 +7,44 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-22
+
+### Added
+- A "restore instead" option on first-time setup for anyone who already has a Measured backup
+  file, so they don't have to re-type their starting numbers
+- Weight/calorie trend charts now have Week/Month/Year/All date ranges instead of a fixed 60-day
+  window, and tapping a point or bar shows that day's exact date and value
+- Area as a third, supporter-gated chart style alongside line and bar
+- An info tooltip on the calorie trend chart explaining the numbers are estimates based on logged
+  input, not measured
+- Long-press shortcuts on the app's launcher icon ("Log weight" / "Log meal") that open straight
+  into the relevant entry field
+- A "Sync widget theme" button in Settings, next to the existing "Sync app icon" one
+- Small chips on the Status screen to switch what the progress display's center number shows
+  (remaining to goal, percent, or moved so far)
+- A straight progress bar as a supporter-gated alternative to the Status screen's ring
+
+### Changed
+- Restoring a backup (on first setup or from Settings) now merges into whatever's already saved
+  for each day instead of overwriting it outright - a field the backup doesn't carry for a given
+  day (e.g. an older export) can no longer wipe out newer on-device data for that same day
+- Each home-screen widget now shows a ring that actually matches its own number - previously all
+  three shared one weight-based ring and only the center number differed, so the time-remaining
+  widget's ring didn't match its own countdown, and multiple widgets placed together all looked
+  the same
+- The Status screen's and widgets' progress rings now show their empty portion as a visible tint
+  of their own color instead of a theme-neutral gray that could blend into the background at 0%
+  progress
+- "Sync icon" renamed to "Sync app icon" with an info tooltip explaining what it does
+- The widget picker now defaults to a real 2x2 placement size on more launchers, instead of 1x1
+
+### Fixed
+- The Status-tab "still needs a check-in" badge, accidentally deleted along with its old settings
+  toggle in 0.25.0, is back - and the daily reminder notification's own "is today done" check now
+  correctly accounts for the Check-in setting instead of always assuming yesterday's meal
+- Milestone "unlocked" notifications no longer re-fire for something already achieved just because
+  switching kg/lb changed that milestone's displayed title text
+
 ## [0.25.0] - 2026-10-22
 
 ### Added
