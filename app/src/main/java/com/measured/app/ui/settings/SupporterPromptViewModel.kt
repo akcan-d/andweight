@@ -40,8 +40,18 @@ class SupporterPromptViewModel(
             val shownCount = settingsRepository.getSupporterPromptShownCount()
             val lastShown = settingsRepository.getLastSupporterPromptDate()
             val daysSinceLastShown = lastShown?.let { ChronoUnit.DAYS.between(it, today) }
+            val firstLaunchDate = settingsRepository.firstLaunchDateOnce()
+            val daysSinceFirstLaunch = firstLaunchDate?.let { ChronoUnit.DAYS.between(it, today) } ?: 0L
+            val launchCount = settingsRepository.launchCountOnce()
 
-            val shouldShow = SupporterPrompt.shouldShow(completedWeeks, isSupporter, shownCount, daysSinceLastShown)
+            val shouldShow = SupporterPrompt.shouldShow(
+                completedWeeks,
+                isSupporter,
+                shownCount,
+                daysSinceLastShown,
+                daysSinceFirstLaunch,
+                launchCount,
+            )
             if (shouldShow) {
                 showPrompt = true
                 settingsRepository.recordSupporterPromptShown(today)

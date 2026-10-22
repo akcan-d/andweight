@@ -14,6 +14,7 @@ import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.ThemeMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -50,6 +51,11 @@ class SettingsRepository(private val context: Context) {
         val SEEN_MILESTONE_IDS = stringSetPreferencesKey("seen_milestone_ids")
         val MILESTONE_ID_BASELINE_DONE = booleanPreferencesKey("milestone_id_baseline_done")
         val MEAL_TIMING_MODE = stringPreferencesKey("meal_timing_mode")
+        val FIRST_LAUNCH_EPOCH_DAY = longPreferencesKey("first_launch_epoch_day")
+        val LAUNCH_COUNT = intPreferencesKey("launch_count")
+        val WIDGET_THEME_MODE = stringPreferencesKey("widget_theme_mode")
+        val WIDGET_ACCENT_THEME = stringPreferencesKey("widget_accent_theme")
+        val WIDGET_HIGH_CONTRAST = booleanPreferencesKey("widget_high_contrast")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -174,6 +180,46 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun highContrastOnce(): Boolean = highContrastFlow.first()
 
+    /** Widgets keep their own theme choice, independent of the in-app one - picking a new color
+     * theme (or light/dark) for the app itself shouldn't silently repaint whatever's sitting on
+     * the home screen too. They only ever change together when "Sync widget theme" is tapped
+     * (see [com.measured.app.ui.settings.SettingsViewModel.syncWidgetTheme]), which copies the
+     * app's current theme into these three values. Same defaults as the app's own so a widget
+     * placed before anyone's touched Settings still looks reasonable. */
+    val widgetThemeModeFlow: Flow<ThemeMode> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.WIDGET_THEME_MODE]?.let { name -> runCatching { ThemeMode.valueOf(name) }.getOrNull() } ?: ThemeMode.SYSTEM
+    }
+
+    val widgetAccentThemeFlow: Flow<AccentTheme> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.WIDGET_ACCENT_THEME]?.let { name -> runCatching { AccentTheme.valueOf(name) }.getOrNull() } ?: AccentTheme.SAGE
+    }
+
+    val widgetHighContrastFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.WIDGET_HIGH_CONTRAST] ?: false }
+
+    /** Copies the app's current theme settings into the widget-only ones in a single atomic
+     * write, so a widget redraw started right after this never sees a half-updated mix of old
+     * and new values. */
+    suspend fun syncWidgetThemeToApp() {
+        val mode = themeModeFlow.first()
+        val accent = accentThemeFlow.first()
+        val highContrast = highContrastFlow.first()
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.WIDGET_THEME_MODE] = mode.name
+            prefs[Keys.WIDGET_ACCENT_THEME] = accent.name
+            prefs[Keys.WIDGET_HIGH_CONTRAST] = highContrast
+        }
+    }
+
+    /** Whether the widget theme already matches the app's current theme - so the "Sync widget
+     * theme" button can hide itself once there's nothing left to sync, the same way "Sync app
+     * icon" does. */
+    suspend fun isWidgetThemeSyncedOnce(): Boolean = isWidgetThemeSyncedFlow.first()
+
+    val isWidgetThemeSyncedFlow: Flow<Boolean> = combine(
+        combine(widgetThemeModeFlow, widgetAccentThemeFlow, widgetHighContrastFlow, ::Triple),
+        combine(themeModeFlow, accentThemeFlow, highContrastFlow, ::Triple),
+    ) { widgetTheme, appTheme -> widgetTheme == appTheme }
+
     val mealTimingModeFlow: Flow<MealTimingMode> = context.settingsDataStore.data.map { prefs ->
         prefs[Keys.MEAL_TIMING_MODE]?.let { name -> runCatching { MealTimingMode.valueOf(name) }.getOrNull() }
             ?: MealTimingMode.PREVIOUS_DAY
@@ -211,4 +257,24 @@ class SettingsRepository(private val context: Context) {
     suspend fun setMilestoneBaselineDone() {
         context.settingsDataStore.edit { it[Keys.MILESTONE_ID_BASELINE_DONE] = true }
     }
+
+    /** When this install's app process first ever started, and how many times it's started since
+     * - tracked independently of any logged history, so restoring a backup full of old weeks
+     * (see [com.measured.app.domain.SupporterPrompt]) can't make this install look older or more
+     * used than it actually is. Recorded once per process start in AndWeightApplication, not per
+     * screen visit. */
+    suspend fun recordAppLaunchOnce() {
+        context.settingsDataStore.edit { prefs ->
+            if (prefs[Keys.FIRST_LAUNCH_EPOCH_DAY] == null) {
+                prefs[Keys.FIRST_LAUNCH_EPOCH_DAY] = LocalDate.now().toEpochDay()
+            }
+            prefs[Keys.LAUNCH_COUNT] = (prefs[Keys.LAUNCH_COUNT] ?: 0) + 1
+        }
+    }
+
+    suspend fun firstLaunchDateOnce(): LocalDate? =
+        context.settingsDataStore.data.map { it[Keys.FIRST_LAUNCH_EPOCH_DAY]?.let(LocalDate::ofEpochDay) }.first()
+
+    suspend fun launchCountOnce(): Int =
+        context.settingsDataStore.data.map { it[Keys.LAUNCH_COUNT] ?: 0 }.first()
 }

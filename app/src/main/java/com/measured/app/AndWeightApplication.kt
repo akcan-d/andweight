@@ -23,6 +23,13 @@ class AndWeightApplication : Application() {
 
         NotificationHelper.createChannel(this)
 
+        // Once per process start, not per screen visit - see SupporterPrompt, which needs this
+        // install's actual age/use independent of how much logged history a backup restore
+        // might bring with it.
+        CoroutineScope(Dispatchers.IO).launch {
+            settingsRepository.recordAppLaunchOnce()
+        }
+
         // Defensive re-scheduling on every process start - covers the default-enabled first run
         // (nobody has touched the Settings toggle yet) and self-heals if an alarm was ever lost.
         CoroutineScope(Dispatchers.IO).launch {
