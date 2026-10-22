@@ -61,6 +61,14 @@ class TodayViewModel(
     val profile: StateFlow<UserProfile?> = repository.profileFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val isSupporter: StateFlow<Boolean> = settingsRepository.isSupporterFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // There's no real billing wired up yet - same placeholder as SettingsViewModel.setSupporter.
+    fun setSupporter(isSupporter: Boolean) {
+        viewModelScope.launch { settingsRepository.setSupporter(isSupporter) }
+    }
+
     /** Settings controls whether the meal section asks about [selectedDate] itself (suits an
      * evening/before-bed weigh-in, where today's eating is already done by check-in time) or the
      * day before it (suits a morning weigh-in - see [mealDate]). */

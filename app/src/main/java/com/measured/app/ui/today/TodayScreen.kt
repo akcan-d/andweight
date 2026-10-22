@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,8 +22,11 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DonutLarge
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LinearScale
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.automirrored.outlined.TrendingDown
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Refresh
@@ -80,6 +84,7 @@ import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.IntakeChip
+import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.Instant
 import java.time.LocalDate
@@ -104,6 +109,7 @@ fun TodayScreen(
     val profile by viewModel.profile.collectAsState()
     val tdeeState by viewModel.tdeeState.collectAsState()
     val confidence by viewModel.confidence.collectAsState()
+    val isSupporter by viewModel.isSupporter.collectAsState()
 
     // Journey's "edit this day" action lands here exactly like a normal tab switch (see
     // MainScreen) - this just jumps the day picker to the requested date once, rather than
@@ -140,7 +146,17 @@ fun TodayScreen(
         // Instead, the check-in card itself visually asks for attention (a colored border) when
         // it still needs something, rather than physically relocating - so the status overview
         // can lead, with the already-self-announcing check-in card below it.
-        item { StatusCard(profile, tdeeState, confidence, onEditProfile, viewModel::saveGoalWeight) }
+        item {
+            StatusCard(
+                profile,
+                tdeeState,
+                confidence,
+                onEditProfile,
+                viewModel::saveGoalWeight,
+                isSupporter,
+                viewModel::setSupporter,
+            )
+        }
         item { CheckInCard(viewModel, profile) }
     }
 }
@@ -152,6 +168,8 @@ private fun StatusCard(
     confidence: ConfidenceAssessment?,
     onEditProfile: () -> Unit,
     onSaveGoalWeight: (Double) -> Unit,
+    isSupporter: Boolean,
+    onSetSupporter: (Boolean) -> Unit,
 ) {
     var showDetails by remember { mutableStateOf(false) }
 
@@ -169,7 +187,7 @@ private fun StatusCard(
                 }
             }
 
-            HeroSection(profile, tdeeState, onSaveGoalWeight)
+            HeroSection(profile, tdeeState, onSaveGoalWeight, isSupporter, onSetSupporter)
 
             HorizontalDivider()
 
@@ -245,8 +263,39 @@ private fun StatusCard(
     }
 }
 
+/** Which fact the hero display's center number/label shows - all three read the exact same
+ * underlying weight-progress fraction differently, so switching between them never disagrees
+ * with the ring/bar fill (see the comment below on why that fill never changes meaning). */
+private enum class HeroStat(val chipLabel: String) {
+    REMAINING("To go"),
+    PERCENT("Percent"),
+    MOVED("So far"),
+}
+
+private enum class HeroDisplayStyle { RING, BAR }
+
 @Composable
-private fun HeroSection(profile: UserProfile, tdeeState: TdeeState, onSaveGoalWeight: (Double) -> Unit) {
+private fun HeroSection(
+    profile: UserProfile,
+    tdeeState: TdeeState,
+    onSaveGoalWeight: (Double) -> Unit,
+    isSupporter: Boolean,
+    onSetSupporter: (Boolean) -> Unit,
+) {
+    var heroStat by remember { mutableStateOf(HeroStat.REMAINING) }
+    var displayStyle by remember { mutableStateOf(HeroDisplayStyle.RING) }
+    var showSupporterLockedDialog by remember { mutableStateOf(false) }
+
+    if (showSupporterLockedDialog) {
+        SupporterOnlyDialog(
+            onDismiss = { showSupporterLockedDialog = false },
+            onBecomeSupporter = {
+                showSupporterLockedDialog = false
+                onSetSupporter(true)
+            },
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -262,40 +311,67 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState, onSaveGoalWe
                 Text("Nice work getting here.", style = MaterialTheme.typography.bodyMedium)
             }
             else -> {
-                // The ring's fill and its center number used to measure two different things -
+                // The ring/bar's fill and its center number used to measure two different things -
                 // the fill was how much weight had been lost/gained so far, but the number in the
                 // middle was a time countdown. Early weight loss is often faster than the average
                 // pace a countdown assumes, so the two could read as flatly contradicting each
                 // other (a ring that looks a quarter full next to a countdown that's barely
-                // moved). The ring now always means one thing: weight progress toward the goal.
+                // moved). The fill now always means one thing - weight progress toward the goal -
+                // regardless of which of [HeroStat]'s three equivalent readings of that same
+                // progress is shown as the number, so switching stats can't reintroduce that.
                 val unit = profile.weightUnit
+                val unitLabel = unit.name.lowercase()
+                val progress = goalProgress(profile, tdeeState) ?: 0f
                 val remainingKg = abs(profile.goalWeightKg - tdeeState.currentWeightKg)
-                ProgressRing(
-                    progress = goalProgress(profile, tdeeState) ?: 0f,
-                    value = oneDecimal(unit.fromKg(remainingKg)),
-                    label = "${unit.name.lowercase()} to go",
-                )
+                val soFarKg = tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg
+
+                val (heroValue, heroLabel) = when (heroStat) {
+                    HeroStat.REMAINING -> oneDecimal(unit.fromKg(remainingKg)) to "$unitLabel to go"
+                    HeroStat.PERCENT -> "${(progress * 100).roundToInt()}%" to "to goal"
+                    HeroStat.MOVED -> {
+                        val label = when {
+                            abs(soFarKg) < 0.05 -> "so far"
+                            soFarKg < 0 -> "$unitLabel down"
+                            else -> "$unitLabel up"
+                        }
+                        val value = if (abs(soFarKg) < 0.05) "0" else oneDecimal(unit.fromKg(abs(soFarKg)))
+                        value to label
+                    }
+                }
+
+                val effectiveStyle = if (isSupporter) displayStyle else HeroDisplayStyle.RING
+                when (effectiveStyle) {
+                    HeroDisplayStyle.RING -> ProgressRing(progress = progress, value = heroValue, label = heroLabel)
+                    HeroDisplayStyle.BAR -> ProgressBarDisplay(progress = progress, value = heroValue, label = heroLabel)
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    HeroStat.entries.forEach { stat ->
+                        FilterChip(
+                            selected = heroStat == stat,
+                            onClick = { heroStat = stat },
+                            label = { Text(stat.chipLabel, style = MaterialTheme.typography.labelSmall) },
+                            colors = themedFilterChipColors(),
+                        )
+                    }
+                    HeroDisplayStyleToggle(
+                        selected = effectiveStyle,
+                        isSupporter = isSupporter,
+                        onChange = { displayStyle = it },
+                        onLockedTap = { showSupporterLockedDialog = true },
+                    )
+                }
 
                 val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
                 val countdown = Phrasing.goalCountdown(daysToGoal)
                 val countdownText = if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}"
 
-                // The ring alone only shows what's left - pairing it with what's already been
-                // done (so far) and how long that's likely to still take gives a fuller picture
-                // without needing a second ring.
-                val soFarKg = tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg
-                val soFarLabel = when {
-                    abs(soFarKg) < 0.05 -> "so far"
-                    soFarKg < 0 -> "${unit.name.lowercase()} down"
-                    else -> "${unit.name.lowercase()} up"
-                }
-                val soFarValue = if (abs(soFarKg) < 0.05) "0" else oneDecimal(unit.fromKg(abs(soFarKg)))
-
+                // The hero display alone only shows one reading of progress - pairing it with a
+                // rough time estimate gives a fuller picture without needing a second ring/bar.
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    MiniStat(value = soFarValue, label = soFarLabel)
                     MiniStat(value = countdownText, label = "${countdown.unitLabel} to go")
                 }
 
@@ -310,6 +386,52 @@ private fun HeroSection(profile: UserProfile, tdeeState: TdeeState, onSaveGoalWe
         }
 
         GoalWeightRow(profile, onSaveGoalWeight)
+    }
+}
+
+/** Ring vs bar is a supporter perk, shown the same way as the chart style toggle in Journey -
+ * still visible and tappable when locked, with a small lock badge, rather than disappearing. */
+@Composable
+private fun HeroDisplayStyleToggle(
+    selected: HeroDisplayStyle,
+    isSupporter: Boolean,
+    onChange: (HeroDisplayStyle) -> Unit,
+    onLockedTap: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { onChange(HeroDisplayStyle.RING) }, modifier = Modifier.size(32.dp)) {
+            Icon(
+                Icons.Outlined.DonutLarge,
+                contentDescription = "Ring display",
+                tint = if (selected == HeroDisplayStyle.RING) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Box {
+            IconButton(
+                onClick = { if (isSupporter) onChange(HeroDisplayStyle.BAR) else onLockedTap() },
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.LinearScale,
+                    contentDescription = if (isSupporter) "Bar display" else "Bar display - supporters only",
+                    tint = if (selected == HeroDisplayStyle.BAR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            if (!isSupporter) {
+                Icon(
+                    Icons.Outlined.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(11.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                        .padding(1.dp),
+                )
+            }
+        }
     }
 }
 
@@ -394,8 +516,11 @@ private fun EditGoalWeightDialog(currentGoalKg: Double, unit: WeightUnit, onDism
  * meant to be taken in at a glance, so it gets the most visual weight. */
 @Composable
 private fun ProgressRing(progress: Float, value: String, label: String) {
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
     val ringColor = MaterialTheme.colorScheme.primary
+    // A tint of the ring's own color, not a theme-neutral gray - surfaceVariant is deliberately
+    // low-contrast against a Card's background by Material 3's own design, so at 0% progress the
+    // "empty" track could read as not there at all rather than as a track waiting to fill.
+    val trackColor = ringColor.copy(alpha = 0.18f)
 
     Box(modifier = Modifier.size(172.dp), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxWidth().size(172.dp)) {
@@ -425,6 +550,41 @@ private fun ProgressRing(progress: Float, value: String, label: String) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** The supporter-only alternative to [ProgressRing] - same number/label, a straight bar instead
+ * of a ring. Kept visually consistent with it (same tinted-track technique, same text styling)
+ * so switching between them reads as a style choice, not two unrelated widgets. */
+@Composable
+private fun ProgressBarDisplay(progress: Float, value: String, label: String) {
+    val barColor = MaterialTheme.colorScheme.primary
+    val trackColor = barColor.copy(alpha = 0.18f)
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(value, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Canvas(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(16.dp)) {
+            val strokeWidth = size.height
+            val y = size.height / 2f
+            drawLine(
+                color = trackColor,
+                start = Offset(strokeWidth / 2f, y),
+                end = Offset(size.width - strokeWidth / 2f, y),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round,
+            )
+            val filledWidth = (size.width - strokeWidth) * progress.coerceIn(0f, 1f)
+            if (filledWidth > 0f) {
+                drawLine(
+                    color = barColor,
+                    start = Offset(strokeWidth / 2f, y),
+                    end = Offset(strokeWidth / 2f + filledWidth, y),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
+                )
+            }
         }
     }
 }

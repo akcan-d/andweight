@@ -110,7 +110,10 @@ private fun ring(diameterDp: Dp, stat: WidgetStat, scheme: ColorScheme): Bitmap 
     return WidgetGraphics.progressRingWithNumber(
         sizePx = sizePx,
         progress = stat.ringProgress,
-        trackColor = scheme.surfaceVariant.toArgb(),
+        // A tint of the ring's own color rather than a flat gray - needs to read clearly against
+        // an arbitrary photo wallpaper, not just a themed surface, so a plain muted neutral risks
+        // disappearing into a busy or dark background. Matches TodayScreen's ProgressRing.
+        trackColor = scheme.primary.copy(alpha = 0.3f).toArgb(),
         ringColor = scheme.primary.toArgb(),
         textColor = scheme.onBackground.toArgb(),
         // A lock glyph takes the same center spot a number normally would, rather than adding a
