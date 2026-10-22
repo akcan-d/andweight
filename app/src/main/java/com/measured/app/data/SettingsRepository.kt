@@ -176,6 +176,8 @@ class SettingsRepository(private val context: Context) {
         context.settingsDataStore.edit { it[Keys.MEAL_TIMING_MODE] = mode.name }
     }
 
+    suspend fun mealTimingModeOnce(): MealTimingMode = mealTimingModeFlow.first()
+
     suspend fun setHighContrast(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
     }

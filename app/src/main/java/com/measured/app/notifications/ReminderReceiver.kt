@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.measured.app.AndWeightApplication
+import com.measured.app.domain.CheckInStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,12 +23,14 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 if (app.settingsRepository.isReminderEnabledOnce()) {
                     val today = LocalDate.now()
-                    // Weight is logged for today, but meal info is always reported about the day
-                    // before (see TodayViewModel.mealDate) - so "complete" means today's weight
-                    // and yesterday's calories, two different rows, not one row with both fields.
-                    val weightLogged = app.repository.getLogForDate(today)?.weightKg != null
-                    val mealLogged = app.repository.getLogForDate(today.minusDays(1))?.calories != null
-                    if (!weightLogged || !mealLogged) {
+                    // Which date meal info is reported about depends on the user's
+                    // MealTimingMode setting (see TodayViewModel.mealDate) - same-day mode means
+                    // today's weight and today's calories can be the same row.
+                    val mode = app.settingsRepository.mealTimingModeOnce()
+                    val mealDate = CheckInStatus.mealDateFor(today, mode)
+                    val todayLog = app.repository.getLogForDate(today)
+                    val mealLog = if (mealDate == today) todayLog else app.repository.getLogForDate(mealDate)
+                    if (!CheckInStatus.isComplete(todayLog, mealLog)) {
                         NotificationHelper.showReminder(context)
                     }
                     val (hour, minute) = app.settingsRepository.getReminderTimeOnce()

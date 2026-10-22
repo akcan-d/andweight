@@ -16,6 +16,7 @@ import com.measured.app.ui.settings.SettingsViewModel
 import com.measured.app.ui.settings.SupporterPromptViewModel
 import com.measured.app.ui.settings.TipOfTheDayViewModel
 import com.measured.app.ui.tips.TipsViewModel
+import com.measured.app.ui.today.CheckInReminderViewModel
 import com.measured.app.ui.today.TodayViewModel
 
 /**
@@ -35,6 +36,7 @@ object AppViewModelProvider {
         initializer { ReminderOptInViewModel(settingsRepository(), repository(), application()) }
         initializer { SupporterPromptViewModel(repository(), settingsRepository()) }
         initializer { MilestoneUnlockViewModel(repository(), settingsRepository()) }
+        initializer { CheckInReminderViewModel(repository(), settingsRepository()) }
     }
 }
 

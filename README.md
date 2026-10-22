@@ -42,6 +42,11 @@ you've already finished eating for the day, a setting under Settings &gt; Check-
 meal question to be about today instead (`MealTimingMode` in
 [`TodayViewModel.kt`](app/src/main/java/com/measured/app/ui/today/TodayViewModel.kt)).
 
+A small dot on the Status tab's nav icon shows up whenever today's check-in - whichever date's
+weight and meal that currently means - isn't fully logged yet, so there's a reminder without
+needing to rearrange or highlight anything on the Today screen itself
+(`CheckInReminderViewModel`).
+
 Instead of logging every meal, you pick one of five options for how much you felt like you ate:
 
 | Option | Assumed offset from your current TDEE |
