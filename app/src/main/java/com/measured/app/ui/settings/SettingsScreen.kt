@@ -74,9 +74,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.measured.app.BuildConfig
 import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.BackupSerializer
+import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.accentPaletteFor
 import com.measured.app.ui.theme.themedFilterChipColors
@@ -110,6 +112,7 @@ fun SettingsScreen(
     val isSupporter by viewModel.isSupporter.collectAsState()
     val accentTheme by viewModel.accentTheme.collectAsState()
     val highContrast by viewModel.highContrast.collectAsState()
+    val mealTimingMode by viewModel.mealTimingMode.collectAsState()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
@@ -220,6 +223,29 @@ fun SettingsScreen(
                     selected = profile?.weightUnit == unit,
                     onClick = { viewModel.setWeightUnit(unit) },
                     label = { Text(if (unit == WeightUnit.KG) "Metric (kg, cm)" else "Imperial (lb, ft/in)") },
+                    colors = themedFilterChipColors(),
+                )
+            }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Check-in", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            InfoTooltipIcon(
+                title = "Yesterday's meals vs. today's",
+                text = "If you weigh in in the morning, asking about yesterday's meals makes more sense - " +
+                    "by then yesterday's eating is finished and known for certain, where today's isn't yet. " +
+                    "If you weigh in in the evening or before bed, after you've already finished eating for " +
+                    "the day, asking about today's meals instead skips the extra day of lag.",
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MealTimingMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = mealTimingMode == mode,
+                    onClick = { viewModel.setMealTimingMode(mode) },
+                    label = { Text(mode.label) },
                     colors = themedFilterChipColors(),
                 )
             }

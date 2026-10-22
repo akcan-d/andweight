@@ -641,23 +641,36 @@ private fun WeightSectionHeading() {
     }
 }
 
-/** [mealDate] and [today] decide the wording - "Yesterday's meals" when checking in normally,
- * or the actual date when browsing further back in history, so it's never ambiguous which day's
- * eating is being asked about. */
+/** [mealDate] and [today] decide the wording - "Today's meals" or "Yesterday's meals" depending
+ * on the Settings choice (see [com.measured.app.domain.MealTimingMode]) when checking in
+ * normally, or the actual date when browsing further back in history, so it's never ambiguous
+ * which day's eating is being asked about. */
 @Composable
 private fun MealSectionHeading(mealDate: LocalDate, today: LocalDate) {
     val mealDateLabel = dayLabel(mealDate, today)
-    val heading = if (mealDateLabel == "Yesterday") "Yesterday's meals" else "Meals from $mealDateLabel"
+    val heading = when (mealDateLabel) {
+        "Today", "Yesterday" -> "$mealDateLabel's meals"
+        else -> "Meals from $mealDateLabel"
+    }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(heading, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-        InfoTooltipIcon(
-            title = "Why yesterday?",
-            text = "This asks about yesterday's eating rather than today's, since by the time you're " +
-                "checking in it's already finished and you know the real number - no guessing how the " +
-                "rest of today will go. Pick how it compared to your own usual day, or tap \"Enter exact " +
-                "calories\" if you know it exactly.",
-        )
+        if (mealDateLabel == "Yesterday") {
+            InfoTooltipIcon(
+                title = "Why yesterday?",
+                text = "This asks about yesterday's eating rather than today's, since by the time you're " +
+                    "checking in it's already finished and you know the real number - no guessing how the " +
+                    "rest of today will go. Pick how it compared to your own usual day, or tap \"Enter exact " +
+                    "calories\" if you know it exactly. You can switch this to ask about today instead under " +
+                    "Settings, if you weigh in in the evening after you've already finished eating.",
+            )
+        } else {
+            InfoTooltipIcon(
+                title = "Logging meals",
+                text = "Pick how much you ate compared to your own usual day, or tap \"Enter exact calories\" " +
+                    "if you know the number.",
+            )
+        }
     }
 }
 

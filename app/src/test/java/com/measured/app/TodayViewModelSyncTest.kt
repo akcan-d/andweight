@@ -41,7 +41,7 @@ class TodayViewModelSyncTest {
         )
         app.repository.saveLog(date = today, weightKg = 79.0, calories = 2000.0, intakeLevel = null, wasExact = true)
 
-        val viewModel = TodayViewModel(app.repository)
+        val viewModel = TodayViewModel(app.repository, app.settingsRepository)
         idleUntil(5_000) { viewModel.weightLog != null }
         assertNotNull("expected the seeded log to load", viewModel.weightLog)
 

@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.measured.app.domain.AccentTheme
+import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -41,6 +42,7 @@ class SettingsRepository(private val context: Context) {
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
         val SEEN_MILESTONE_TITLES = stringSetPreferencesKey("seen_milestone_titles")
         val MILESTONE_BASELINE_DONE = booleanPreferencesKey("milestone_baseline_done")
+        val MEAL_TIMING_MODE = stringPreferencesKey("meal_timing_mode")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -164,6 +166,15 @@ class SettingsRepository(private val context: Context) {
     val highContrastFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.HIGH_CONTRAST] ?: false }
 
     suspend fun highContrastOnce(): Boolean = highContrastFlow.first()
+
+    val mealTimingModeFlow: Flow<MealTimingMode> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.MEAL_TIMING_MODE]?.let { name -> runCatching { MealTimingMode.valueOf(name) }.getOrNull() }
+            ?: MealTimingMode.PREVIOUS_DAY
+    }
+
+    suspend fun setMealTimingMode(mode: MealTimingMode) {
+        context.settingsDataStore.edit { it[Keys.MEAL_TIMING_MODE] = mode.name }
+    }
 
     suspend fun setHighContrast(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.HIGH_CONTRAST] = enabled }

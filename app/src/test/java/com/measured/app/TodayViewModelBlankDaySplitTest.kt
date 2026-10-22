@@ -37,7 +37,7 @@ class TodayViewModelBlankDaySplitTest {
             UserProfile(weightUnit = WeightUnit.KG, startWeightKg = 80.0, goalWeightKg = 70.0, pace = PaceOption.MODERATE),
         )
 
-        val viewModel = TodayViewModel(app.repository)
+        val viewModel = TodayViewModel(app.repository, app.settingsRepository)
         idleUntil(5_000) { viewModel.profile.value != null }
 
         viewModel.onWeightTextChange("78.5")

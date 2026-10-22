@@ -12,6 +12,7 @@ import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.GoalDirection
 import com.measured.app.domain.JourneyMilestones
+import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
@@ -53,6 +54,9 @@ class SettingsViewModel(
 
     val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val mealTimingMode: StateFlow<MealTimingMode> = settingsRepository.mealTimingModeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealTimingMode.PREVIOUS_DAY)
 
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
@@ -116,6 +120,10 @@ class SettingsViewModel(
 
     fun setHighContrast(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setHighContrast(enabled) }
+    }
+
+    fun setMealTimingMode(mode: MealTimingMode) {
+        viewModelScope.launch { settingsRepository.setMealTimingMode(mode) }
     }
 
     /** One-shot: makes the launcher icon match whatever theme is selected right now, then does

@@ -34,10 +34,13 @@ raises the floor if explicitly provided), regardless of how aggressive your goal
 
 ### The daily check-in
 
-The weight you log is for today, but the meal you log is always for **yesterday** - by the time
-you're checking in (typically a morning weigh-in), yesterday's eating is finished and known for
-certain, where today's isn't yet. This lets one check-in finalize both without needing to come
-back once today is actually over.
+The weight you log is for today, but by default the meal you log is for **yesterday** - by the
+time you're checking in (typically a morning weigh-in), yesterday's eating is finished and known
+for certain, where today's isn't yet. This lets one check-in finalize both without needing to come
+back once today is actually over. If you weigh in in the evening or before bed instead, after
+you've already finished eating for the day, a setting under Settings &gt; Check-in switches the
+meal question to be about today instead (`MealTimingMode` in
+[`TodayViewModel.kt`](app/src/main/java/com/measured/app/ui/today/TodayViewModel.kt)).
 
 Instead of logging every meal, you pick one of five options for how much you felt like you ate:
 
