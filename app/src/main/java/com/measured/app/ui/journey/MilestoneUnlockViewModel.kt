@@ -39,29 +39,27 @@ class MilestoneUnlockViewModel(
             }.collect { (profile, logs, state) ->
                 if (profile == null || state == null) return@collect
 
-                val achievedTitles = JourneyMilestones.compute(profile, state, logs, today)
-                    .filter { it.achieved }
-                    .map { it.title }
-                    .toSet()
+                val achieved = JourneyMilestones.compute(profile, state, logs, today).filter { it.achieved }
+                val achievedIds = achieved.map { it.id }.toSet()
 
                 if (!settingsRepository.isMilestoneBaselineDoneOnce()) {
                     // First time this check has ever run - whatever's already achieved becomes
                     // the starting point silently, rather than announcing it all as if it just
                     // happened.
-                    settingsRepository.markMilestonesSeen(achievedTitles)
+                    settingsRepository.markMilestonesSeen(achievedIds)
                     settingsRepository.setMilestoneBaselineDone()
                     return@collect
                 }
 
-                val seenTitles = settingsRepository.seenMilestoneTitlesOnce()
-                val newlyAchieved = achievedTitles - seenTitles
+                val seenIds = settingsRepository.seenMilestoneIdsOnce()
+                val newlyAchieved = achieved.filter { it.id !in seenIds }
                 if (newlyAchieved.isNotEmpty()) {
                     newMilestoneMessage = if (newlyAchieved.size == 1) {
-                        "Milestone unlocked: ${newlyAchieved.first()}"
+                        "Milestone unlocked: ${newlyAchieved.first().title}"
                     } else {
                         "${newlyAchieved.size} new milestones unlocked"
                     }
-                    settingsRepository.markMilestonesSeen(newlyAchieved)
+                    settingsRepository.markMilestonesSeen(newlyAchieved.map { it.id }.toSet())
                 }
             }
         }

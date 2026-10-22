@@ -102,6 +102,13 @@ class JourneyMilestonesTest {
         assertEquals(kgMilestones.count { it.achieved }, lbMilestones.count { it.achieved })
         assertTrue(kgMilestones.any { it.achieved && it.title == "2 kg down" })
         assertTrue(lbMilestones.any { it.achieved && it.title == "4 lb down" })
+
+        // Same underlying threshold, so it must carry the same id too - this is what
+        // MilestoneUnlockViewModel's "already seen" tracking actually keys off of, and it has to
+        // survive a unit switch even though the title text above doesn't.
+        val kgId = kgMilestones.first { it.achieved && it.title == "2 kg down" }.id
+        val lbId = lbMilestones.first { it.achieved && it.title == "4 lb down" }.id
+        assertEquals(kgId, lbId)
     }
 
     @Test

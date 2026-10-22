@@ -40,8 +40,15 @@ class SettingsRepository(private val context: Context) {
         val SUPPORTER_PROMPT_SHOWN_COUNT = intPreferencesKey("supporter_prompt_shown_count")
         val LAST_SUPPORTER_PROMPT_EPOCH_DAY = longPreferencesKey("last_supporter_prompt_epoch_day")
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
+        // Superseded by SEEN_MILESTONE_IDS/MILESTONE_ID_BASELINE_DONE below - titles for AMOUNT
+        // milestones embed a unit-converted number, so tracking "seen" by title string meant a
+        // kg/lb switch alone made already-unlocked milestones look brand new. Left unread rather
+        // than migrated: switching to the id-keyed keys below naturally replays the existing
+        // "first run silently adopts the current baseline" logic once, with no special-case code.
         val SEEN_MILESTONE_TITLES = stringSetPreferencesKey("seen_milestone_titles")
         val MILESTONE_BASELINE_DONE = booleanPreferencesKey("milestone_baseline_done")
+        val SEEN_MILESTONE_IDS = stringSetPreferencesKey("seen_milestone_ids")
+        val MILESTONE_ID_BASELINE_DONE = booleanPreferencesKey("milestone_id_baseline_done")
         val MEAL_TIMING_MODE = stringPreferencesKey("meal_timing_mode")
     }
 
@@ -182,13 +189,16 @@ class SettingsRepository(private val context: Context) {
         context.settingsDataStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
     }
 
-    /** Titles of milestones already announced via the in-app notification, so reaching one only
-     * ever gets celebrated once - mirrors [seenTipTitlesFlow]'s pattern. */
-    suspend fun seenMilestoneTitlesOnce(): Set<String> =
-        context.settingsDataStore.data.map { it[Keys.SEEN_MILESTONE_TITLES] ?: emptySet() }.first()
+    /** IDs ([com.measured.app.domain.Milestone.id]) of milestones already announced via the
+     * in-app notification, so reaching one only ever gets celebrated once - mirrors
+     * [seenTipTitlesFlow]'s pattern, but keyed by stable id rather than display title (a title
+     * can change, e.g. an AMOUNT milestone's unit-converted number after a kg/lb switch, without
+     * the underlying milestone being any less already-seen). */
+    suspend fun seenMilestoneIdsOnce(): Set<String> =
+        context.settingsDataStore.data.map { it[Keys.SEEN_MILESTONE_IDS] ?: emptySet() }.first()
 
-    suspend fun markMilestonesSeen(titles: Set<String>) {
-        context.settingsDataStore.edit { it[Keys.SEEN_MILESTONE_TITLES] = (it[Keys.SEEN_MILESTONE_TITLES] ?: emptySet()) + titles }
+    suspend fun markMilestonesSeen(ids: Set<String>) {
+        context.settingsDataStore.edit { it[Keys.SEEN_MILESTONE_IDS] = (it[Keys.SEEN_MILESTONE_IDS] ?: emptySet()) + ids }
     }
 
     /** Whether whatever was already achieved has been recorded as a starting point - without this,
@@ -196,9 +206,9 @@ class SettingsRepository(private val context: Context) {
      * they'd already reached dumped on them at once as "new", instead of only being notified about
      * ones reached from here on. */
     suspend fun isMilestoneBaselineDoneOnce(): Boolean =
-        context.settingsDataStore.data.map { it[Keys.MILESTONE_BASELINE_DONE] ?: false }.first()
+        context.settingsDataStore.data.map { it[Keys.MILESTONE_ID_BASELINE_DONE] ?: false }.first()
 
     suspend fun setMilestoneBaselineDone() {
-        context.settingsDataStore.edit { it[Keys.MILESTONE_BASELINE_DONE] = true }
+        context.settingsDataStore.edit { it[Keys.MILESTONE_ID_BASELINE_DONE] = true }
     }
 }

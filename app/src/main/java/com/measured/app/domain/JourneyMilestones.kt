@@ -14,6 +14,13 @@ enum class MilestoneCategory(val label: String) {
 
 data class Milestone(
     val category: MilestoneCategory,
+    /** Stable, unit- and locale-independent identity - this is what "already seen/notified"
+     * tracking keys off of (see [com.measured.app.ui.journey.MilestoneUnlockViewModel]), kept
+     * entirely separate from [title]. [title] for AMOUNT milestones embeds a number converted to
+     * the person's display unit, so the same underlying threshold's title text changes if they
+     * switch kg/lb - using title text as identity would make a unit switch alone look like a
+     * fresh set of milestones and re-fire "unlocked" notifications for ones already seen. */
+    val id: String,
     val title: String,
     val achieved: Boolean,
     /** Only set when [achieved] is false - a short "how much further" hint. */
@@ -105,11 +112,18 @@ object JourneyMilestones {
         val latestAchieved = TIME_THRESHOLDS.indexOfLast { (threshold, _) -> daysSinceStart >= threshold }
         val result = mutableListOf<Milestone>()
         for (i in 0..latestAchieved) {
-            result += Milestone(MilestoneCategory.TIME, TIME_THRESHOLDS[i].second, achieved = true)
+            val (threshold, title) = TIME_THRESHOLDS[i]
+            result += Milestone(MilestoneCategory.TIME, id = "time_$threshold", title, achieved = true)
         }
         TIME_THRESHOLDS.getOrNull(latestAchieved + 1)?.let { (threshold, title) ->
             val remaining = threshold - daysSinceStart
-            result += Milestone(MilestoneCategory.TIME, title, achieved = false, hint = "${dayWord(remaining)} to go")
+            result += Milestone(
+                MilestoneCategory.TIME,
+                id = "time_$threshold",
+                title,
+                achieved = false,
+                hint = "${dayWord(remaining)} to go",
+            )
         }
         return result
     }
@@ -118,12 +132,14 @@ object JourneyMilestones {
         val latestAchieved = STREAK_THRESHOLDS.indexOfLast { (threshold, _) -> longestStreak >= threshold }
         val result = mutableListOf<Milestone>()
         for (i in 0..latestAchieved) {
-            result += Milestone(MilestoneCategory.STREAK, STREAK_THRESHOLDS[i].second, achieved = true)
+            val (threshold, title) = STREAK_THRESHOLDS[i]
+            result += Milestone(MilestoneCategory.STREAK, id = "streak_$threshold", title, achieved = true)
         }
         STREAK_THRESHOLDS.getOrNull(latestAchieved + 1)?.let { (threshold, title) ->
             val remaining = threshold - longestStreak
             result += Milestone(
                 MilestoneCategory.STREAK,
+                id = "streak_$threshold",
                 title,
                 achieved = false,
                 hint = "${dayWord(remaining.toLong())} more in a row",
@@ -137,11 +153,18 @@ object JourneyMilestones {
         val latestAchieved = PROGRESS_THRESHOLDS.indexOfLast { (threshold, _) -> ratio >= threshold - 0.001 }
         val result = mutableListOf<Milestone>()
         for (i in 0..latestAchieved) {
-            result += Milestone(MilestoneCategory.PROGRESS, PROGRESS_THRESHOLDS[i].second, achieved = true)
+            val (threshold, title) = PROGRESS_THRESHOLDS[i]
+            result += Milestone(MilestoneCategory.PROGRESS, id = "progress_$threshold", title, achieved = true)
         }
         PROGRESS_THRESHOLDS.getOrNull(latestAchieved + 1)?.let { (threshold, title) ->
             val remainingPercent = ((threshold - ratio) * 100).roundToLong()
-            result += Milestone(MilestoneCategory.PROGRESS, title, achieved = false, hint = "$remainingPercent% to go")
+            result += Milestone(
+                MilestoneCategory.PROGRESS,
+                id = "progress_$threshold",
+                title,
+                achieved = false,
+                hint = "$remainingPercent% to go",
+            )
         }
         return result
     }
@@ -162,16 +185,21 @@ object JourneyMilestones {
         fun formatForUnit(valueInUnit: Double) =
             if (unit == WeightUnit.KG) formatOneDecimal(valueInUnit) else Math.round(valueInUnit).toString()
         fun titleFor(thresholdKg: Double) = "${formatForUnit(unit.fromKg(thresholdKg))} $unitLabel $verb"
+        // The threshold's kg value and goal direction, never the display unit or converted
+        // number - so switching kg/lb alone can't change a milestone's identity and make an
+        // already-seen one look new (see [Milestone.id]).
+        fun idFor(thresholdKg: Double) = "amount_${thresholdKg}_${direction.name}"
 
         val latestAchieved = thresholdsInKg.indexOfLast { movedKg >= it - 0.01 }
         val result = mutableListOf<Milestone>()
         for (i in 0..latestAchieved) {
-            result += Milestone(MilestoneCategory.AMOUNT, titleFor(thresholdsInKg[i]), achieved = true)
+            result += Milestone(MilestoneCategory.AMOUNT, id = idFor(thresholdsInKg[i]), titleFor(thresholdsInKg[i]), achieved = true)
         }
         thresholdsInKg.getOrNull(latestAchieved + 1)?.let { thresholdKg ->
             val remainingInUnit = unit.fromKg(thresholdKg - movedKg)
             result += Milestone(
                 MilestoneCategory.AMOUNT,
+                id = idFor(thresholdKg),
                 titleFor(thresholdKg),
                 achieved = false,
                 hint = "${formatForUnit(remainingInUnit)} $unitLabel to go",
