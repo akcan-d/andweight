@@ -36,7 +36,7 @@ import com.measured.app.ui.AppViewModelProvider
 
 private val PERKS = listOf(
     "A couple of extra color themes",
-    "Switching Journey charts to a bar style",
+    "Bar and area styles for Journey charts, and a bar style for the Status screen's progress display",
     "A choice of share-card designs",
     "Home-screen widgets",
 )
