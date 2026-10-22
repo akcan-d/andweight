@@ -499,7 +499,7 @@ private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
                 AllSetBanner()
             }
 
-            if (viewModel.existingLog == null) {
+            if (viewModel.isBlankDay) {
                 // Neither field has been saved yet - one combined form with a single Save button,
                 // rather than two separate per-field forms that would otherwise both show at once.
                 BlankDayForm(viewModel, profile)
@@ -508,7 +508,7 @@ private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
                 MealSection(viewModel)
             }
 
-            if (viewModel.existingLog != null) {
+            if (!viewModel.isBlankDay) {
                 DeleteDayButton(viewModel)
             }
         }
@@ -641,15 +641,22 @@ private fun WeightSectionHeading() {
     }
 }
 
+/** [mealDate] and [today] decide the wording - "Yesterday's meals" when checking in normally,
+ * or the actual date when browsing further back in history, so it's never ambiguous which day's
+ * eating is being asked about. */
 @Composable
-private fun MealSectionHeading() {
+private fun MealSectionHeading(mealDate: LocalDate, today: LocalDate) {
+    val mealDateLabel = dayLabel(mealDate, today)
+    val heading = if (mealDateLabel == "Yesterday") "Yesterday's meals" else "Meals from $mealDateLabel"
+
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Meals", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text(heading, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         InfoTooltipIcon(
-            title = "Logging meals",
-            text = "Pick how much you ate compared to your own usual day, or tap \"Enter exact calories\" " +
-                "if you know the number. Either way is fine - this is the only part of your day the app " +
-                "needs besides your weight, tracked separately above.",
+            title = "Why yesterday?",
+            text = "This asks about yesterday's eating rather than today's, since by the time you're " +
+                "checking in it's already finished and you know the real number - no guessing how the " +
+                "rest of today will go. Pick how it compared to your own usual day, or tap \"Enter exact " +
+                "calories\" if you know it exactly.",
         )
     }
 }
@@ -662,7 +669,7 @@ private fun BlankDayForm(viewModel: TodayViewModel, profile: UserProfile?) {
             WeightInputField(viewModel, profile)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            MealSectionHeading()
+            MealSectionHeading(viewModel.mealDate, viewModel.actualToday)
             MealInputFields(viewModel)
         }
         Button(onClick = viewModel::saveDay, modifier = Modifier.fillMaxWidth()) {
@@ -694,12 +701,12 @@ private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
             WeightInputField(viewModel, profile)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = viewModel::saveWeight) { Text("Save") }
-                if (viewModel.existingLog?.weightKg != null) {
+                if (viewModel.weightLog?.weightKg != null) {
                     TextButton(onClick = viewModel::onCancelEditingWeight) { Text("Cancel") }
                 }
             }
         } else {
-            val log = viewModel.existingLog
+            val log = viewModel.weightLog
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (log?.weightKg != null && profile != null) Phrasing.formatWeight(log.weightKg, profile.weightUnit) else "-",
@@ -716,12 +723,12 @@ private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
 @Composable
 private fun MealSection(viewModel: TodayViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MealSectionHeading()
+        MealSectionHeading(viewModel.mealDate, viewModel.actualToday)
 
         if (viewModel.isEditingMeal) {
             MealForm(viewModel)
         } else {
-            val log = viewModel.existingLog
+            val log = viewModel.mealLog
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 if (log != null) IntakeChip(log) else Text("-")
                 IconButton(onClick = viewModel::onStartEditingMeal) {
@@ -747,7 +754,7 @@ private fun MealForm(viewModel: TodayViewModel) {
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = viewModel::saveMeal) { Text("Save") }
-        if (viewModel.existingLog?.calories != null) {
+        if (viewModel.mealLog?.calories != null) {
             TextButton(onClick = viewModel::onCancelEditingMeal) { Text("Cancel") }
         }
     }
@@ -766,10 +773,10 @@ private fun MealInputFields(viewModel: TodayViewModel) {
             )
             InfoTooltipIcon(
                 title = "vs. your usual",
-                text = "These compare today to your own typical eating, not a fixed calorie amount - the " +
+                text = "These compare that day to your own typical eating, not a fixed calorie amount - the " +
                     "app learns what's usual for you from what you've logged so far. Pick whichever best " +
-                    "matches how much you ate today compared to a normal day for you. If you know the " +
-                    "exact number, \"Enter exact calories\" gives a more precise estimate than any of these.",
+                    "matches how much you ate compared to a normal day for you. If you know the exact " +
+                    "number, \"Enter exact calories\" gives a more precise estimate than any of these.",
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -821,7 +828,12 @@ private fun DeleteDayButton(viewModel: TodayViewModel) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Delete this day?") },
-            text = { Text("This removes the weight and meal info logged for ${dayLabel(viewModel.selectedDate, viewModel.actualToday)}. This can't be undone.") },
+            text = {
+                Text(
+                    "This removes the weight logged for ${dayLabel(viewModel.selectedDate, viewModel.actualToday)} and the " +
+                        "meal info logged for ${dayLabel(viewModel.mealDate, viewModel.actualToday)}. This can't be undone.",
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirm = false

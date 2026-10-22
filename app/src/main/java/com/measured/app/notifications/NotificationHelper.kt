@@ -58,7 +58,7 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_notification)
             .setLargeIcon(brandedLargeIcon())
             .setContentTitle("Time for your check-in")
-            .setContentText("Log today's weight or meals to keep your estimate accurate.")
+            .setContentText("Log today's weight or yesterday's meals to keep your estimate accurate.")
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

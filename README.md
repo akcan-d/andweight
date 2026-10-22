@@ -34,6 +34,11 @@ raises the floor if explicitly provided), regardless of how aggressive your goal
 
 ### The daily check-in
 
+The weight you log is for today, but the meal you log is always for **yesterday** - by the time
+you're checking in (typically a morning weigh-in), yesterday's eating is finished and known for
+certain, where today's isn't yet. This lets one check-in finalize both without needing to come
+back once today is actually over.
+
 Instead of logging every meal, you pick one of five options for how much you felt like you ate:
 
 | Option | Assumed offset from your current TDEE |

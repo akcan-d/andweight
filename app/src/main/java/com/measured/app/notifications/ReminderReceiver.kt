@@ -22,9 +22,12 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 if (app.settingsRepository.isReminderEnabledOnce()) {
                     val today = LocalDate.now()
-                    val log = app.repository.getLogForDate(today)
-                    val dayComplete = log?.weightKg != null && log.calories != null
-                    if (!dayComplete) {
+                    // Weight is logged for today, but meal info is always reported about the day
+                    // before (see TodayViewModel.mealDate) - so "complete" means today's weight
+                    // and yesterday's calories, two different rows, not one row with both fields.
+                    val weightLogged = app.repository.getLogForDate(today)?.weightKg != null
+                    val mealLogged = app.repository.getLogForDate(today.minusDays(1))?.calories != null
+                    if (!weightLogged || !mealLogged) {
                         NotificationHelper.showReminder(context)
                     }
                     val (hour, minute) = app.settingsRepository.getReminderTimeOnce()

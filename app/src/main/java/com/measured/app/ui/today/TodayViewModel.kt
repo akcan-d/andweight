@@ -71,8 +71,29 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     var selectedDate by mutableStateOf(actualToday)
         private set
 
-    var existingLog by mutableStateOf<DailyLog?>(null)
+    /** The meal section always asks about the day *before* [selectedDate], never [selectedDate]
+     * itself - by the time you're checking in, yesterday's eating is finished and known for
+     * certain, where today's isn't yet. This lets one check-in session (typically a morning
+     * weigh-in) also finalize yesterday's intake, instead of needing a second visit later once
+     * today is actually over. */
+    val mealDate: LocalDate
+        get() = selectedDate.minusDays(1)
+
+    /** The row for [selectedDate] - holds this day's weight (and may also already hold this same
+     * day's calories, filed the following day once that session happens). */
+    var weightLog by mutableStateOf<DailyLog?>(null)
         private set
+
+    /** The row for [mealDate] - holds the calories/intake level reported *about* that day, which
+     * may be a different row than [weightLog] since it's keyed to the day before. */
+    var mealLog by mutableStateOf<DailyLog?>(null)
+        private set
+
+    /** True once both halves of this check-in have something - [selectedDate]'s weight and
+     * [mealDate]'s meal info - used by the UI to decide between the combined blank-day form and
+     * the two separate per-field sections. */
+    val isBlankDay: Boolean
+        get() = weightLog?.weightKg == null && mealLog?.calories == null
 
     // Weight and meal info are tracked - and edited - completely independently, so logging your
     // weight in the morning and adding what you ate that night are two separate, unblocked steps.
@@ -93,12 +114,18 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     init {
         viewModelScope.launch {
             combine(logs, profile, snapshotFlow { selectedDate }) { logList, userProfile, date ->
-                Triple(logList.firstOrNull { it.date == date }, userProfile?.weightUnit, date)
+                SyncInputs(
+                    weightLog = logList.firstOrNull { it.date == date },
+                    mealLog = logList.firstOrNull { it.date == date.minusDays(1) },
+                    unit = userProfile?.weightUnit,
+                )
             }
                 .distinctUntilChanged()
-                .collect { (log, unit, _) -> syncDraftState(log, unit) }
+                .collect(::syncDraftState)
         }
     }
+
+    private data class SyncInputs(val weightLog: DailyLog?, val mealLog: DailyLog?, val unit: WeightUnit?)
 
     /** Derived from the saved log itself rather than a transient post-save flag - an exact entry's
      * calories are kept exactly as typed, so whether it's below the safety floor can be (and
@@ -107,7 +134,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
      * so there's nothing to warn about for those. */
     val belowFloorWarning: Boolean
         get() {
-            val log = existingLog ?: return false
+            val log = mealLog ?: return false
             val currentProfile = profile.value ?: return false
             if (!log.wasExactEntry || log.calories == null) return false
             return log.calories < SafetyLimits.floorFor(currentProfile.sex) - 0.01
@@ -144,9 +171,30 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
         selectedDate = date
     }
 
+    /** Weight and meal info now live on two different rows ([selectedDate] and [mealDate]), so
+     * clearing "this day" means clearing each one's own contribution - leaving the other field
+     * untouched if that row also holds data from its other half of a check-in. A row left with
+     * nothing in either field is deleted outright rather than kept around empty. */
     fun deleteDay() {
         viewModelScope.launch {
-            repository.deleteLog(selectedDate)
+            weightLog?.let { row ->
+                if (row.weightKg != null) {
+                    if (row.calories != null) {
+                        repository.saveLog(selectedDate, weightKg = null, calories = row.calories, intakeLevel = row.intakeLevel, wasExact = row.wasExactEntry)
+                    } else {
+                        repository.deleteLog(selectedDate)
+                    }
+                }
+            }
+            mealLog?.let { row ->
+                if (row.calories != null) {
+                    if (row.weightKg != null) {
+                        repository.saveLog(mealDate, weightKg = row.weightKg, calories = null, intakeLevel = null, wasExact = false)
+                    } else {
+                        repository.deleteLog(mealDate)
+                    }
+                }
+            }
         }
     }
 
@@ -168,7 +216,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     }
 
     fun onCancelEditingWeight() {
-        val savedWeight = existingLog?.weightKg ?: return // nothing to go back to
+        val savedWeight = weightLog?.weightKg ?: return // nothing to go back to
         val unit = profile.value?.weightUnit ?: return
         isEditingWeight = false
         weightState = WeightEntryState(text = formatWeight(unit.fromKg(savedWeight)))
@@ -187,7 +235,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
             return
         }
         val weightKg = currentProfile.weightUnit.toKg(parsed)
-        val existing = existingLog
+        val existing = weightLog
 
         viewModelScope.launch {
             repository.saveLog(
@@ -207,7 +255,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
     }
 
     fun onCancelEditingMeal() {
-        val existing = existingLog
+        val existing = mealLog
         if (existing?.calories == null) return // nothing to go back to
         isEditingMeal = false
         mealState = MealEntryState(
@@ -231,7 +279,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
     fun saveMeal() {
         val currentProfile = profile.value ?: return
-        val dateBeingSaved = selectedDate
+        val dateBeingSaved = mealDate
 
         val hasCalorieAnswer = if (mealState.useExact) {
             mealState.exactCaloriesText.isNotBlank()
@@ -263,7 +311,7 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
             IntakeResolver.resolveQuickPick(mealState.selectedIntake!!, baselineTdee, currentProfile.sex)
         }
 
-        val existing = existingLog
+        val existing = mealLog
 
         viewModelScope.launch {
             repository.saveLog(
@@ -278,13 +326,16 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
     // --- Combined save, for a day where neither weight nor meal has been saved yet ---
 
-    /** Used only while [existingLog] is null - a blank day shows a single combined form instead
+    /** Used only while [isBlankDay] is true - a blank day shows a single combined form instead
      * of two separate per-field forms, so this saves whichever of weight/meal has valid input
-     * (either, or both) in one write, rather than delegating to [saveWeight]/[saveMeal]
-     * independently, which could race against each other's read of [existingLog]. */
+     * (either, or both) in one write apiece, rather than delegating to [saveWeight]/[saveMeal]
+     * independently, which could race against each other's read of [weightLog]/[mealLog]. Weight
+     * and meal info land on two different dates ([selectedDate] and [mealDate]), so this writes
+     * up to two separate rows rather than one. */
     fun saveDay() {
         val currentProfile = profile.value ?: return
-        val dateBeingSaved = selectedDate
+        val weightDate = selectedDate
+        val calorieDate = mealDate
 
         val hasWeightInput = weightState.text.isNotBlank()
         val parsedWeight = weightState.text.toDoubleOrNull()
@@ -306,53 +357,72 @@ class TodayViewModel(private val repository: AndWeightRepository) : ViewModel() 
 
         val weightKg = if (hasWeightInput) currentProfile.weightUnit.toKg(parsedWeight!!) else null
 
+        // Snapshotted before launching, not re-read from the live properties inside the coroutine
+        // below - saving weight first (a suspending write) gives the reactive sync in init{} a
+        // chance to run in between the two writes, and since this day's meal genuinely hasn't been
+        // saved yet at that point, it would reset mealState back to blank right out from under
+        // this function, losing the selection it was about to save.
+        val mealSnapshot = mealState
+        val existingMealWeightKg = mealLog?.weightKg
+
         viewModelScope.launch {
-            var resolution: CalorieResolution? = null
+            if (hasWeightInput) {
+                repository.saveLog(
+                    date = weightDate,
+                    weightKg = weightKg,
+                    calories = weightLog?.calories,
+                    intakeLevel = weightLog?.intakeLevel,
+                    wasExact = weightLog?.wasExactEntry ?: false,
+                )
+            }
+
             if (hasMealInput) {
                 val baselineTdee = TdeeEngine.compute(
                     currentProfile,
-                    logs.value.filterNot { it.date == dateBeingSaved },
+                    logs.value.filterNot { it.date == calorieDate },
                     actualToday,
                 ).currentTdee
 
-                resolution = if (mealState.useExact) {
-                    val exact = mealState.exactCaloriesText.toDoubleOrNull()
+                val resolution: CalorieResolution = if (mealSnapshot.useExact) {
+                    val exact = mealSnapshot.exactCaloriesText.toDoubleOrNull()
                     if (exact == null || !isPlausibleCalorieAmount(exact)) {
                         mealState = mealState.copy(errorMessage = "That doesn't look like a valid number of calories.")
                         return@launch
                     }
                     IntakeResolver.resolveExact(exact, currentProfile.sex)
                 } else {
-                    IntakeResolver.resolveQuickPick(mealState.selectedIntake!!, baselineTdee, currentProfile.sex)
+                    IntakeResolver.resolveQuickPick(mealSnapshot.selectedIntake!!, baselineTdee, currentProfile.sex)
                 }
-            }
 
-            repository.saveLog(
-                date = dateBeingSaved,
-                weightKg = weightKg,
-                calories = resolution?.calories,
-                intakeLevel = if (hasMealInput && !mealState.useExact) mealState.selectedIntake else null,
-                wasExact = hasMealInput && mealState.useExact,
-            )
+                repository.saveLog(
+                    date = calorieDate,
+                    weightKg = existingMealWeightKg,
+                    calories = resolution.calories,
+                    intakeLevel = if (mealSnapshot.useExact) null else mealSnapshot.selectedIntake,
+                    wasExact = mealSnapshot.useExact,
+                )
+            }
         }
     }
 
-    private fun syncDraftState(saved: DailyLog?, unit: WeightUnit?) {
-        existingLog = saved
+    private fun syncDraftState(inputs: SyncInputs) {
+        val (savedWeightLog, savedMealLog, unit) = inputs
+        weightLog = savedWeightLog
+        mealLog = savedMealLog
 
-        isEditingWeight = saved?.weightKg == null
-        weightState = if (saved?.weightKg != null && unit != null) {
-            WeightEntryState(text = formatWeight(unit.fromKg(saved.weightKg)))
+        isEditingWeight = savedWeightLog?.weightKg == null
+        weightState = if (savedWeightLog?.weightKg != null && unit != null) {
+            WeightEntryState(text = formatWeight(unit.fromKg(savedWeightLog.weightKg)))
         } else {
             WeightEntryState()
         }
 
-        isEditingMeal = saved?.calories == null
-        mealState = if (saved?.calories != null) {
+        isEditingMeal = savedMealLog?.calories == null
+        mealState = if (savedMealLog?.calories != null) {
             MealEntryState(
-                selectedIntake = saved.intakeLevel,
-                useExact = saved.wasExactEntry,
-                exactCaloriesText = if (saved.wasExactEntry) saved.calories.toInt().toString() else "",
+                selectedIntake = savedMealLog.intakeLevel,
+                useExact = savedMealLog.wasExactEntry,
+                exactCaloriesText = if (savedMealLog.wasExactEntry) savedMealLog.calories.toInt().toString() else "",
             )
         } else {
             MealEntryState()

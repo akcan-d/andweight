@@ -20,7 +20,7 @@ import java.time.LocalDate
 /**
  * Regression test for a reported bug: deleting today's entry from the Journey tab left the
  * Status tab still showing it until the day was navigated away from and back. The root cause was
- * [TodayViewModel] loading [TodayViewModel.existingLog] once per navigation action instead of
+ * [TodayViewModel] loading [TodayViewModel.weightLog] once per navigation action instead of
  * reacting to the logs those actions ultimately changed - so a deletion made anywhere else in the
  * app (not through this ViewModel's own save/delete methods) never reached it.
  */
@@ -42,14 +42,14 @@ class TodayViewModelSyncTest {
         app.repository.saveLog(date = today, weightKg = 79.0, calories = 2000.0, intakeLevel = null, wasExact = true)
 
         val viewModel = TodayViewModel(app.repository)
-        idleUntil(5_000) { viewModel.existingLog != null }
-        assertNotNull("expected the seeded log to load", viewModel.existingLog)
+        idleUntil(5_000) { viewModel.weightLog != null }
+        assertNotNull("expected the seeded log to load", viewModel.weightLog)
 
         // Not a call through the ViewModel - this mirrors deleting the entry from the Journey tab.
         app.repository.deleteLog(today)
 
-        idleUntil(5_000) { viewModel.existingLog == null }
-        assertNull("deletion made elsewhere should still clear the check-in card", viewModel.existingLog)
+        idleUntil(5_000) { viewModel.weightLog == null }
+        assertNull("deletion made elsewhere should still clear the check-in card", viewModel.weightLog)
     }
 
     private fun idleUntil(timeoutMs: Long, condition: () -> Boolean) {
