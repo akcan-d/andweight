@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.AreaChart
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -38,6 +40,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -49,6 +52,7 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,9 +87,12 @@ import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.themedFilterChipColors
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
@@ -100,12 +107,79 @@ private enum class ChartStyle(val label: String) { LINE("Line"), BAR("Bar"), ARE
 // Once there's a lot of history, defaulting to the full span means early, often noisier data
 // stretches the chart's auto min/max and flattens how recent changes look - a plain "zoom in"
 // toggle beats trying to guess the right window automatically. Week/Month/Year mirror the
-// ranges most other health-tracking apps offer, rather than an arbitrary day count.
-private enum class ChartRange(val label: String, val days: Long?) {
-    WEEK("Week", 7),
-    MONTH("Month", 30),
-    YEAR("Year", 365),
-    ALL("All", null),
+// ranges most other health-tracking apps offer - actual calendar periods (this October, this
+// week), not a rolling N-day window, with arrows to page to an earlier or later one.
+private enum class ChartRange(val label: String) {
+    WEEK("Week"),
+    MONTH("Month"),
+    YEAR("Year"),
+    ALL("All"),
+}
+
+/** The [start, end] (inclusive) of the calendar period [anchor] falls in, or null for ALL, which
+ * has no period to navigate - always the complete history. */
+private fun periodBounds(range: ChartRange, anchor: LocalDate, firstDayOfWeek: DayOfWeek): Pair<LocalDate, LocalDate>? =
+    when (range) {
+        ChartRange.WEEK -> {
+            val start = weekStart(anchor, firstDayOfWeek)
+            start to start.plusDays(6)
+        }
+        ChartRange.MONTH -> {
+            val start = anchor.withDayOfMonth(1)
+            start to start.plusMonths(1).minusDays(1)
+        }
+        ChartRange.YEAR -> {
+            val start = anchor.withDayOfYear(1)
+            start to start.plusYears(1).minusDays(1)
+        }
+        ChartRange.ALL -> null
+    }
+
+private fun shiftAnchor(range: ChartRange, anchor: LocalDate, periods: Long): LocalDate = when (range) {
+    ChartRange.WEEK -> anchor.plusWeeks(periods)
+    ChartRange.MONTH -> anchor.plusMonths(periods)
+    ChartRange.YEAR -> anchor.plusYears(periods)
+    ChartRange.ALL -> anchor
+}
+
+private fun periodTitle(range: ChartRange, start: LocalDate, end: LocalDate): String = when (range) {
+    ChartRange.WEEK -> "${start.format(shortDateFormatter)} - ${end.format(shortDateFormatter)}"
+    ChartRange.MONTH -> start.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+    ChartRange.YEAR -> start.format(DateTimeFormatter.ofPattern("yyyy"))
+    ChartRange.ALL -> "All time"
+}
+
+private fun weekStart(date: LocalDate, firstDayOfWeek: DayOfWeek): LocalDate {
+    val diff = (date.dayOfWeek.value - firstDayOfWeek.value + 7) % 7
+    return date.minusDays(diff.toLong())
+}
+
+/** Month view averages its days into one point per calendar week, and Year view into one point
+ * per calendar month - Week and All stay daily. A point's date is its sub-period's start, so
+ * aggregated points still sort and plot left-to-right the same way daily ones do. Points with no
+ * logged value in a sub-period simply don't produce a point, same as a day with nothing logged
+ * today - this is for display, so it only ever sees sub-periods that have at least one entry. */
+private fun aggregateForRange(
+    points: List<Pair<LocalDate, Double>>,
+    range: ChartRange,
+    firstDayOfWeek: DayOfWeek,
+): List<Pair<LocalDate, Double>> = when (range) {
+    ChartRange.MONTH -> points.groupBy { (date, _) -> weekStart(date, firstDayOfWeek) }
+        .toSortedMap()
+        .map { (start, group) -> start to group.map { it.second }.average() }
+    ChartRange.YEAR -> points.groupBy { (date, _) -> date.withDayOfMonth(1) }
+        .toSortedMap()
+        .map { (start, group) -> start to group.map { it.second }.average() }
+    ChartRange.WEEK, ChartRange.ALL -> points
+}
+
+/** Per-point date labels for the chart's tap-to-reveal tooltip - "Oct 13" reads fine for a daily
+ * point, but an aggregated weekly point needs "Week of Oct 13" to say what it actually represents,
+ * and a monthly one just needs the month's name. */
+private fun dateLabelFormatter(range: ChartRange): (LocalDate) -> String = when (range) {
+    ChartRange.MONTH -> { date -> "Week of ${date.format(shortDateFormatter)}" }
+    ChartRange.YEAR -> { date -> date.format(DateTimeFormatter.ofPattern("MMMM")) }
+    ChartRange.WEEK, ChartRange.ALL -> { date -> date.format(shortDateFormatter) }
 }
 
 // Below this, a Week/Month/Year breakdown would mostly just show "All" three different ways -
@@ -128,6 +202,11 @@ fun JourneyScreen(
     val isSupporter by viewModel.isSupporter.collectAsState()
     var chartStyle by remember { mutableStateOf(ChartStyle.LINE) }
     var chartRange by remember { mutableStateOf(ChartRange.MONTH) }
+    // Any date within the period currently shown - jumps back to today whenever the range type
+    // itself changes, so switching from "last March" in Month view to Week view lands on the
+    // current week rather than the week containing whatever March date was left over.
+    var periodAnchor by remember { mutableStateOf(LocalDate.now()) }
+    LaunchedEffect(chartRange) { periodAnchor = LocalDate.now() }
     var showSupporterLockedDialog by remember { mutableStateOf(false) }
 
     if (showSupporterLockedDialog) {
@@ -201,20 +280,41 @@ fun JourneyScreen(
                 )
             }
 
-            val chartLogs = chartRange.days?.let { days ->
-                val cutoff = LocalDate.now().minusDays(days)
-                logs.filter { it.date >= cutoff }
-            } ?: logs
+            val firstDayOfWeek = profile?.weightUnit?.firstDayOfWeek ?: DayOfWeek.MONDAY
+            val bounds = periodBounds(chartRange, periodAnchor, firstDayOfWeek)
+            if (bounds != null) {
+                item {
+                    PeriodNavigationBar(
+                        title = periodTitle(chartRange, bounds.first, bounds.second),
+                        onPrevious = { periodAnchor = shiftAnchor(chartRange, periodAnchor, -1) },
+                        onNext = { periodAnchor = shiftAnchor(chartRange, periodAnchor, 1) },
+                        canGoNext = bounds.second < LocalDate.now(),
+                    )
+                }
+            }
+
+            val chartLogs = bounds?.let { (start, end) -> logs.filter { it.date >= start && it.date <= end } } ?: logs
             val effectiveChartStyle = if (isSupporter) chartStyle else ChartStyle.LINE
 
             item {
-                WeightTrendCard(logs = chartLogs, profile = profile, chartStyle = effectiveChartStyle)
+                WeightTrendCard(
+                    logs = chartLogs,
+                    profile = profile,
+                    chartStyle = effectiveChartStyle,
+                    range = chartRange,
+                    firstDayOfWeek = firstDayOfWeek,
+                )
             }
 
             // Everyone gets both trend charts now - a supporter perk is the chart style (see
             // ChartStyleToggle), not seeing the calorie chart at all.
             item {
-                CalorieTrendCard(logs = chartLogs, chartStyle = effectiveChartStyle)
+                CalorieTrendCard(
+                    logs = chartLogs,
+                    chartStyle = effectiveChartStyle,
+                    range = chartRange,
+                    firstDayOfWeek = firstDayOfWeek,
+                )
             }
 
             item { HistoryEntryCard(dayCount = logs.size, onClick = onShowHistory) }
@@ -763,7 +863,15 @@ private fun ChartControlBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Scrollable and weighted rather than a plain Row - 4 range chips plus 3 style icons
+        // don't reliably fit a phone's width in one unconstrained row, which pushed (and on
+        // narrow screens, clipped) the style toggle off the visible edge entirely. Weighting
+        // this side measures the toggle at its own fixed size first and gives the chips whatever
+        // space is left, scrolling instead of overflowing.
+        Row(
+            modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             availableRanges.forEach { r ->
                 FilterChip(
                     selected = range == r,
@@ -777,9 +885,40 @@ private fun ChartControlBar(
     }
 }
 
+/** Pages between calendar periods (an earlier/later week, month, or year) - shown under the
+ * control bar whenever the selected range is an actual navigable period (not All, which has
+ * nothing to page between). [canGoNext] stops navigation into a period that hasn't started yet. */
 @Composable
-private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?, chartStyle: ChartStyle) {
-    val points = logs.filter { it.weightKg != null }.sortedBy { it.date }
+private fun PeriodNavigationBar(title: String, onPrevious: () -> Unit, onNext: () -> Unit, canGoNext: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onPrevious) {
+            Icon(Icons.Outlined.ChevronLeft, contentDescription = "Earlier $title")
+        }
+        Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        IconButton(onClick = onNext, enabled = canGoNext) {
+            Icon(
+                Icons.Outlined.ChevronRight,
+                contentDescription = "Later",
+                tint = if (canGoNext) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeightTrendCard(
+    logs: List<DailyLog>,
+    profile: UserProfile?,
+    chartStyle: ChartStyle,
+    range: ChartRange,
+    firstDayOfWeek: DayOfWeek,
+) {
+    val rawPoints = logs.filter { it.weightKg != null }.sortedBy { it.date }
+        .map { it.date to it.weightKg!! }
     val lineColor = MaterialTheme.colorScheme.primary
     val goalColor = MaterialTheme.colorScheme.tertiary
 
@@ -787,7 +926,12 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?, chartSt
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
-            if (points.size < 2 || profile == null) {
+            val unit = profile?.weightUnit
+            val aggregated = unit?.let {
+                aggregateForRange(rawPoints, range, firstDayOfWeek).map { (date, kg) -> date to it.fromKg(kg) }
+            } ?: emptyList()
+
+            if (aggregated.size < 2 || unit == null) {
                 Text(
                     "A few more days of data needed.",
                     style = MaterialTheme.typography.bodySmall,
@@ -796,27 +940,29 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?, chartSt
                 return@Column
             }
 
-            val unit = profile.weightUnit
-            val dates = points.map { it.date }
-            val weights = points.map { unit.fromKg(it.weightKg!!) }
+            val dates = aggregated.map { it.first }
+            val weights = aggregated.map { it.second }
             val goalWeight = unit.fromKg(profile.goalWeightKg)
             val unitLabel = unit.name.lowercase()
+            val labelFormatter = dateLabelFormatter(range)
 
             TrendChartCanvas(
                 dates = dates,
                 values = weights,
                 style = chartStyle,
                 color = lineColor,
+                axisStep = 1.0,
                 goalValue = goalWeight,
                 goalColor = goalColor,
                 valueFormatter = { "${oneDecimal(it)} $unitLabel" },
+                dateLabelFormatter = labelFormatter,
                 contentDescription = "Weight trend chart, from ${oneDecimal(weights.first())} to " +
                     "${oneDecimal(weights.last())} $unitLabel, goal ${oneDecimal(goalWeight)} $unitLabel",
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(dates.first().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
-                Text(dates.last().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+                Text(labelFormatter(dates.first()), style = MaterialTheme.typography.bodySmall)
+                Text(labelFormatter(dates.last()), style = MaterialTheme.typography.bodySmall)
             }
             Text(
                 "- - - goal (${oneDecimal(goalWeight)} $unitLabel)",
@@ -828,8 +974,9 @@ private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?, chartSt
 }
 
 @Composable
-private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle) {
-    val points = logs.filter { it.calories != null }.sortedBy { it.date }
+private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle, range: ChartRange, firstDayOfWeek: DayOfWeek) {
+    val rawPoints = logs.filter { it.calories != null }.sortedBy { it.date }
+        .map { it.date to it.calories!! }
     val lineColor = MaterialTheme.colorScheme.secondary
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -845,7 +992,9 @@ private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle) {
                 )
             }
 
-            if (points.size < 2) {
+            val aggregated = aggregateForRange(rawPoints, range, firstDayOfWeek)
+
+            if (aggregated.size < 2) {
                 Text(
                     "A few more days of data needed.",
                     style = MaterialTheme.typography.bodySmall,
@@ -854,22 +1003,25 @@ private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle) {
                 return@Column
             }
 
-            val dates = points.map { it.date }
-            val calories = points.map { it.calories!! }
+            val dates = aggregated.map { it.first }
+            val calories = aggregated.map { it.second }
+            val labelFormatter = dateLabelFormatter(range)
 
             TrendChartCanvas(
                 dates = dates,
                 values = calories,
                 style = chartStyle,
                 color = lineColor,
+                axisStep = 50.0,
                 valueFormatter = { "${it.toInt()} kcal" },
+                dateLabelFormatter = labelFormatter,
                 contentDescription =
                     "Calorie trend chart, from ${calories.first().toInt()} to ${calories.last().toInt()} calories",
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(dates.first().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
-                Text(dates.last().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+                Text(labelFormatter(dates.first()), style = MaterialTheme.typography.bodySmall)
+                Text(labelFormatter(dates.last()), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -885,14 +1037,20 @@ private fun TrendChartCanvas(
     values: List<Double>,
     style: ChartStyle,
     color: Color,
+    axisStep: Double,
     valueFormatter: (Double) -> String,
     contentDescription: String,
     goalValue: Double? = null,
     goalColor: Color = Color.Unspecified,
+    dateLabelFormatter: (LocalDate) -> String = { it.format(shortDateFormatter) },
 ) {
     var selectedIndex by remember(dates) { mutableStateOf<Int?>(null) }
-    val minValue = minOf(values.min(), goalValue ?: values.min())
-    val maxValue = maxOf(values.max(), goalValue ?: values.max())
+    val dataMin = minOf(values.min(), goalValue ?: values.min())
+    val dataMax = maxOf(values.max(), goalValue ?: values.max())
+    // Rounded outward to the nearest step rather than the exact data extremes, so a point
+    // sitting right at the top or bottom of the chart has a little breathing room instead of
+    // touching the edge - e.g. an actual range of 1929-4501 becomes an axis of 1900-4550.
+    val (minValue, maxValue) = niceAxisBounds(dataMin, dataMax, axisStep)
     val range = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
 
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -989,7 +1147,7 @@ private fun TrendChartCanvas(
         AxisLabel(valueFormatter(minValue), Alignment.BottomStart)
         selectedIndex?.let { i ->
             Text(
-                "${dates[i].format(shortDateFormatter)}: ${valueFormatter(values[i])}",
+                "${dateLabelFormatter(dates[i])}: ${valueFormatter(values[i])}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
@@ -1067,4 +1225,16 @@ private fun BoxScope.AxisLabel(text: String, alignment: Alignment) {
 fun oneDecimal(value: Double): String {
     val rounded = Math.round(value * 10.0) / 10.0
     return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
+}
+
+/** Rounds a data range outward to the nearest multiple of [step], so chart axis bounds sit a
+ * little past the actual min/max instead of right on top of them - and if a value already lands
+ * exactly on a multiple (no rounding would occur), pushes out one more step so there's always at
+ * least a sliver of visible headroom. */
+private fun niceAxisBounds(dataMin: Double, dataMax: Double, step: Double): Pair<Double, Double> {
+    var lo = floor(dataMin / step) * step
+    var hi = ceil(dataMax / step) * step
+    if (lo >= dataMin) lo -= step
+    if (hi <= dataMax) hi += step
+    return lo to hi
 }
