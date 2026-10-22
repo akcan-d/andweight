@@ -96,7 +96,7 @@ private const val TAB_JOURNEY = 1
 private const val TAB_SETTINGS = 2
 
 @Composable
-fun MainScreen(onDataErased: () -> Unit) {
+fun MainScreen(onDataErased: () -> Unit, initialShortcutTarget: String? = null) {
     val navController = rememberNavController()
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
@@ -105,6 +105,11 @@ fun MainScreen(onDataErased: () -> Unit) {
     // composed after the switch - a plain nav argument would fight with the pager's own state
     // retention, so the date travels alongside navigation rather than inside it.
     var pendingEditDate by remember { mutableStateOf<LocalDate?>(null) }
+
+    // Same reasoning, for the "Log weight"/"Log meal" app shortcuts (see MainActivity /
+    // res/xml/shortcuts.xml) - "weight" or "meal", consumed once by the Status tab, which is
+    // already page 0 so no tab switch is needed to get there.
+    var pendingShortcutTarget by remember { mutableStateOf(initialShortcutTarget) }
 
     fun goToTab(tab: Int) {
         val backStackEntry = navController.currentBackStackEntry
@@ -190,6 +195,8 @@ fun MainScreen(onDataErased: () -> Unit) {
                             onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
                             initialDate = pendingEditDate,
                             onInitialDateConsumed = { pendingEditDate = null },
+                            initialShortcutTarget = pendingShortcutTarget,
+                            onInitialShortcutTargetConsumed = { pendingShortcutTarget = null },
                         )
                         TAB_JOURNEY -> JourneyScreen(
                             contentPadding = padding,

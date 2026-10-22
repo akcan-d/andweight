@@ -18,10 +18,12 @@ import kotlin.math.roundToInt
  * placement rather than something to hide from non-supporters. */
 data class WidgetStat(val ringProgress: Float, val numberText: String, val label: String, val locked: Boolean = false)
 
-/** The three widget types all share one ring (always weight-based progress toward the goal, same
- * meaning as the in-app Status ring) and only differ in what number sits at its center - rather
- * than each widget computing its own notion of "progress", which would make the three widgets'
- * rings mean subtly different things sitting next to each other on a home screen. */
+/** WEIGHT_MOVED and PERCENT share one ring (weight-based progress toward the goal, same meaning
+ * as the in-app Status ring) and differ only in what number sits at its center - two ways of
+ * reading the same underlying fact. TIME_REMAINING gets its own ring instead of reusing that one:
+ * its number is about elapsed time, not weight moved, so a weight-based ring next to it would
+ * visually claim something the number doesn't say. This also means placing multiple widgets
+ * together shows genuinely different rings, not three copies of the same sweep. */
 object WidgetStats {
 
     enum class Metric { WEIGHT_MOVED, PERCENT, TIME_REMAINING }
@@ -58,11 +60,23 @@ object WidgetStats {
             }
             Metric.PERCENT -> WidgetStat(progress, "${(progress * 100).roundToInt()}%", "to goal")
             Metric.TIME_REMAINING -> {
-                val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(today, it) }?.coerceAtLeast(0)
+                val goalDate = tdeeState.goalDate
+                val startDate = logs.minOfOrNull { it.date }
+                // How much of the estimated time budget (first logged day to the goal date) has
+                // elapsed - not [progress] (weight moved), which would show a ring that doesn't
+                // match what the center number is actually counting down.
+                val timeProgress = if (startDate != null && goalDate != null && goalDate > startDate) {
+                    val totalDays = ChronoUnit.DAYS.between(startDate, goalDate).toFloat()
+                    val elapsedDays = ChronoUnit.DAYS.between(startDate, today).toFloat()
+                    (elapsedDays / totalDays).coerceIn(0f, 1f)
+                } else {
+                    progress
+                }
+                val daysToGoal = goalDate?.let { ChronoUnit.DAYS.between(today, it) }?.coerceAtLeast(0)
                 val countdown = daysToGoal?.let { Phrasing.goalCountdown(it) }
                 val numberText = countdown?.let { if (it.isApproximate) "~${it.amount}" else "${it.amount}" } ?: "-"
                 val label = countdown?.let { "${it.unitLabel} left" } ?: "on track"
-                WidgetStat(progress, numberText, label)
+                WidgetStat(timeProgress, numberText, label)
             }
         }
     }

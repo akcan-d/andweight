@@ -9,4 +9,9 @@
 
     <string name="widget_time_remaining_label">Measured: Time left</string>
     <string name="widget_time_remaining_description">A small ring with a rough countdown to your goal date. A supporter perk - see Settings.</string>
+
+    <string name="shortcut_log_weight_short">Log weight</string>
+    <string name="shortcut_log_weight_long">Log today\'s weight</string>
+    <string name="shortcut_log_meal_short">Log meal</string>
+    <string name="shortcut_log_meal_long">Log today\'s meal</string>
 </resources>

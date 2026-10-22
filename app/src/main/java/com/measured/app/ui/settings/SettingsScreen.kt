@@ -298,6 +298,21 @@ fun SettingsScreen(
                 )
             }
         }
+        // Widgets are a supporter perk (see below), so there's nothing to sync for anyone else -
+        // always shown rather than detecting whether a widget is actually placed, since tapping
+        // it with none placed is a harmless no-op.
+        if (isSupporter) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = viewModel::syncWidgetTheme) {
+                    Text("Sync widget theme")
+                }
+                InfoTooltipIcon(
+                    title = "Sync widget theme",
+                    text = "Redraws any Measured widgets you've placed on your home screen in the color " +
+                        "theme you just picked here, instead of waiting for their next scheduled update.",
+                )
+            }
+        }
 
         Row(
             modifier = Modifier

@@ -32,7 +32,7 @@ private const val ONBOARDING_ROUTE = "onboarding"
 private const val MAIN_ROUTE = "main"
 
 @Composable
-fun AndWeightApp() {
+fun AndWeightApp(initialShortcutTarget: String? = null) {
     val context = LocalContext.current
     val app = context.applicationContext as AndWeightApplication
     val themeMode by app.settingsRepository.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
@@ -91,6 +91,7 @@ fun AndWeightApp() {
                                 popUpTo(MAIN_ROUTE) { inclusive = true }
                             }
                         },
+                        initialShortcutTarget = initialShortcutTarget,
                     )
                 }
             }

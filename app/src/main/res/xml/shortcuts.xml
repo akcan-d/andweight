@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Static shortcuts shown on the launcher icon's long-press menu - jump straight to today's
+         weight or meal entry instead of opening the app and navigating there. MainActivity reads
+         EXTRA_SHORTCUT_TARGET off the launch intent and forwards it down to TodayViewModel (see
+         MainActivity.kt / MainScreen.kt). -->
+    <shortcut
+        android:shortcutId="log_weight"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_weight"
+        android:shortcutShortLabel="@string/shortcut_log_weight_short"
+        android:shortcutLongLabel="@string/shortcut_log_weight_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.measured.app"
+            android:targetClass="com.measured.app.MainActivity">
+            <extra android:name="shortcut_target" android:value="weight" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="log_meal"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_meal"
+        android:shortcutShortLabel="@string/shortcut_log_meal_short"
+        android:shortcutLongLabel="@string/shortcut_log_meal_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.measured.app"
+            android:targetClass="com.measured.app.MainActivity">
+            <extra android:name="shortcut_target" android:value="meal" />
+        </intent>
+    </shortcut>
+</shortcuts>

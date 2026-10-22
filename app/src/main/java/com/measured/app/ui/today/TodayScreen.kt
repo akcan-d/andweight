@@ -97,6 +97,8 @@ fun TodayScreen(
     onEditProfile: () -> Unit,
     initialDate: LocalDate? = null,
     onInitialDateConsumed: () -> Unit = {},
+    initialShortcutTarget: String? = null,
+    onInitialShortcutTargetConsumed: () -> Unit = {},
     viewModel: TodayViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
@@ -111,6 +113,17 @@ fun TodayScreen(
             viewModel.jumpToDate(initialDate)
             onInitialDateConsumed()
         }
+    }
+
+    // The "Log weight"/"Log meal" app shortcuts land here the same way - force the relevant
+    // section open for editing even if today's already been fully logged, since the whole point
+    // of using the shortcut is to go straight to typing a value in.
+    LaunchedEffect(initialShortcutTarget) {
+        when (initialShortcutTarget) {
+            "weight" -> viewModel.onStartEditingWeight()
+            "meal" -> viewModel.onStartEditingMeal()
+        }
+        if (initialShortcutTarget != null) onInitialShortcutTargetConsumed()
     }
 
     LazyColumn(

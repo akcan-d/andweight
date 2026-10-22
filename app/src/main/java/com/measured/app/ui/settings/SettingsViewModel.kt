@@ -17,6 +17,7 @@ import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
 import com.measured.app.notifications.ReminderScheduler
+import com.measured.app.widget.WidgetUpdater
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -137,6 +138,15 @@ class SettingsViewModel(
                 AppIconSwitcher.applyAndRestart(application, currentTheme)
             }
         }
+    }
+
+    /** Widgets pick up a new theme automatically the next time they redraw for any other reason
+     * (see [com.measured.app.widget.WidgetTheme.resolve], read fresh on every provideGlance call)
+     * - but nothing currently triggers a redraw just because the in-app theme changed, so a
+     * placed widget can sit there in the old colors until its next scheduled update. This forces
+     * that redraw immediately. */
+    fun syncWidgetTheme() {
+        viewModelScope.launch { WidgetUpdater.refresh(application) }
     }
 
     fun eraseAllData() {
