@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -23,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
+import androidx.compose.material.icons.outlined.AreaChart
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -58,10 +60,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -76,11 +80,13 @@ import com.measured.app.domain.Milestone
 import com.measured.app.domain.MilestoneCategory
 import com.measured.app.domain.UserProfile
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlin.math.roundToInt
 
 private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
 
@@ -89,16 +95,22 @@ private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
 // with JourneyHistoryScreen's DayRow.
 val DAY_COMPLETE_COLOR = Color(0xFF43A047)
 
-private enum class ChartStyle { LINE, BAR }
+private enum class ChartStyle(val label: String) { LINE("Line"), BAR("Bar"), AREA("Area") }
 
 // Once there's a lot of history, defaulting to the full span means early, often noisier data
 // stretches the chart's auto min/max and flattens how recent changes look - a plain "zoom in"
-// toggle beats trying to guess the right window automatically.
-private enum class ChartWindow(val label: String) {
-    RECENT("Last 60 days"),
-    ALL("All time"),
+// toggle beats trying to guess the right window automatically. Week/Month/Year mirror the
+// ranges most other health-tracking apps offer, rather than an arbitrary day count.
+private enum class ChartRange(val label: String, val days: Long?) {
+    WEEK("Week", 7),
+    MONTH("Month", 30),
+    YEAR("Year", 365),
+    ALL("All", null),
 }
-private const val CHART_WINDOW_THRESHOLD_DAYS = 60L
+
+// Below this, a Week/Month/Year breakdown would mostly just show "All" three different ways -
+// the range picker only earns its place once there's enough history to actually zoom into.
+private const val CHART_RANGE_PICKER_THRESHOLD_DAYS = 14L
 
 @Composable
 fun JourneyScreen(
@@ -115,7 +127,7 @@ fun JourneyScreen(
     val dataFillRate by viewModel.dataFillRate.collectAsState()
     val isSupporter by viewModel.isSupporter.collectAsState()
     var chartStyle by remember { mutableStateOf(ChartStyle.LINE) }
-    var chartWindow by remember { mutableStateOf(ChartWindow.RECENT) }
+    var chartRange by remember { mutableStateOf(ChartRange.MONTH) }
     var showSupporterLockedDialog by remember { mutableStateOf(false) }
 
     if (showSupporterLockedDialog) {
@@ -166,50 +178,43 @@ fun JourneyScreen(
             dataFillRate?.let { fillRate -> item { DataFillRateCard(fillRate) } }
 
             val earliestLog = logs.minOfOrNull { it.date }
-            val spansMoreThanWindow = earliestLog != null &&
-                ChronoUnit.DAYS.between(earliestLog, LocalDate.now()) > CHART_WINDOW_THRESHOLD_DAYS
-            if (spansMoreThanWindow) {
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ChartWindow.entries.forEach { window ->
-                            FilterChip(
-                                selected = chartWindow == window,
-                                onClick = { chartWindow = window },
-                                label = { Text(window.label) },
-                                colors = themedFilterChipColors(),
-                            )
-                        }
-                    }
-                }
-            }
-            val chartLogs = if (spansMoreThanWindow && chartWindow == ChartWindow.RECENT) {
-                val cutoff = LocalDate.now().minusDays(CHART_WINDOW_THRESHOLD_DAYS)
-                logs.filter { it.date >= cutoff }
+            val showRangePicker = earliestLog != null &&
+                ChronoUnit.DAYS.between(earliestLog, LocalDate.now()) > CHART_RANGE_PICKER_THRESHOLD_DAYS
+            val availableRanges = if (showRangePicker) {
+                ChartRange.entries
             } else {
-                logs
+                listOf(ChartRange.ALL)
             }
 
+            // One control bar above both charts rather than each card growing its own - date
+            // range and chart style both apply to the weight and calorie trends together, since
+            // there's no reason to view them on different ranges or in different styles.
             item {
-                WeightTrendCard(
-                    logs = chartLogs,
-                    profile = profile,
-                    chartStyle = chartStyle,
-                    onChartStyleChange = { chartStyle = it },
+                ChartControlBar(
+                    range = chartRange,
+                    availableRanges = availableRanges,
+                    onRangeChange = { chartRange = it },
+                    style = chartStyle,
+                    onStyleChange = { chartStyle = it },
                     isSupporter = isSupporter,
                     onLockedTap = { showSupporterLockedDialog = true },
                 )
             }
 
-            // Everyone gets both trend charts now - a supporter perk is switching between line
-            // and bar for them (see ChartStyleToggle), not seeing the calorie chart at all.
+            val chartLogs = chartRange.days?.let { days ->
+                val cutoff = LocalDate.now().minusDays(days)
+                logs.filter { it.date >= cutoff }
+            } ?: logs
+            val effectiveChartStyle = if (isSupporter) chartStyle else ChartStyle.LINE
+
             item {
-                CalorieTrendCard(
-                    logs = chartLogs,
-                    chartStyle = chartStyle,
-                    onChartStyleChange = { chartStyle = it },
-                    isSupporter = isSupporter,
-                    onLockedTap = { showSupporterLockedDialog = true },
-                )
+                WeightTrendCard(logs = chartLogs, profile = profile, chartStyle = effectiveChartStyle)
+            }
+
+            // Everyone gets both trend charts now - a supporter perk is the chart style (see
+            // ChartStyleToggle), not seeing the calorie chart at all.
+            item {
+                CalorieTrendCard(logs = chartLogs, chartStyle = effectiveChartStyle)
             }
 
             item { HistoryEntryCard(dayCount = logs.size, onClick = onShowHistory) }
@@ -740,29 +745,47 @@ private fun ResearchFactRow(fact: HealthBenefit, expanded: Boolean, onToggle: ()
     }
 }
 
+/** One control bar above both trend cards - date range and chart style apply to the weight and
+ * calorie trends together, since there's no reason to view them on different ranges or in
+ * different styles. */
 @Composable
-private fun WeightTrendCard(
-    logs: List<DailyLog>,
-    profile: UserProfile?,
-    chartStyle: ChartStyle,
-    onChartStyleChange: (ChartStyle) -> Unit,
+private fun ChartControlBar(
+    range: ChartRange,
+    availableRanges: List<ChartRange>,
+    onRangeChange: (ChartRange) -> Unit,
+    style: ChartStyle,
+    onStyleChange: (ChartStyle) -> Unit,
     isSupporter: Boolean,
     onLockedTap: () -> Unit,
 ) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            availableRanges.forEach { r ->
+                FilterChip(
+                    selected = range == r,
+                    onClick = { onRangeChange(r) },
+                    label = { Text(r.label) },
+                    colors = themedFilterChipColors(),
+                )
+            }
+        }
+        ChartStyleToggle(style, onStyleChange, isSupporter, onLockedTap)
+    }
+}
+
+@Composable
+private fun WeightTrendCard(logs: List<DailyLog>, profile: UserProfile?, chartStyle: ChartStyle) {
     val points = logs.filter { it.weightKg != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.primary
     val goalColor = MaterialTheme.colorScheme.tertiary
-    // Switching to a bar chart is a supporter perk - if someone switched while a supporter and
-    // then stopped being one, this still falls back to the line chart rather than honoring a
-    // style choice they no longer have access to.
-    val effectiveChartStyle = if (isSupporter) chartStyle else ChartStyle.LINE
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter, onLockedTap)
-            }
+            Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
             if (points.size < 2 || profile == null) {
                 Text(
@@ -774,72 +797,29 @@ private fun WeightTrendCard(
             }
 
             val unit = profile.weightUnit
+            val dates = points.map { it.date }
             val weights = points.map { unit.fromKg(it.weightKg!!) }
             val goalWeight = unit.fromKg(profile.goalWeightKg)
-            val minWeight = minOf(weights.min(), goalWeight)
-            val maxWeight = maxOf(weights.max(), goalWeight)
-            val range = (maxWeight - minWeight).let { if (it < 0.01) 1.0 else it }
+            val unitLabel = unit.name.lowercase()
 
-            val weightChartDescription = "Weight trend chart, from ${oneDecimal(weights.first())} to " +
-                "${oneDecimal(weights.last())} ${unit.name.lowercase()}, goal ${oneDecimal(goalWeight)} ${unit.name.lowercase()}"
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .padding(vertical = 4.dp)
-                        .semantics { contentDescription = weightChartDescription },
-                ) {
-                    val chartHeight = size.height
-                    val chartWidth = size.width
-                    fun xFor(index: Int): Float =
-                        if (points.size == 1) chartWidth / 2f else chartWidth * index / (points.size - 1).toFloat()
-                    fun yFor(weight: Double): Float =
-                        (chartHeight - ((weight - minWeight) / range * chartHeight)).toFloat()
-
-                    val goalY = yFor(goalWeight)
-                    drawLine(
-                        color = goalColor,
-                        start = Offset(0f, goalY),
-                        end = Offset(chartWidth, goalY),
-                        strokeWidth = 2f,
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
-                    )
-
-                    if (effectiveChartStyle == ChartStyle.BAR) {
-                        val barWidth = (chartWidth / weights.size) * 0.6f
-                        weights.forEachIndexed { i, weight ->
-                            val x = xFor(i)
-                            drawRect(
-                                color = lineColor,
-                                topLeft = Offset(x - barWidth / 2f, yFor(weight)),
-                                size = Size(barWidth, chartHeight - yFor(weight)),
-                            )
-                        }
-                    } else {
-                        for (i in 0 until weights.size - 1) {
-                            drawLine(
-                                color = lineColor,
-                                start = Offset(xFor(i), yFor(weights[i])),
-                                end = Offset(xFor(i + 1), yFor(weights[i + 1])),
-                                strokeWidth = 4f,
-                            )
-                        }
-                        weights.forEachIndexed { i, weight ->
-                            drawCircle(color = lineColor, radius = 5f, center = Offset(xFor(i), yFor(weight)))
-                        }
-                    }
-                }
-                AxisLabel("${oneDecimal(maxWeight)} ${unit.name.lowercase()}", Alignment.TopStart)
-                AxisLabel("${oneDecimal(minWeight)} ${unit.name.lowercase()}", Alignment.BottomStart)
-            }
+            TrendChartCanvas(
+                dates = dates,
+                values = weights,
+                style = chartStyle,
+                color = lineColor,
+                goalValue = goalWeight,
+                goalColor = goalColor,
+                valueFormatter = { "${oneDecimal(it)} $unitLabel" },
+                contentDescription = "Weight trend chart, from ${oneDecimal(weights.first())} to " +
+                    "${oneDecimal(weights.last())} $unitLabel, goal ${oneDecimal(goalWeight)} $unitLabel",
+            )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(points.first().date.format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
-                Text(points.last().date.format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+                Text(dates.first().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+                Text(dates.last().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
             }
             Text(
-                "- - - goal (${oneDecimal(goalWeight)} ${unit.name.lowercase()})",
+                "- - - goal (${oneDecimal(goalWeight)} $unitLabel)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
             )
@@ -848,22 +828,21 @@ private fun WeightTrendCard(
 }
 
 @Composable
-private fun CalorieTrendCard(
-    logs: List<DailyLog>,
-    chartStyle: ChartStyle,
-    onChartStyleChange: (ChartStyle) -> Unit,
-    isSupporter: Boolean,
-    onLockedTap: () -> Unit,
-) {
+private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle) {
     val points = logs.filter { it.calories != null }.sortedBy { it.date }
     val lineColor = MaterialTheme.colorScheme.secondary
-    val effectiveChartStyle = if (isSupporter) chartStyle else ChartStyle.LINE
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                if (points.size >= 2) ChartStyleToggle(effectiveChartStyle, onChartStyleChange, isSupporter, onLockedTap)
+                InfoTooltipIcon(
+                    title = "About these numbers",
+                    text = "Calorie values are estimates based on what you logged each day - either a " +
+                        "quick-pick \"how much did you eat\" answer converted to a number, or an exact " +
+                        "amount you typed in yourself. They aren't measured, so treat the trend as a " +
+                        "general direction rather than a precise count.",
+                )
             }
 
             if (points.size < 2) {
@@ -875,69 +854,158 @@ private fun CalorieTrendCard(
                 return@Column
             }
 
+            val dates = points.map { it.date }
             val calories = points.map { it.calories!! }
-            val minCalories = calories.min()
-            val maxCalories = calories.max()
-            val range = (maxCalories - minCalories).let { if (it < 1.0) 1.0 else it }
 
-            val calorieChartDescription =
-                "Calorie trend chart, from ${calories.first().toInt()} to ${calories.last().toInt()} calories"
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .padding(vertical = 4.dp)
-                        .semantics { contentDescription = calorieChartDescription },
-                ) {
-                    val chartHeight = size.height
-                    val chartWidth = size.width
-                    fun xFor(index: Int): Float =
-                        if (points.size == 1) chartWidth / 2f else chartWidth * index / (points.size - 1).toFloat()
-                    fun yFor(value: Double): Float =
-                        (chartHeight - ((value - minCalories) / range * chartHeight)).toFloat()
-
-                    if (effectiveChartStyle == ChartStyle.BAR) {
-                        val barWidth = (chartWidth / calories.size) * 0.6f
-                        calories.forEachIndexed { i, value ->
-                            val x = xFor(i)
-                            drawRect(
-                                color = lineColor,
-                                topLeft = Offset(x - barWidth / 2f, yFor(value)),
-                                size = Size(barWidth, chartHeight - yFor(value)),
-                            )
-                        }
-                    } else {
-                        for (i in 0 until calories.size - 1) {
-                            drawLine(
-                                color = lineColor,
-                                start = Offset(xFor(i), yFor(calories[i])),
-                                end = Offset(xFor(i + 1), yFor(calories[i + 1])),
-                                strokeWidth = 4f,
-                            )
-                        }
-                        calories.forEachIndexed { i, value ->
-                            drawCircle(color = lineColor, radius = 5f, center = Offset(xFor(i), yFor(value)))
-                        }
-                    }
-                }
-                AxisLabel("${maxCalories.toInt()} kcal", Alignment.TopStart)
-                AxisLabel("${minCalories.toInt()} kcal", Alignment.BottomStart)
-            }
+            TrendChartCanvas(
+                dates = dates,
+                values = calories,
+                style = chartStyle,
+                color = lineColor,
+                valueFormatter = { "${it.toInt()} kcal" },
+                contentDescription =
+                    "Calorie trend chart, from ${calories.first().toInt()} to ${calories.last().toInt()} calories",
+            )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(points.first().date.format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
-                Text(points.last().date.format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+                Text(dates.first().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
+                Text(dates.last().format(shortDateFormatter), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
 }
 
-/** A compact line/bar switch shared by both trend cards - picking one style applies to both
- * charts at once, since there's no reason to view them differently. Switching to a bar chart is
- * a supporter perk, shown the same way as a locked color theme in Settings: still visible and
- * tappable, but with a small lock badge instead of actually switching, rather than disappearing
- * outright (so the perk is discoverable, not just absent). */
+/** Shared drawing + interaction for both trend charts - line/bar/area rendering, an optional
+ * dashed goal line, and tap-to-reveal-value (tapping a bar/point shows its date and exact value,
+ * tapping it again hides it). Pulled out of the two trend cards since they differed only in
+ * their data, color, and value formatting, not in how the chart itself behaves. */
+@Composable
+private fun TrendChartCanvas(
+    dates: List<LocalDate>,
+    values: List<Double>,
+    style: ChartStyle,
+    color: Color,
+    valueFormatter: (Double) -> String,
+    contentDescription: String,
+    goalValue: Double? = null,
+    goalColor: Color = Color.Unspecified,
+) {
+    var selectedIndex by remember(dates) { mutableStateOf<Int?>(null) }
+    val minValue = minOf(values.min(), goalValue ?: values.min())
+    val maxValue = maxOf(values.max(), goalValue ?: values.max())
+    val range = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .padding(vertical = 4.dp)
+                .semantics { this.contentDescription = contentDescription }
+                .pointerInput(dates) {
+                    detectTapGestures { offset ->
+                        val tapped = if (dates.size == 1) {
+                            0
+                        } else {
+                            (offset.x / size.width * (dates.size - 1)).roundToInt().coerceIn(0, dates.size - 1)
+                        }
+                        selectedIndex = if (selectedIndex == tapped) null else tapped
+                    }
+                },
+        ) {
+            val chartHeight = size.height
+            val chartWidth = size.width
+            fun xFor(index: Int): Float =
+                if (dates.size == 1) chartWidth / 2f else chartWidth * index / (dates.size - 1).toFloat()
+            fun yFor(value: Double): Float =
+                (chartHeight - ((value - minValue) / range * chartHeight)).toFloat()
+
+            goalValue?.let { goal ->
+                val goalY = yFor(goal)
+                drawLine(
+                    color = goalColor,
+                    start = Offset(0f, goalY),
+                    end = Offset(chartWidth, goalY),
+                    strokeWidth = 2f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
+                )
+            }
+
+            when (style) {
+                ChartStyle.BAR -> {
+                    val barWidth = (chartWidth / values.size) * 0.6f
+                    values.forEachIndexed { i, value ->
+                        val x = xFor(i)
+                        drawRect(
+                            color = color,
+                            topLeft = Offset(x - barWidth / 2f, yFor(value)),
+                            size = Size(barWidth, chartHeight - yFor(value)),
+                        )
+                    }
+                }
+                ChartStyle.AREA -> {
+                    val fillPath = Path().apply {
+                        moveTo(xFor(0), chartHeight)
+                        values.forEachIndexed { i, value -> lineTo(xFor(i), yFor(value)) }
+                        lineTo(xFor(values.size - 1), chartHeight)
+                        close()
+                    }
+                    drawPath(fillPath, color = color.copy(alpha = 0.25f))
+                    for (i in 0 until values.size - 1) {
+                        drawLine(
+                            color = color,
+                            start = Offset(xFor(i), yFor(values[i])),
+                            end = Offset(xFor(i + 1), yFor(values[i + 1])),
+                            strokeWidth = 4f,
+                        )
+                    }
+                }
+                ChartStyle.LINE -> {
+                    for (i in 0 until values.size - 1) {
+                        drawLine(
+                            color = color,
+                            start = Offset(xFor(i), yFor(values[i])),
+                            end = Offset(xFor(i + 1), yFor(values[i + 1])),
+                            strokeWidth = 4f,
+                        )
+                    }
+                    values.forEachIndexed { i, value -> drawCircle(color = color, radius = 5f, center = Offset(xFor(i), yFor(value))) }
+                }
+            }
+
+            selectedIndex?.let { i ->
+                val x = xFor(i)
+                drawLine(
+                    color = color,
+                    start = Offset(x, 0f),
+                    end = Offset(x, chartHeight),
+                    strokeWidth = 2f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f),
+                )
+                drawCircle(color = color, radius = 7f, center = Offset(x, yFor(values[i])))
+            }
+        }
+        AxisLabel(valueFormatter(maxValue), Alignment.TopStart)
+        AxisLabel(valueFormatter(minValue), Alignment.BottomStart)
+        selectedIndex?.let { i ->
+            Text(
+                "${dates[i].format(shortDateFormatter)}: ${valueFormatter(values[i])}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), MaterialTheme.shapes.extraSmall)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+    }
+}
+
+/** A compact 3-way style switch shared by both trend cards - picking one applies to both charts
+ * at once, since there's no reason to view them differently. Bar and area are a supporter perk,
+ * shown the same way as a locked color theme in Settings: still visible and tappable, but with a
+ * small lock badge instead of actually switching, rather than disappearing outright (so the perk
+ * is discoverable, not just absent). */
 @Composable
 private fun ChartStyleToggle(
     selected: ChartStyle,
@@ -945,23 +1013,17 @@ private fun ChartStyleToggle(
     isSupporter: Boolean,
     onLockedTap: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { onChange(ChartStyle.LINE) }) {
-            Icon(
-                Icons.AutoMirrored.Outlined.ShowChart,
-                contentDescription = "Line chart",
-                tint = if (selected == ChartStyle.LINE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    @Composable
+    fun StyleIcon(style: ChartStyle, icon: ImageVector, locked: Boolean) {
         Box {
-            IconButton(onClick = { if (isSupporter) onChange(ChartStyle.BAR) else onLockedTap() }) {
+            IconButton(onClick = { if (!locked) onChange(style) else onLockedTap() }) {
                 Icon(
-                    Icons.Outlined.BarChart,
-                    contentDescription = if (isSupporter) "Bar chart" else "Bar chart - supporters only",
-                    tint = if (selected == ChartStyle.BAR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    icon,
+                    contentDescription = if (locked) "${style.label} chart - supporters only" else "${style.label} chart",
+                    tint = if (selected == style) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (!isSupporter) {
+            if (locked) {
                 Icon(
                     Icons.Outlined.Lock,
                     contentDescription = null,
@@ -975,6 +1037,12 @@ private fun ChartStyleToggle(
                 )
             }
         }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        StyleIcon(ChartStyle.LINE, Icons.AutoMirrored.Outlined.ShowChart, locked = false)
+        StyleIcon(ChartStyle.BAR, Icons.Outlined.BarChart, locked = !isSupporter)
+        StyleIcon(ChartStyle.AREA, Icons.Outlined.AreaChart, locked = !isSupporter)
     }
 }
 

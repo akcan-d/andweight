@@ -286,8 +286,16 @@ fun SettingsScreen(
         // component state is the source of truth for "current", not a separately-tracked value
         // that could drift out of sync with it.
         if (!AppIconSwitcher.isAlreadyApplied(context, accentTheme)) {
-            OutlinedButton(onClick = viewModel::syncIconToTheme) {
-                Text("Sync icon")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = viewModel::syncIconToTheme) {
+                    Text("Sync app icon")
+                }
+                InfoTooltipIcon(
+                    title = "Sync app icon",
+                    text = "Updates the app's home-screen launcher icon to match the color theme you just " +
+                        "picked here. It's a one-time action, not a setting that stays on - changing the " +
+                        "theme again later will bring this button back if you want the icon to follow along.",
+                )
             }
         }
 
