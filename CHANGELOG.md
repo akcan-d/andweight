@@ -7,6 +7,50 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-22
+
+### Added
+- A Settings option (Check-in section) to choose whether the meal question is about today or
+  yesterday, for anyone who weighs in in the evening or before bed after they've already eaten
+- Journey's History (the daily/weekly list) is now its own screen, reached from an entry card like
+  Milestones and Research, with older months collapsed by default
+- A dedicated Supporter screen (Settings > Support the app) with a perks checklist
+- A milestone count on the "Two stats" share-card design
+- A "Supporters only" prompt when tapping a locked share-card design, chart style, or color theme,
+  instead of it doing nothing
+- Real per-widget previews in the widget picker on Android 12+, and a larger 2x2 default placement
+
+### Changed
+- The meal section asks about yesterday's eating by default instead of today's - by check-in time
+  yesterday's is finished and known for certain, where today's isn't yet, so today's weight and
+  yesterday's meal now save as two separate entries instead of one. The new Check-in setting
+  switches this back to asking about today for an evening weigh-in habit
+- Milestones show every rung reached per category instead of just the latest one, as a highlighted
+  "latest" card plus an expandable list of earlier ones - the "unlocked" count now reflects all of
+  them instead of undercounting
+- Amount milestones ("5kg down" etc.) are evaluated against one canonical kg-based list instead of
+  separate kg/lb lists, so switching your display unit no longer changes which ones show as reached
+- All share-card designs show in the picker for free users too, with supporter-only ones visibly
+  locked, instead of the picker being skipped entirely
+- Color theme and the icon-sync button moved from the Supporter section into the Appearance section
+- Weight/calorie trend charts default to a 60-day window once there's more history than that, with
+  a toggle back to all time
+- Home-screen widgets default to a larger 2x2 placement with a bigger ring
+
+### Removed
+- The Status-tab reminder-dot setting added in 0.24.0 - the daily notification already covers
+  reminding you to check in
+
+### Fixed
+- Milestones correctly drop out of the achieved list when a goal-weight change makes them no
+  longer apply, instead of appearing stuck
+- A race where saving a blank day's combined weight+meal form could lose the meal selection or
+  write it to the wrong entry
+- The on-pace coaching message no longer praises your progress and tells you to eat less in the
+  same breath
+- A warning now appears on the accuracy badge when the adaptive TDEE estimate has drifted far from
+  its starting formula-based guess
+
 ## [0.24.0] - 2026-10-21
 
 ### Added
