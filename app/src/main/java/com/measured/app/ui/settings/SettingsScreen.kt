@@ -112,6 +112,7 @@ fun SettingsScreen(
     val isSupporter by viewModel.isSupporter.collectAsState()
     val accentTheme by viewModel.accentTheme.collectAsState()
     val highContrast by viewModel.highContrast.collectAsState()
+    val isWidgetThemeSynced by viewModel.isWidgetThemeSynced.collectAsState()
     val mealTimingMode by viewModel.mealTimingMode.collectAsState()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -298,18 +299,20 @@ fun SettingsScreen(
                 )
             }
         }
-        // Widgets are a supporter perk (see below), so there's nothing to sync for anyone else -
-        // always shown rather than detecting whether a widget is actually placed, since tapping
-        // it with none placed is a harmless no-op.
-        if (isSupporter) {
+        // Widgets are a supporter perk (see below), so there's nothing to sync for anyone else.
+        // Hidden once the widget theme already matches, same as "Sync app icon" above - not
+        // gated on whether a widget is actually placed, since tapping it with none placed is a
+        // harmless no-op.
+        if (isSupporter && !isWidgetThemeSynced) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = viewModel::syncWidgetTheme) {
                     Text("Sync widget theme")
                 }
                 InfoTooltipIcon(
                     title = "Sync widget theme",
-                    text = "Redraws any Measured widgets you've placed on your home screen in the color " +
-                        "theme you just picked here, instead of waiting for their next scheduled update.",
+                    text = "Widgets keep their own color theme, separate from the app's - this copies the " +
+                        "app's current theme onto any Measured widgets on your home screen and redraws " +
+                        "them right away, instead of the two only matching by coincidence.",
                 )
             }
         }

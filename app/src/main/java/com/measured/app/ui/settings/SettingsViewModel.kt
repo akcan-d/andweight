@@ -56,6 +56,9 @@ class SettingsViewModel(
     val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val isWidgetThemeSynced: StateFlow<Boolean> = settingsRepository.isWidgetThemeSyncedFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val mealTimingMode: StateFlow<MealTimingMode> = settingsRepository.mealTimingModeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealTimingMode.PREVIOUS_DAY)
 
@@ -140,13 +143,17 @@ class SettingsViewModel(
         }
     }
 
-    /** Widgets pick up a new theme automatically the next time they redraw for any other reason
-     * (see [com.measured.app.widget.WidgetTheme.resolve], read fresh on every provideGlance call)
-     * - but nothing currently triggers a redraw just because the in-app theme changed, so a
-     * placed widget can sit there in the old colors until its next scheduled update. This forces
-     * that redraw immediately. */
+    /** Widgets keep their own theme, independent of the in-app one (see
+     * [SettingsRepository.widgetThemeModeFlow]) - this is the only thing that ever copies the
+     * app's current theme onto them, then forces an immediate redraw so the change doesn't sit
+     * waiting for the widgets' next scheduled update. Skips the write+redraw entirely if they
+     * already match, the same "nothing to fix" shortcut [syncIconToTheme] uses. */
     fun syncWidgetTheme() {
-        viewModelScope.launch { WidgetUpdater.refresh(application) }
+        viewModelScope.launch {
+            if (settingsRepository.isWidgetThemeSyncedOnce()) return@launch
+            settingsRepository.syncWidgetThemeToApp()
+            WidgetUpdater.refresh(application)
+        }
     }
 
     fun eraseAllData() {
