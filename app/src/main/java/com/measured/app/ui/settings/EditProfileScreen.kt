@@ -14,7 +14,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -25,7 +24,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -49,10 +47,6 @@ fun EditProfileScreen(
     viewModel: EditProfileViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state = viewModel.uiState
-
-    LaunchedEffect(state.didSave) {
-        if (state.didSave) onBack()
-    }
 
     Scaffold(
         topBar = {
@@ -98,6 +92,12 @@ fun EditProfileScreen(
                     selected = state.weightUnit == WeightUnit.LB,
                     onClick = { viewModel.onWeightUnitChange(WeightUnit.LB) },
                     label = { Text("Imperial (lb, ft/in)") },
+                )
+                FilterChip(
+                    colors = themedFilterChipColors(),
+                    selected = state.weightUnit == WeightUnit.ST,
+                    onClick = { viewModel.onWeightUnitChange(WeightUnit.ST) },
+                    label = { Text("Stones (st, ft/in)") },
                 )
             }
 
@@ -267,15 +267,10 @@ fun EditProfileScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            // Everything on this screen autosaves as it's edited - there's nothing to tap to
+            // apply it, so this is the only thing an invalid value here still needs to say.
             state.errorMessage?.let {
                 Text(it, color = MaterialTheme.colorScheme.error)
-            }
-
-            Button(
-                onClick = { viewModel.save() },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Save changes")
             }
         }
     }

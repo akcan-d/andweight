@@ -37,8 +37,10 @@ data class EditProfileUiState(
     val ageText: String = "",
     val activityLevel: ActivityLevel = ActivityLevel.LIGHT,
     val bodyFatPercentText: String = "",
+    /** Only ever set for the one case worth interrupting typing for (an under-18 age) - everything
+     * else here autosaves silently (see [EditProfileViewModel.autoSave]) rather than nagging about
+     * an in-progress, not-yet-valid number the person hasn't finished typing. */
     val errorMessage: String? = null,
-    val didSave: Boolean = false,
 ) {
     val heightCm: Double?
         get() = if (weightUnit.isMetric) {
@@ -126,6 +128,7 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
             val (feet, inches) = HeightConversion.cmToFeetAndInches(previousHeightCm)
             uiState.copy(heightCmText = "", heightFeetText = feet.toString(), heightInchesText = formatInches(inches))
         }
+        autoSave()
     }
 
     private fun convertText(text: String, from: WeightUnit, to: WeightUnit): String {
@@ -134,72 +137,78 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
     }
 
     fun onStartWeightChange(text: String) {
-        uiState = uiState.copy(startWeightText = text, errorMessage = null)
+        uiState = uiState.copy(startWeightText = text)
+        autoSave()
     }
 
     fun onGoalWeightChange(text: String) {
-        uiState = uiState.copy(goalWeightText = text, errorMessage = null)
+        uiState = uiState.copy(goalWeightText = text)
+        autoSave()
     }
 
     fun onPaceSelected(option: PaceOption) {
-        uiState = uiState.copy(selectedPace = option, errorMessage = null)
+        uiState = uiState.copy(selectedPace = option)
+        autoSave()
     }
 
     fun onSexChange(sex: Sex) {
         uiState = uiState.copy(sex = sex)
+        autoSave()
     }
 
     fun onHeightCmChange(text: String) {
         uiState = uiState.copy(heightCmText = text)
+        autoSave()
     }
 
     fun onHeightFeetChange(text: String) {
         uiState = uiState.copy(heightFeetText = text)
+        autoSave()
     }
 
     fun onHeightInchesChange(text: String) {
         uiState = uiState.copy(heightInchesText = text)
+        autoSave()
     }
 
     fun onAgeChange(text: String) {
         uiState = uiState.copy(ageText = text)
+        autoSave()
     }
 
     fun onActivityLevelChange(level: ActivityLevel) {
         uiState = uiState.copy(activityLevel = level)
+        autoSave()
     }
 
     fun onBodyFatPercentChange(text: String) {
-        uiState = uiState.copy(bodyFatPercentText = text, errorMessage = null)
+        uiState = uiState.copy(bodyFatPercentText = text)
+        autoSave()
     }
 
-    fun save() {
+    /** Builds a profile from the current form state, same validation [save] used to require
+     * before a manual "Save changes" tap - the difference now is this runs after every field
+     * change instead of waiting for one. Returns null (and persists nothing) for a field that's
+     * simply mid-typing and not a valid number yet, rather than erroring on it - someone typing
+     * "2" on the way to "20" hasn't done anything wrong, there's just nothing complete to save
+     * yet. The one exception is an under-18 age, which gets a passive note on screen (see
+     * [EditProfileScreen]) rather than blocking anything, since there's no longer a save action to
+     * block. */
+    private fun buildProfileIfValid(): UserProfile? {
         val unit = uiState.weightUnit
-        val startWeight = uiState.startWeightText.toDoubleOrNull()
-        if (startWeight == null || startWeight <= 0.0) {
-            uiState = uiState.copy(errorMessage = "Enter your current weight.")
-            return
-        }
+        val startWeight = uiState.startWeightText.toDoubleOrNull() ?: return null
+        if (startWeight <= 0.0) return null
         val startWeightKg = unit.toKg(startWeight)
-        if (startWeightKg < MIN_WEIGHT_KG || startWeightKg > MAX_WEIGHT_KG) {
-            uiState = uiState.copy(errorMessage = "Enter a realistic current weight.")
-            return
-        }
+        if (startWeightKg < MIN_WEIGHT_KG || startWeightKg > MAX_WEIGHT_KG) return null
 
         val goalWeightKg: Double
         if (uiState.goalWeightText.isBlank()) {
             goalWeightKg = startWeightKg
         } else {
-            val goalWeight = uiState.goalWeightText.toDoubleOrNull()
-            if (goalWeight == null || goalWeight <= 0.0) {
-                uiState = uiState.copy(errorMessage = "Enter your goal weight, or leave it blank to maintain your current weight.")
-                return
-            }
+            val goalWeight = uiState.goalWeightText.toDoubleOrNull() ?: return null
+            if (goalWeight <= 0.0) return null
             val candidateKg = unit.toKg(goalWeight)
-            if (candidateKg < MIN_WEIGHT_KG || candidateKg > MAX_WEIGHT_KG) {
-                uiState = uiState.copy(errorMessage = "Enter a realistic goal weight.")
-                return
-            }
+            if (candidateKg < MIN_WEIGHT_KG || candidateKg > MAX_WEIGHT_KG) return null
             goalWeightKg = candidateKg
         }
 
@@ -212,54 +221,47 @@ class EditProfileViewModel(private val repository: AndWeightRepository) : ViewMo
         }
 
         val pace = uiState.selectedPace
-        if (direction != GoalDirection.MAINTAIN && pace == null) {
-            uiState = uiState.copy(errorMessage = "Choose a pace for reaching your goal.")
-            return
-        }
+        if (direction != GoalDirection.MAINTAIN && pace == null) return null
 
         val age = uiState.ageText.toIntOrNull()
-        if (age != null && age < 18) {
-            uiState = uiState.copy(
-                errorMessage = "This app isn't designed for people under 18 - growing bodies have " +
-                    "different nutritional needs than what it accounts for. Please talk to a doctor " +
-                    "before using a calorie-tracking app, or clear the age field to continue without it.",
-            )
-            return
-        }
-        if (age != null && age > MAX_AGE) {
-            uiState = uiState.copy(errorMessage = "Enter a realistic age, or clear the field to continue without it.")
-            return
-        }
+        if (age != null && age > MAX_AGE) return null
 
         val heightCm = uiState.heightCm
-        if (heightCm != null && (heightCm < MIN_HEIGHT_CM || heightCm > MAX_HEIGHT_CM)) {
-            uiState = uiState.copy(errorMessage = "Enter a realistic height, or clear the field to continue without it.")
-            return
-        }
+        if (heightCm != null && (heightCm < MIN_HEIGHT_CM || heightCm > MAX_HEIGHT_CM)) return null
 
         val bodyFatText = uiState.bodyFatPercentText
         val bodyFatPercent = if (bodyFatText.isBlank()) null else bodyFatText.toDoubleOrNull()
-        if (bodyFatText.isNotBlank() && (bodyFatPercent == null || bodyFatPercent < 3.0 || bodyFatPercent > 70.0)) {
-            uiState = uiState.copy(errorMessage = "Enter a body fat percentage between 3 and 70, or clear the field.")
-            return
-        }
+        if (bodyFatText.isNotBlank() && (bodyFatPercent == null || bodyFatPercent < 3.0 || bodyFatPercent > 70.0)) return null
 
-        val profile = UserProfile(
+        return UserProfile(
             weightUnit = unit,
             startWeightKg = startWeightKg,
             goalWeightKg = goalWeightKg,
             pace = if (direction == GoalDirection.MAINTAIN) null else pace,
             sex = uiState.sex,
-            heightCm = uiState.heightCm,
+            heightCm = heightCm,
             age = age,
             activityLevel = uiState.activityLevel,
             bodyFatPercent = bodyFatPercent,
         )
+    }
 
-        viewModelScope.launch {
-            repository.saveProfile(profile)
-            uiState = uiState.copy(didSave = true)
-        }
+    private fun autoSave() {
+        val age = uiState.ageText.toIntOrNull()
+        uiState = uiState.copy(
+            errorMessage = if (age != null && age < 18) {
+                "This app isn't designed for people under 18 - growing bodies have different " +
+                    "nutritional needs than what it accounts for. Please talk to a doctor before " +
+                    "using a calorie-tracking app, or clear the age field to continue without it."
+            } else {
+                null
+            },
+        )
+
+        val profile = buildProfileIfValid() ?: return
+        if (profile.age != null && profile.age < 18) return
+
+        viewModelScope.launch { repository.saveProfile(profile) }
     }
 }
 
