@@ -16,6 +16,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
+import kotlin.math.abs
+
+/** What a Health Connect import would do, before anything is actually written - [newReadings]
+ * (days with nothing logged yet) are always safe to apply; [conflictingReadings] (days already
+ * logged with a different weight) need the user to pick overwrite-or-keep first. See
+ * [AndWeightRepository.planHealthConnectImport]/[AndWeightRepository.applyHealthConnectImport]. */
+data class HealthConnectImportPlan(
+    val newReadings: List<Pair<LocalDate, Double>>,
+    val conflictingReadings: List<Pair<LocalDate, Double>>,
+)
 
 class AndWeightRepository(
     context: Context,
@@ -97,23 +107,37 @@ class AndWeightRepository(
         WidgetUpdater.refresh(appContext)
     }
 
-    /** Fills in days that have no weight logged yet from whatever Health Connect has on file -
-     * a smart scale's own app, most likely. Deliberately only fills gaps rather than overwriting
-     * a day that's already been logged by hand, since a manual entry is at least as trustworthy
-     * as a synced one and shouldn't get silently replaced by it. Returns how many days were
-     * filled in, for a one-line confirmation in Settings. Writing straight to [persistLog] rather
-     * than [saveLog] skips mirroring the value right back to Health Connect, which is where it
-     * came from in the first place. */
-    suspend fun importHealthConnectWeights(): Int {
-        var importedCount = 0
+    /** Sorts whatever Health Connect has on file - a smart scale's own app, most likely - into
+     * days that are safe to fill in right away and days that conflict with a weight already
+     * logged here, without writing anything yet. A day whose Health Connect reading already
+     * matches (within rounding) what's logged is left out of both lists - there's nothing to do
+     * for it either way. */
+    suspend fun planHealthConnectImport(): HealthConnectImportPlan {
+        val newReadings = mutableListOf<Pair<LocalDate, Double>>()
+        val conflictingReadings = mutableListOf<Pair<LocalDate, Double>>()
         for ((date, weightKg) in healthConnectManager.readRecentWeights()) {
-            val existing = getLogForDate(date)
-            if (existing?.weightKg == null) {
-                persistLog(date, weightKg, existing?.calories, existing?.intakeLevel, existing?.wasExactEntry ?: false)
-                importedCount++
+            val existingWeightKg = getLogForDate(date)?.weightKg
+            when {
+                existingWeightKg == null -> newReadings += date to weightKg
+                abs(existingWeightKg - weightKg) > 0.01 -> conflictingReadings += date to weightKg
             }
         }
-        return importedCount
+        return HealthConnectImportPlan(newReadings, conflictingReadings)
+    }
+
+    /** Applies a plan from [planHealthConnectImport]: [HealthConnectImportPlan.newReadings] are
+     * always written, and [HealthConnectImportPlan.conflictingReadings] only if the user chose to
+     * overwrite what they'd already logged rather than keep it. Returns how many days were
+     * actually written, for a one-line confirmation in Settings. Writing straight to [persistLog]
+     * rather than [saveLog] skips mirroring the value right back to Health Connect, which is
+     * where it came from in the first place. */
+    suspend fun applyHealthConnectImport(plan: HealthConnectImportPlan, overwriteConflicts: Boolean): Int {
+        val toApply = if (overwriteConflicts) plan.newReadings + plan.conflictingReadings else plan.newReadings
+        for ((date, weightKg) in toApply) {
+            val existing = getLogForDate(date)
+            persistLog(date, weightKg, existing?.calories, existing?.intakeLevel, existing?.wasExactEntry ?: false)
+        }
+        return toApply.size
     }
 
     /** Wipes the profile and every logged day - a deliberate full reset, not to be confused with

@@ -73,6 +73,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.measured.app.BuildConfig
 import com.measured.app.PRIVACY_POLICY_URL
+import com.measured.app.data.HealthConnectImportPlan
 import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.MealTimingMode
@@ -232,7 +233,8 @@ fun SettingsScreen(
             healthConnectManager = viewModel.healthConnectManager,
             syncEnabled = healthConnectSyncEnabled,
             onSyncEnabledChange = viewModel::setHealthConnectSyncEnabled,
-            onImport = viewModel::importHealthConnectWeights,
+            onPlanImport = viewModel::planHealthConnectImport,
+            onApplyImport = viewModel::applyHealthConnectImport,
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -694,12 +696,16 @@ private fun HealthConnectSection(
     healthConnectManager: HealthConnectManager,
     syncEnabled: Boolean,
     onSyncEnabledChange: (Boolean) -> Unit,
-    onImport: suspend () -> Int,
+    onPlanImport: suspend () -> HealthConnectImportPlan,
+    onApplyImport: suspend (HealthConnectImportPlan, Boolean) -> Int,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var hasPermission by remember { mutableStateOf(false) }
     var importedCount by remember { mutableStateOf<Int?>(null) }
+    // Only set while a plan has readings that conflict with what's already logged - that's the
+    // one case the user needs to weigh in on before anything is written.
+    var pendingConflicts by remember { mutableStateOf<HealthConnectImportPlan?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(healthConnectManager.requestPermissionsContract()) {
         coroutineScope.launch { hasPermission = healthConnectManager.hasAllPermissions() }
@@ -768,7 +774,16 @@ private fun HealthConnectSection(
                     Text("Share logged weight automatically")
                     Switch(checked = syncEnabled, onCheckedChange = null)
                 }
-                TextButton(onClick = { coroutineScope.launch { importedCount = onImport() } }) {
+                TextButton(onClick = {
+                    coroutineScope.launch {
+                        val plan = onPlanImport()
+                        if (plan.conflictingReadings.isEmpty()) {
+                            importedCount = onApplyImport(plan, false)
+                        } else {
+                            pendingConflicts = plan
+                        }
+                    }
+                }) {
                     Text("Import weight readings now")
                 }
             } else {
@@ -777,6 +792,44 @@ private fun HealthConnectSection(
                 }
             }
         }
+    }
+
+    pendingConflicts?.let { plan ->
+        val conflictCount = plan.conflictingReadings.size
+        AlertDialog(
+            onDismissRequest = { pendingConflicts = null },
+            title = { Text("Some readings don't match") },
+            text = {
+                val dayWord = if (conflictCount == 1) "day" else "days"
+                val newNote = if (plan.newReadings.isNotEmpty()) {
+                    " ${plan.newReadings.size} other ${if (plan.newReadings.size == 1) "day" else "days"} with " +
+                        "nothing logged yet will be filled in either way."
+                } else {
+                    ""
+                }
+                Text(
+                    "$conflictCount $dayWord already ${if (conflictCount == 1) "has" else "have"} a different " +
+                        "weight logged than what Health Connect has on file. Keep what you've already logged, " +
+                        "or overwrite it with Health Connect's readings?$newNote",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingConflicts = null
+                    coroutineScope.launch { importedCount = onApplyImport(plan, true) }
+                }) {
+                    Text("Overwrite")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingConflicts = null
+                    coroutineScope.launch { importedCount = onApplyImport(plan, false) }
+                }) {
+                    Text("Keep mine")
+                }
+            },
+        )
     }
 
     importedCount?.let { count ->

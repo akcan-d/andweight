@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.measured.app.data.AndWeightRepository
+import com.measured.app.data.HealthConnectImportPlan
 import com.measured.app.data.SettingsRepository
 import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.BackupSerializer
@@ -146,7 +147,10 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.setHealthConnectSyncEnabled(enabled) }
     }
 
-    suspend fun importHealthConnectWeights(): Int = repository.importHealthConnectWeights()
+    suspend fun planHealthConnectImport(): HealthConnectImportPlan = repository.planHealthConnectImport()
+
+    suspend fun applyHealthConnectImport(plan: HealthConnectImportPlan, overwriteConflicts: Boolean): Int =
+        repository.applyHealthConnectImport(plan, overwriteConflicts)
 
     /** One-shot: makes the launcher icon match whatever theme is selected right now, then does
      * nothing further - it does not keep following future theme changes. Skips the restart if
