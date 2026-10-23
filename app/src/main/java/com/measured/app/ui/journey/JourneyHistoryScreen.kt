@@ -45,10 +45,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.measured.app.domain.DailyLog
 import com.measured.app.domain.Phrasing
 import com.measured.app.domain.UserProfile
-import com.measured.app.domain.WeekSummary
+import com.measured.app.domain.WeekGrouping
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.IntakeChip
 import com.measured.app.ui.theme.themedFilterChipColors
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -76,7 +77,6 @@ fun JourneyHistoryScreen(
     viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val profile by viewModel.profile.collectAsState()
-    val tdeeState by viewModel.tdeeState.collectAsState()
     val logs by viewModel.logs.collectAsState()
     var viewMode by remember { mutableStateOf(JourneyViewMode.DAILY) }
 
@@ -157,7 +157,8 @@ fun JourneyHistoryScreen(
                     }
                 }
                 JourneyViewMode.WEEKLY -> {
-                    val weeks = tdeeState?.weeklyHistory.orEmpty().reversed()
+                    val firstDayOfWeek = WeekGrouping.systemFirstDayOfWeek()
+                    val weeks = calendarWeekSummaries(logs, firstDayOfWeek).reversed()
                     items(weeks) { week -> WeekCard(week, profile) }
                 }
             }
@@ -252,8 +253,45 @@ private fun DayRow(log: DailyLog, profile: UserProfile?, onEdit: () -> Unit, onD
     }
 }
 
+/** A real Mon-Sun (or whatever the phone's locale uses) calendar week, purely for this display -
+ * distinct from [com.measured.app.domain.TdeeEngine]'s own weekly windows, which are intentionally
+ * anchored to whenever the first logged day happened to fall rather than the calendar, since that
+ * anchoring is what keeps its smoothing stable. Averages here are plain means of whatever got
+ * logged that week (no carry-forward from previous weeks), so they're a simpler number than the
+ * TDEE engine's own weekly figures and don't try to reproduce its estimate - "Estimated TDEE" is
+ * on the Status screen for that. */
+private data class CalendarWeekSummary(
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val avgWeightKg: Double?,
+    val avgCalories: Double?,
+)
+
+private fun calendarWeekSummaries(logs: List<DailyLog>, firstDayOfWeek: DayOfWeek): List<CalendarWeekSummary> {
+    if (logs.isEmpty()) return emptyList()
+    val firstWeek = WeekGrouping.weekStart(logs.minOf { it.date }, firstDayOfWeek)
+    val lastWeek = WeekGrouping.weekStart(logs.maxOf { it.date }, firstDayOfWeek)
+    val byWeek = logs.groupBy { WeekGrouping.weekStart(it.date, firstDayOfWeek) }
+
+    val weeks = mutableListOf<CalendarWeekSummary>()
+    var weekStart = firstWeek
+    while (!weekStart.isAfter(lastWeek)) {
+        val weekLogs = byWeek[weekStart].orEmpty()
+        val weights = weekLogs.mapNotNull { it.weightKg }
+        val calories = weekLogs.mapNotNull { it.calories }
+        weeks += CalendarWeekSummary(
+            startDate = weekStart,
+            endDate = weekStart.plusDays(6),
+            avgWeightKg = weights.takeIf { it.isNotEmpty() }?.average(),
+            avgCalories = calories.takeIf { it.isNotEmpty() }?.average(),
+        )
+        weekStart = weekStart.plusWeeks(1)
+    }
+    return weeks
+}
+
 @Composable
-private fun WeekCard(week: WeekSummary, profile: UserProfile?) {
+private fun WeekCard(week: CalendarWeekSummary, profile: UserProfile?) {
     val unit = profile?.weightUnit
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -262,7 +300,7 @@ private fun WeekCard(week: WeekSummary, profile: UserProfile?) {
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
-            if (!week.hasWeightData && !week.hasCalorieData) {
+            if (week.avgWeightKg == null && week.avgCalories == null) {
                 Text("No entries this week", style = MaterialTheme.typography.bodySmall)
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -278,10 +316,6 @@ private fun WeekCard(week: WeekSummary, profile: UserProfile?) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Avg calories", style = MaterialTheme.typography.bodySmall)
                     Text(week.avgCalories?.roundToInt()?.toString() ?: "-", style = MaterialTheme.typography.bodySmall)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Estimated TDEE", style = MaterialTheme.typography.bodySmall)
-                    Text(week.tdee?.roundToInt()?.toString() ?: "not enough data yet", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
