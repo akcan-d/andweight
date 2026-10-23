@@ -7,6 +7,44 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-23
+
+### Added
+- Line-smoothing as a new supporter-gated chart option, alongside the existing line/bar/area
+  styles, selectable from a new gear menu on the chart controls
+- Stones (st) as a third weight unit alongside kg/lb
+
+### Changed
+- Chart style switching moved from a row of icons into a gear menu, which also fixed the icons
+  overlapping/crowding against the date-range chips on narrow phones
+- Month charts now show every individual day instead of weekly averages; Year charts show every
+  month including empty ones; Week charts always show all 7 days even if the week isn't over yet
+- Calorie chart axis now starts at a real zero and rounds its ceiling to the nearest 200; weight
+  chart axis now also accounts for the goal line
+- Line-style charts no longer draw a dot at every point - just the line, which was unreadable with
+  a lot of data under All time
+- Milestones: the latest achievement card in a category is now the tap target for revealing earlier
+  ones (with a small chevron badge), instead of a separate "+N earlier" text link; "Up next"
+  milestones now sit inside their own category instead of a separate section at the bottom; each
+  milestone rung now gets its own icon instead of one shared per category
+- Status screen: the progress display's stat chips and its ring/bar style toggle are now on
+  separate rows; current weight is always visible instead of only under Show details
+- Meal timing now defaults to "today's meals" instead of "yesterday's" - checking in about
+  yesterday instead is now an opt-in Settings choice; the Weight section now also shows its own
+  date explicitly, matching the Meals section
+- Edit Profile now autosaves on every change, like Settings already does, instead of requiring a
+  "Save changes" tap at the bottom
+- History's "Weekly trend" now uses real calendar weeks (the phone's own first-day-of-week) instead
+  of an internal TDEE-engine window that read as an arbitrary "today minus 7"
+- Widgets dropped the 1x1 size entirely and now default to a larger fixed size, since a 1-cell
+  widget couldn't be made legible no matter how tight the content got
+
+### Fixed
+- The daily reminder's time picker was using the metric/imperial weight choice as a stand-in for
+  12h/24h clock format - it now reads the phone's actual clock-format setting instead
+- An open tap-to-reveal chart tooltip now dismisses when tapping anywhere else on screen, instead
+  of staying stuck open
+
 ## [0.27.0] - 2026-10-22
 
 ### Added
