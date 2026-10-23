@@ -223,7 +223,15 @@ fun SettingsScreen(
                 FilterChip(
                     selected = profile?.weightUnit == unit,
                     onClick = { viewModel.setWeightUnit(unit) },
-                    label = { Text(if (unit == WeightUnit.KG) "Metric (kg, cm)" else "Imperial (lb, ft/in)") },
+                    label = {
+                        Text(
+                            when (unit) {
+                                WeightUnit.KG -> "Metric (kg, cm)"
+                                WeightUnit.LB -> "Imperial (lb, ft/in)"
+                                WeightUnit.ST -> "Stones (st, ft/in)"
+                            },
+                        )
+                    },
                     colors = themedFilterChipColors(),
                 )
             }
@@ -336,7 +344,6 @@ fun SettingsScreen(
         ReminderSection(
             reminderEnabled = reminderEnabled,
             reminderTime = reminderTime,
-            isMetric = profile?.weightUnit?.isMetric ?: true,
             onEnabledChange = viewModel::setReminderEnabled,
             onTimeChange = viewModel::setReminderTime,
         )
@@ -568,11 +575,15 @@ private fun BackupRestoreSection(
 private fun ReminderSection(
     reminderEnabled: Boolean,
     reminderTime: Pair<Int, Int>,
-    isMetric: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTimeChange: (Int, Int) -> Unit,
 ) {
     val context = LocalContext.current
+    // Whether the clock reads as 12h or 24h is a phone-wide preference the system already tracks
+    // (Settings > System > Date & time) - previously this piggybacked on the metric/imperial
+    // weight unit as a rough proxy, which meant a US user on kg (or anyone else where the two
+    // don't line up) saw a clock format mismatched from the rest of their phone.
+    val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) onEnabledChange(true)
     }
@@ -603,7 +614,7 @@ private fun ReminderSection(
 
     if (reminderEnabled) {
         val (hour, minute) = reminderTime
-        val timeFormatter = if (isMetric) timeFormatter24h else timeFormatter12h
+        val timeFormatter = if (is24Hour) timeFormatter24h else timeFormatter12h
         TextButton(onClick = { showTimePicker = true }) {
             Text("Reminder time: ${LocalTime.of(hour, minute).format(timeFormatter)}")
         }
@@ -647,7 +658,7 @@ private fun ReminderSection(
         ReminderTimePickerDialog(
             initialHour = reminderTime.first,
             initialMinute = reminderTime.second,
-            is24Hour = isMetric,
+            is24Hour = is24Hour,
             onConfirm = { hour, minute ->
                 onTimeChange(hour, minute)
                 showTimePicker = false

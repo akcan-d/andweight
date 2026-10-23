@@ -58,7 +58,11 @@ object Phrasing {
     private fun formatAmount(value: Double, unit: WeightUnit): String {
         val rounded = (value * 10).roundToInt() / 10.0
         val numberText = if (rounded == rounded.toInt().toDouble()) rounded.toInt().toString() else rounded.toString()
-        val unitLabel = if (unit == WeightUnit.KG) "kg" else "lb"
+        val unitLabel = when (unit) {
+            WeightUnit.KG -> "kg"
+            WeightUnit.LB -> "lb"
+            WeightUnit.ST -> "st"
+        }
         return "$numberText $unitLabel"
     }
 

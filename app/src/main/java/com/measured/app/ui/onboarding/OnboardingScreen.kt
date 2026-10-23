@@ -89,6 +89,12 @@ fun OnboardingScreen(
                     onClick = { viewModel.onWeightUnitChange(WeightUnit.LB) },
                     label = { Text("Imperial (lb, ft/in)") },
                 )
+                FilterChip(
+                    colors = themedFilterChipColors(),
+                    selected = state.weightUnit == WeightUnit.ST,
+                    onClick = { viewModel.onWeightUnitChange(WeightUnit.ST) },
+                    label = { Text("Stones (st, ft/in)") },
+                )
             }
 
             OutlinedTextField(

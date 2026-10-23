@@ -1,25 +1,31 @@
 package com.measured.app.domain
 
-import java.time.DayOfWeek
-
-/** All weights are stored and computed internally in kilograms; this is only for display/input conversion. */
+/** All weights are stored and computed internally in kilograms; this is only for display/input
+ * conversion. [ST] (stones) shows as a plain decimal number, same as [KG]/[LB] - not the
+ * traditional "X st Y lb" compound notation, since every other weight display in the app (charts,
+ * milestones, widgets, the backup format) already works generically off a single [fromKg] number
+ * per unit, and a compound display would mean reworking all of them just for this one unit. */
 enum class WeightUnit {
     KG,
-    LB;
+    LB,
+    ST;
 
-    fun toKg(value: Double): Double = if (this == KG) value else value / 2.20462
-    fun fromKg(kg: Double): Double = if (this == KG) kg else kg * 2.20462
+    fun toKg(value: Double): Double = when (this) {
+        KG -> value
+        LB -> value / 2.20462
+        ST -> value / 0.157473
+    }
 
-    /** There's deliberately no separate height-unit setting - picking Kg or Lb doubles as the
-     * app's one Metric/Imperial choice, and height follows it (cm for Kg, feet/inches for Lb). */
+    fun fromKg(kg: Double): Double = when (this) {
+        KG -> kg
+        LB -> kg * 2.20462
+        ST -> kg * 0.157473
+    }
+
+    /** There's deliberately no separate height-unit setting - picking a weight unit doubles as the
+     * app's one Metric/Imperial choice, and height follows it (cm for Kg, feet/inches for Lb/St). */
     val isMetric: Boolean
         get() = this == KG
-
-    /** No separate first-day-of-week setting yet either - it follows the same Metric/Imperial
-     * choice (Monday-start is the common convention in most metric-using countries, Sunday-start
-     * in the US, which is also where "Imperial" units are otherwise still in everyday use). */
-    val firstDayOfWeek: DayOfWeek
-        get() = if (isMetric) DayOfWeek.MONDAY else DayOfWeek.SUNDAY
 }
 
 /** All heights are stored and computed internally in centimeters; this is only for display/input

@@ -181,9 +181,10 @@ object JourneyMilestones {
         val unitLabel = unit.name.lowercase()
         val verb = if (direction == GoalDirection.LOSE) "down" else "up"
         // Rounded to a whole number in lb (values there tend to be larger, where a decimal reads
-        // as noise) but kept to one decimal in kg (where 0.5-1kg differences are meaningful).
+        // as noise) but kept to one decimal in kg or stones, where the same small thresholds
+        // (0.5-1kg) would otherwise round down to a meaningless "0".
         fun formatForUnit(valueInUnit: Double) =
-            if (unit == WeightUnit.KG) formatOneDecimal(valueInUnit) else Math.round(valueInUnit).toString()
+            if (unit == WeightUnit.LB) Math.round(valueInUnit).toString() else formatOneDecimal(valueInUnit)
         fun titleFor(thresholdKg: Double) = "${formatForUnit(unit.fromKg(thresholdKg))} $unitLabel $verb"
         // The threshold's kg value and goal direction, never the display unit or converted
         // number - so switching kg/lb alone can't change a milestone's identity and make an
