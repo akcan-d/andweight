@@ -2,13 +2,11 @@ package com.measured.app.ui.journey
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -120,6 +119,8 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 private val shortDateFormatter = DateTimeFormatter.ofPattern("MMM d")
@@ -677,39 +678,26 @@ private fun AchievementTierGroup(achievedInCategory: List<Milestone>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AchievementCard(
             latest,
-            tier = AchievementTier.GOLD,
             expandState = if (earlier.isNotEmpty()) expanded else null,
             onClick = if (earlier.isNotEmpty()) { { expanded = !expanded } } else null,
             modifier = Modifier.fillMaxWidth(),
         )
         if (expanded && earlier.isNotEmpty()) {
-            AchievementGrid(
-                earlier,
-                tierFor = { index -> if (index == 0) AchievementTier.SILVER else if (index == 1) AchievementTier.BRONZE else AchievementTier.NONE },
-            )
+            AchievementGrid(earlier)
         }
     }
 }
 
 @Composable
-private fun AchievementGrid(milestones: List<Milestone>, tierFor: (Int) -> AchievementTier = { AchievementTier.NONE }) {
+private fun AchievementGrid(milestones: List<Milestone>) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        milestones.chunked(2).forEachIndexed { rowIndex, row ->
+        milestones.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEachIndexed { columnIndex, milestone ->
-                    AchievementCard(milestone, tier = tierFor(rowIndex * 2 + columnIndex), modifier = Modifier.weight(1f))
-                }
+                row.forEach { milestone -> AchievementCard(milestone, modifier = Modifier.weight(1f)) }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
-}
-
-private enum class AchievementTier(val ringColor: Color?) {
-    GOLD(Color(0xFFD4AF37)),
-    SILVER(Color(0xFFA8A8A8)),
-    BRONZE(Color(0xFFB08D57)),
-    NONE(null),
 }
 
 // A fixed height, with the title and hint both clamped to a line count, so a short title like
@@ -720,7 +708,6 @@ private val ACHIEVEMENT_CARD_HEIGHT = 148.dp
 @Composable
 private fun AchievementCard(
     milestone: Milestone,
-    tier: AchievementTier = AchievementTier.NONE,
     /** null = no "more underneath" indicator; true/false = expanded/collapsed, with the card
      * itself as the tap target to toggle it (see [AchievementTierGroup]). */
     expandState: Boolean? = null,
@@ -750,8 +737,7 @@ private fun AchievementCard(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(badgeColor)
-                        .let { if (tier.ringColor != null) it.border(2.dp, tier.ringColor, CircleShape) else it },
+                        .background(badgeColor),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -1075,7 +1061,9 @@ private fun WeightTrendCard(
                 axisStep = 1.0,
                 goalValue = goalWeight,
                 goalColor = goalColor,
+                unitLabel = unitLabel,
                 valueFormatter = { "${oneDecimal(it)} $unitLabel" },
+                tickFormatter = { oneDecimal(it) },
                 dateLabelFormatter = dateLabelFormatter(range),
                 tapClearSignal = tapClearSignal,
                 contentDescription = "Weight trend chart, from ${oneDecimal(nonNullWeights.first())} to " +
@@ -1141,7 +1129,9 @@ private fun CalorieTrendCard(
                 color = lineColor,
                 axisStep = 200.0,
                 forceMinZero = true,
+                unitLabel = "kcal",
                 valueFormatter = { "${it.toInt()} kcal" },
+                tickFormatter = { it.toInt().toString() },
                 dateLabelFormatter = dateLabelFormatter(range),
                 tapClearSignal = tapClearSignal,
                 contentDescription =
@@ -1182,6 +1172,9 @@ private fun AxisTickRow(dates: List<LocalDate>, range: ChartRange) {
  * month in Year) - the line/area breaks across a gap instead of connecting through it, and a bar
  * chart simply has no bar there. A lone logged value surrounded by gaps gets a small dot instead
  * of vanishing silently, since there's no line or bar to draw it through. */
+private val CHART_HEIGHT = 160.dp
+private val AXIS_GUTTER_WIDTH = 34.dp
+
 @Composable
 private fun TrendChartCanvas(
     dates: List<LocalDate>,
@@ -1190,7 +1183,9 @@ private fun TrendChartCanvas(
     smoothed: Boolean,
     color: Color,
     axisStep: Double,
+    unitLabel: String,
     valueFormatter: (Double) -> String,
+    tickFormatter: (Double) -> String,
     contentDescription: String,
     tapClearSignal: Int,
     forceMinZero: Boolean = false,
@@ -1217,128 +1212,139 @@ private fun TrendChartCanvas(
     val valueRange = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
     val runs = remember(values) { nonNullRuns(values) }
+    // Round, evenly-spaced numbers (not raw fractions of the range, which routinely land on
+    // something like 123.33) - these double as both the gridlines drawn in the canvas and the
+    // labels in the gutter beside it, so the two always line up.
+    val ticks = remember(minValue, maxValue) { niceTickValues(minValue, maxValue) }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-                .padding(vertical = 4.dp)
-                .semantics { this.contentDescription = contentDescription }
-                .pointerInput(dates) {
-                    detectTapGestures { offset ->
-                        val tapped = if (dates.size == 1) {
-                            0
-                        } else {
-                            (offset.x / size.width * (dates.size - 1)).roundToInt().coerceIn(0, dates.size - 1)
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        // A dedicated gutter to the left of the plotted area, rather than labels floating over
+        // the data - and the unit is named once here instead of repeated on every tick.
+        Column(horizontalAlignment = Alignment.End, modifier = Modifier.width(AXIS_GUTTER_WIDTH)) {
+            Text(unitLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(modifier = Modifier.fillMaxWidth().height(CHART_HEIGHT)) {
+                ticks.forEach { tickValue ->
+                    val f = ((tickValue - minValue) / valueRange).toFloat().coerceIn(0f, 1f)
+                    Text(
+                        tickFormatter(tickValue),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.TopEnd).offset(y = CHART_HEIGHT * (1f - f) - 7.dp),
+                    )
+                }
+            }
+        }
+
+        Box(modifier = Modifier.weight(1f)) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(CHART_HEIGHT)
+                    .semantics { this.contentDescription = contentDescription }
+                    .pointerInput(dates) {
+                        detectTapGestures { offset ->
+                            val tapped = if (dates.size == 1) {
+                                0
+                            } else {
+                                (offset.x / size.width * (dates.size - 1)).roundToInt().coerceIn(0, dates.size - 1)
+                            }
+                            if (values[tapped] != null) {
+                                selectedIndex = if (selectedIndex == tapped) null else tapped
+                            }
                         }
-                        if (values[tapped] != null) {
-                            selectedIndex = if (selectedIndex == tapped) null else tapped
+                    },
+            ) {
+                val chartHeight = size.height
+                val chartWidth = size.width
+                fun xFor(index: Int): Float =
+                    if (dates.size == 1) chartWidth / 2f else chartWidth * index / (dates.size - 1).toFloat()
+                fun yFor(value: Double): Float =
+                    (chartHeight - ((value - minValue) / valueRange * chartHeight)).toFloat()
+
+                ticks.forEach { tickValue ->
+                    val y = yFor(tickValue)
+                    drawLine(color = gridColor, start = Offset(0f, y), end = Offset(chartWidth, y), strokeWidth = 1.5f)
+                }
+
+                goalValue?.let { goal ->
+                    val goalY = yFor(goal)
+                    drawLine(
+                        color = goalColor,
+                        start = Offset(0f, goalY),
+                        end = Offset(chartWidth, goalY),
+                        strokeWidth = 2f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
+                    )
+                }
+
+                when (style) {
+                    ChartStyle.BAR -> {
+                        val barWidth = (chartWidth / values.size) * 0.6f
+                        values.forEachIndexed { i, value ->
+                            if (value == null) return@forEachIndexed
+                            val x = xFor(i)
+                            drawRect(
+                                color = color,
+                                topLeft = Offset(x - barWidth / 2f, yFor(value)),
+                                size = Size(barWidth, chartHeight - yFor(value)),
+                            )
                         }
                     }
-                },
-        ) {
-            val chartHeight = size.height
-            val chartWidth = size.width
-            fun xFor(index: Int): Float =
-                if (dates.size == 1) chartWidth / 2f else chartWidth * index / (dates.size - 1).toFloat()
-            fun yFor(value: Double): Float =
-                (chartHeight - ((value - minValue) / valueRange * chartHeight)).toFloat()
-
-            listOf(1f / 3f, 2f / 3f).forEach { f ->
-                val y = chartHeight * (1f - f)
-                drawLine(color = gridColor, start = Offset(0f, y), end = Offset(chartWidth, y), strokeWidth = 1.5f)
-            }
-
-            goalValue?.let { goal ->
-                val goalY = yFor(goal)
-                drawLine(
-                    color = goalColor,
-                    start = Offset(0f, goalY),
-                    end = Offset(chartWidth, goalY),
-                    strokeWidth = 2f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f),
-                )
-            }
-
-            when (style) {
-                ChartStyle.BAR -> {
-                    val barWidth = (chartWidth / values.size) * 0.6f
-                    values.forEachIndexed { i, value ->
-                        if (value == null) return@forEachIndexed
-                        val x = xFor(i)
-                        drawRect(
-                            color = color,
-                            topLeft = Offset(x - barWidth / 2f, yFor(value)),
-                            size = Size(barWidth, chartHeight - yFor(value)),
-                        )
+                    ChartStyle.AREA -> {
+                        runs.forEach { run ->
+                            val points = run.map { i -> Offset(xFor(i), yFor(values[i]!!)) }
+                            if (points.size == 1) {
+                                drawCircle(color = color, radius = 4f, center = points[0])
+                                return@forEach
+                            }
+                            val linePath = if (smoothed) smoothPathThrough(points) else straightPathThrough(points)
+                            val fillPath = Path().apply {
+                                addPath(linePath)
+                                lineTo(points.last().x, chartHeight)
+                                lineTo(points.first().x, chartHeight)
+                                close()
+                            }
+                            drawPath(fillPath, color = color.copy(alpha = 0.25f))
+                            drawPath(linePath, color = color, style = Stroke(width = 4f, cap = StrokeCap.Round))
+                        }
+                    }
+                    ChartStyle.LINE -> {
+                        runs.forEach { run ->
+                            val points = run.map { i -> Offset(xFor(i), yFor(values[i]!!)) }
+                            if (points.size == 1) {
+                                drawCircle(color = color, radius = 4f, center = points[0])
+                            } else {
+                                val path = if (smoothed) smoothPathThrough(points) else straightPathThrough(points)
+                                drawPath(path, color = color, style = Stroke(width = 4f, cap = StrokeCap.Round))
+                            }
+                        }
                     }
                 }
-                ChartStyle.AREA -> {
-                    runs.forEach { run ->
-                        val points = run.map { i -> Offset(xFor(i), yFor(values[i]!!)) }
-                        if (points.size == 1) {
-                            drawCircle(color = color, radius = 4f, center = points[0])
-                            return@forEach
-                        }
-                        val linePath = if (smoothed) smoothPathThrough(points) else straightPathThrough(points)
-                        val fillPath = Path().apply {
-                            addPath(linePath)
-                            lineTo(points.last().x, chartHeight)
-                            lineTo(points.first().x, chartHeight)
-                            close()
-                        }
-                        drawPath(fillPath, color = color.copy(alpha = 0.25f))
-                        drawPath(linePath, color = color, style = Stroke(width = 4f, cap = StrokeCap.Round))
-                    }
-                }
-                ChartStyle.LINE -> {
-                    runs.forEach { run ->
-                        val points = run.map { i -> Offset(xFor(i), yFor(values[i]!!)) }
-                        if (points.size == 1) {
-                            drawCircle(color = color, radius = 4f, center = points[0])
-                        } else {
-                            val path = if (smoothed) smoothPathThrough(points) else straightPathThrough(points)
-                            drawPath(path, color = color, style = Stroke(width = 4f, cap = StrokeCap.Round))
-                        }
-                    }
+
+                selectedIndex?.let { i ->
+                    val x = xFor(i)
+                    drawLine(
+                        color = color,
+                        start = Offset(x, 0f),
+                        end = Offset(x, chartHeight),
+                        strokeWidth = 2f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f),
+                    )
+                    drawCircle(color = color, radius = 7f, center = Offset(x, yFor(values[i]!!)))
                 }
             }
 
             selectedIndex?.let { i ->
-                val x = xFor(i)
-                drawLine(
-                    color = color,
-                    start = Offset(x, 0f),
-                    end = Offset(x, chartHeight),
-                    strokeWidth = 2f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f),
+                Text(
+                    "${dateLabelFormatter(dates[i])}: ${valueFormatter(values[i]!!)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), MaterialTheme.shapes.extraSmall)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                 )
-                drawCircle(color = color, radius = 7f, center = Offset(x, yFor(values[i]!!)))
             }
-        }
-
-        // Four labels (max down to min) spread evenly down the chart's fixed height, matching
-        // the two internal gridlines above - clearer than just the top/bottom extremes alone.
-        Column(
-            modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp).align(Alignment.CenterStart),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            listOf(1.0, 2.0 / 3.0, 1.0 / 3.0, 0.0).forEach { f ->
-                AxisLabel(valueFormatter(minValue + (maxValue - minValue) * f))
-            }
-        }
-
-        selectedIndex?.let { i ->
-            Text(
-                "${dateLabelFormatter(dates[i])}: ${valueFormatter(values[i]!!)}",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), MaterialTheme.shapes.extraSmall)
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-            )
         }
     }
 }
@@ -1425,21 +1431,6 @@ private fun styleIcon(style: ChartStyle): ImageVector = when (style) {
     ChartStyle.AREA -> Icons.Outlined.AreaChart
 }
 
-/** A small value label with a translucent backing so it stays readable regardless of what the
- * chart itself drew underneath it. */
-@Composable
-private fun AxisLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), MaterialTheme.shapes.extraSmall)
-            .padding(horizontal = 4.dp, vertical = 1.dp),
-    )
-}
-
-
 // Shared with JourneyHistoryScreen's WeekCard.
 fun oneDecimal(value: Double): String {
     val rounded = Math.round(value * 10.0) / 10.0
@@ -1464,6 +1455,33 @@ private fun niceMaxOnly(dataMax: Double, step: Double): Double {
     var hi = ceil(dataMax / step) * step
     if (hi <= dataMax) hi += step
     return hi
+}
+
+/** A small, evenly-spaced set of round numbers (1, 2, or 5 times a power of ten) spanning
+ * [minValue]..[maxValue], for axis tick labels - rather than literal fractions of the range,
+ * which routinely land on an ugly number like 123.33 even when the axis bounds themselves are
+ * round. [targetCount] is a rough guide, not a guarantee - the actual count depends on how evenly
+ * the chosen step divides the range. */
+private fun niceTickValues(minValue: Double, maxValue: Double, targetCount: Int = 4): List<Double> {
+    val range = maxValue - minValue
+    if (range <= 0.0) return listOf(minValue)
+    val rawStep = range / (targetCount - 1)
+    val magnitude = 10.0.pow(floor(log10(rawStep)))
+    val residual = rawStep / magnitude
+    val niceResidual = when {
+        residual <= 1.5 -> 1.0
+        residual <= 3.0 -> 2.0
+        residual <= 7.0 -> 5.0
+        else -> 10.0
+    }
+    val step = niceResidual * magnitude
+    val ticks = mutableListOf<Double>()
+    var v = ceil(minValue / step) * step
+    while (v <= maxValue + step * 0.001) {
+        ticks += v
+        v += step
+    }
+    return ticks.ifEmpty { listOf(minValue, maxValue) }
 }
 
 /** The index ranges of consecutive non-null values in [values] - a run is where the chart can
