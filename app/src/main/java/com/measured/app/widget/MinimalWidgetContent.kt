@@ -29,12 +29,15 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import com.measured.app.MainActivity
 
-/** The three sizes every minimal widget declares via `SizeMode.Responsive` - matching the
- * standard Android home-screen cell formula (70dp * cells - 30dp), so a 1x1 placement gets
- * [SIZE_SMALL], and resizing up to 2x1 or 2x2 steps up from there. */
+/** The three sizes every minimal widget declares via `SizeMode.Responsive`. [SIZE_LARGE] is the
+ * only one the widget's own min/max size (see its *_widget_info.xml) actually allows any more -
+ * a 1x1 placement and shrinking below the 2x2 default both read as too cramped to be worth
+ * supporting, so the widget no longer offers a size smaller than [SIZE_LARGE] at all.
+ * [SIZE_SMALL]/[SIZE_MEDIUM] stay as a defensive fallback for a launcher that ignores the min/max
+ * size and reports something smaller anyway, rather than being deleted outright. */
 val SIZE_SMALL = DpSize(40.dp, 40.dp)
-val SIZE_MEDIUM = DpSize(110.dp, 40.dp)
-val SIZE_LARGE = DpSize(110.dp, 110.dp)
+val SIZE_MEDIUM = DpSize(140.dp, 40.dp)
+val SIZE_LARGE = DpSize(140.dp, 140.dp)
 
 /** Shared visual for every minimal widget: a ring with its number drawn inside, and - once
  * there's room - a short label next to or below it. Deliberately no card background of any
@@ -63,7 +66,7 @@ fun MinimalWidgetContent(stat: WidgetStat?, scheme: ColorScheme) {
         // At SIZE_LARGE the ring used to stay fixed at 64dp inside a 110dp box, leaving most of
         // the placed widget as blank margin - sized up here to fill the space, leaving room only
         // for the label underneath.
-        val ringDiameterDp = if (size == SIZE_LARGE) 86.dp else 32.dp
+        val ringDiameterDp = if (size == SIZE_LARGE) 108.dp else 32.dp
         val ringBitmap = ring(ringDiameterDp, stat, scheme)
 
         when (size) {
