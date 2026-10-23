@@ -255,7 +255,7 @@ private fun StatusCard(
                 if (!tdeeState.recommendedCaloriesFloorApplied) {
                     StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
                 }
-                StatRow("Current weight", "${oneDecimal(unit.fromKg(tdeeState.currentWeightKg))} ${unit.name.lowercase()}")
+                StatRow("Starting weight", "${oneDecimal(unit.fromKg(profile.startWeightKg))} ${unit.name.lowercase()}")
                 TdeeStatRow(tdeeState.currentTdee)
                 WeightTrendStatRow(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit)
             }
@@ -345,6 +345,9 @@ private fun HeroSection(
                     HeroDisplayStyle.BAR -> ProgressBarDisplay(progress = progress, value = heroValue, label = heroLabel)
                 }
 
+                // Which stat the ring/bar's center number shows, and which shape it's drawn as,
+                // are two unrelated choices - they used to share one crowded row, which read as
+                // one confusing control and made the display-style icons easy to miss entirely.
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
                     HeroStat.entries.forEach { stat ->
                         FilterChip(
@@ -354,6 +357,11 @@ private fun HeroSection(
                             colors = themedFilterChipColors(),
                         )
                     }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
                     HeroDisplayStyleToggle(
                         selected = effectiveStyle,
                         isSupporter = isSupporter,
@@ -385,6 +393,13 @@ private fun HeroSection(
             }
         }
 
+        // Previously only visible under Show details - the number someone most wants to check at
+        // a glance shouldn't need an extra tap, regardless of which goal state the ring above is in.
+        Text(
+            "Current weight: ${oneDecimal(profile.weightUnit.fromKg(tdeeState.currentWeightKg))} ${profile.weightUnit.name.lowercase()}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
         GoalWeightRow(profile, onSaveGoalWeight)
     }
 }
@@ -800,10 +815,21 @@ private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
     else -> date.format(dateFormatter)
 }
 
+/** [weightDate] and [today] decide the wording, the same way [MealSectionHeading] labels the meal
+ * section - showing each section's own date explicitly (rather than relying only on the page-level
+ * "Today"/date header above both of them) is what keeps it unambiguous when the two sections cover
+ * different days, which they can whenever [com.measured.app.domain.MealTimingMode] offsets the
+ * meal section by a day. */
 @Composable
-private fun WeightSectionHeading() {
+private fun WeightSectionHeading(weightDate: LocalDate, today: LocalDate) {
+    val weightDateLabel = dayLabel(weightDate, today)
+    val heading = when (weightDateLabel) {
+        "Today", "Yesterday" -> "$weightDateLabel's weight"
+        else -> "Weight from $weightDateLabel"
+    }
+
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Weight", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text(heading, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         InfoTooltipIcon(
             title = "Getting a reliable reading",
             text = "Weight can swing by a kilogram or two across a single day from water, food, and " +
@@ -851,7 +877,7 @@ private fun MealSectionHeading(mealDate: LocalDate, today: LocalDate) {
 private fun BlankDayForm(viewModel: TodayViewModel, profile: UserProfile?) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            WeightSectionHeading()
+            WeightSectionHeading(viewModel.selectedDate, viewModel.actualToday)
             WeightInputField(viewModel, profile)
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -881,7 +907,7 @@ private fun WeightInputField(viewModel: TodayViewModel, profile: UserProfile?) {
 @Composable
 private fun WeightSection(viewModel: TodayViewModel, profile: UserProfile?) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        WeightSectionHeading()
+        WeightSectionHeading(viewModel.selectedDate, viewModel.actualToday)
 
         if (viewModel.isEditingWeight) {
             WeightInputField(viewModel, profile)

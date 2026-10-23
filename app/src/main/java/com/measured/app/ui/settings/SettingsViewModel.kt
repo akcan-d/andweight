@@ -60,7 +60,7 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     val mealTimingMode: StateFlow<MealTimingMode> = settingsRepository.mealTimingModeFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealTimingMode.PREVIOUS_DAY)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealTimingMode.SAME_DAY)
 
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */

@@ -222,7 +222,7 @@ class SettingsRepository(private val context: Context) {
 
     val mealTimingModeFlow: Flow<MealTimingMode> = context.settingsDataStore.data.map { prefs ->
         prefs[Keys.MEAL_TIMING_MODE]?.let { name -> runCatching { MealTimingMode.valueOf(name) }.getOrNull() }
-            ?: MealTimingMode.PREVIOUS_DAY
+            ?: MealTimingMode.SAME_DAY
     }
 
     suspend fun setMealTimingMode(mode: MealTimingMode) {

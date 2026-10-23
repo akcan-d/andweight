@@ -73,7 +73,7 @@ class TodayViewModel(
      * evening/before-bed weigh-in, where today's eating is already done by check-in time) or the
      * day before it (suits a morning weigh-in - see [mealDate]). */
     val mealTimingMode: StateFlow<MealTimingMode> = settingsRepository.mealTimingModeFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealTimingMode.PREVIOUS_DAY)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealTimingMode.SAME_DAY)
 
     val tdeeState: StateFlow<TdeeState?> = repository.tdeeStateFlow(actualToday)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
