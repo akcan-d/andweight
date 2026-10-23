@@ -790,6 +790,20 @@ private fun HealthConnectSection(
                 OutlinedButton(onClick = { permissionLauncher.launch(healthConnectManager.permissions) }) {
                     Text("Connect to Health Connect")
                 }
+                // Health Connect permanently stops showing its own permission dialog once it's
+                // been dismissed or declined twice - there's nothing the button above can do to
+                // bring it back at that point, so this is always offered as a way to grant
+                // access by hand instead, rather than only appearing once that's detected (which
+                // isn't something this app can actually observe from here).
+                TextButton(onClick = {
+                    try {
+                        context.startActivity(healthConnectManager.settingsIntent())
+                    } catch (_: ActivityNotFoundException) {
+                        Toast.makeText(context, "Couldn't open Health Connect settings", Toast.LENGTH_SHORT).show()
+                    }
+                }) {
+                    Text("Nothing happened? Open Health Connect settings")
+                }
             }
         }
     }

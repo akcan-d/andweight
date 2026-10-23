@@ -3,6 +3,7 @@ package com.measured.app.health
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -56,6 +57,21 @@ class HealthConnectManager(context: Context) {
      * [availability] is [Availability.NEEDS_INSTALL_OR_UPDATE]. */
     fun playStoreIntent(): Intent =
         Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$HEALTH_CONNECT_PACKAGE"))
+
+    /** Deep-links straight to this app's own permission toggles inside Health Connect - not
+     * Play Store distribution, but a real Android/Health Connect quirk: once the user has
+     * dismissed or declined the system permission dialog twice, Health Connect permanently
+     * stops showing it again for this app, with nothing [requestPermissionsContract] can do to
+     * bring it back (this is documented, intended behavior, not a bug). The officially
+     * recommended fallback is sending them straight to the settings screen where they can grant
+     * it by hand instead. */
+    fun settingsIntent(): Intent =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            Intent("android.health.connect.action.MANAGE_HEALTH_PERMISSIONS")
+                .putExtra(Intent.EXTRA_PACKAGE_NAME, appContext.packageName)
+        } else {
+            Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
+        }
 
     /** Writes today's logged weight into Health Connect so any other app the user has granted
      * read access to (or a future smart scale) can see it. Quietly no-ops without permission -
