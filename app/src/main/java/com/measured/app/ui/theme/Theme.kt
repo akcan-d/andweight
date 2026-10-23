@@ -1,10 +1,14 @@
 package com.measured.app.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import com.measured.app.domain.AccentTheme
 
 // internal, not private - the home-screen widget builds its own Glance color scheme from these
@@ -81,15 +85,27 @@ internal fun darkScheme(accent: AccentPalette, highContrast: Boolean = false) = 
     surfaceTint = accent.primary,
 )
 
+/** True only where the OS can actually supply a wallpaper-derived scheme (Android 12+) - below
+ * that, [AndWeightTheme] silently falls back to the chosen [AccentTheme] regardless of what's
+ * stored for "use dynamic color", so a Settings toggle flipped on an older phone (or a backup
+ * restored onto one) can never end up with nothing to render. */
+val supportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
 @Composable
 fun AndWeightTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     accentTheme: AccentTheme = AccentTheme.SAGE,
     highContrast: Boolean = false,
+    useDynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val accent = accentPaletteFor(accentTheme, darkTheme)
-    val colors = if (darkTheme) darkScheme(accent, highContrast) else lightScheme(accent, highContrast)
+    val colors = if (useDynamicColor && supportsDynamicColor) {
+        val context = LocalContext.current
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        val accent = accentPaletteFor(accentTheme, darkTheme)
+        if (darkTheme) darkScheme(accent, highContrast) else lightScheme(accent, highContrast)
+    }
     MaterialTheme(
         colorScheme = colors,
         typography = AndWeightTypography,

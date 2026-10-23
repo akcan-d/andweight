@@ -65,6 +65,18 @@ different for everyone.
 There's also an "exact calories" mode for anyone who wants to enter a precise number instead.
 Both paths go through the same safety floor before being saved.
 
+### Plateau detection
+
+Separately from the week-by-week coaching message above, `PlateauDetector` looks for a
+*sustained* stall: 3 or more of the most recent consecutive completed weeks where net weight
+change landed within a quarter of the planned weekly rate of zero, for an active lose/gain goal.
+It counts backward from the most recent week and stops at the first week that isn't flat, so a
+plateau has to be the current state, not just something that happened at some point in the
+history. This is intentionally kept separate from `CoachingAdvisor`, which reacts to a single
+recent week and is the only "what should I eat today" message - a plateau is a longer-run
+pattern worth naming and reassuring about on its own, not something to react to by cutting
+further after just one quiet week.
+
 ## Backups
 
 Settings has an export/import for a plain-text backup file (profile, preferences, and the full
@@ -87,6 +99,30 @@ database and settings, but it only restores through the Play Store install flow 
 "restore from backup" setup step - not when sideloading an APK directly, which is normally how
 this app gets tested during development.
 
+## Health Connect
+
+Settings has an optional Health Connect section (`HealthConnectManager`, `health/`) - off by
+default, nothing is requested until the user taps "Connect to Health Connect" there. Once
+connected:
+
+- "Share logged weight automatically" mirrors every weight logged in the app into Health
+  Connect, through the single `AndWeightRepository.saveLog()` choke point every logging path
+  already goes through.
+- "Import weight readings now" is a manual, user-triggered pull of recent Health Connect weight
+  readings (e.g. from a smart scale's own app) that only fills days with no weight logged yet -
+  it never overwrites a day already logged by hand.
+
+Both permission and sync state can change outside the app at any time (Health Connect's own
+"App permissions" screen), so the Settings UI re-checks the permission grant on every resume
+rather than caching it. The app also declares an activity that responds to Health Connect's
+`SHOW_PERMISSIONS_RATIONALE` intent (required of every client app, regardless of which record
+types it uses) - handled in `MainActivity` by opening this same privacy policy and finishing.
+
+The project currently pins `androidx.health.connect:connect-client` to the `1.1.0-alpha07`
+pre-release, not the `1.1.0` stable release, because stable requires `compileSdk 36` and AGP
+8.9.1+ - a larger upgrade than this feature on its own warranted. Worth revisiting next time the
+project's compileSdk/AGP get bumped for other reasons.
+
 ## Project structure
 
 ```
@@ -94,6 +130,7 @@ app/src/main/java/com/measured/app/
   domain/        Pure Kotlin business logic - no Android dependencies, fully unit-testable.
                  TdeeEngine.kt is the entire adaptive-TDEE algorithm.
   data/          Room database (entities, DAOs) and the repository that bridges data <-> domain.
+  health/        Health Connect integration (HealthConnectManager).
   notifications/ Daily reminder scheduling and the notification itself.
   widget/        Home-screen Glance widget.
   ui/            Jetpack Compose screens and ViewModels:

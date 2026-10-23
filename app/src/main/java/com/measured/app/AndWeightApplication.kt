@@ -3,6 +3,7 @@ package com.measured.app
 import android.app.Application
 import com.measured.app.data.AndWeightRepository
 import com.measured.app.data.SettingsRepository
+import com.measured.app.health.HealthConnectManager
 import com.measured.app.notifications.NotificationHelper
 import com.measured.app.notifications.ReminderScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -16,10 +17,14 @@ class AndWeightApplication : Application() {
     lateinit var settingsRepository: SettingsRepository
         private set
 
+    lateinit var healthConnectManager: HealthConnectManager
+        private set
+
     override fun onCreate() {
         super.onCreate()
-        repository = AndWeightRepository(this)
         settingsRepository = SettingsRepository(this)
+        healthConnectManager = HealthConnectManager(this)
+        repository = AndWeightRepository(this, settingsRepository, healthConnectManager)
 
         NotificationHelper.createChannel(this)
 

@@ -27,7 +27,7 @@
 </head>
 <body>
   <h1>Measured Privacy Policy</h1>
-  <p class="updated">Last updated: October 20, 2026</p>
+  <p class="updated">Last updated: October 23, 2026</p>
 
   <p><strong>Short version: Measured does not collect, store, or transmit any personal data
   anywhere. Everything you enter stays on your own device.</strong></p>
@@ -62,7 +62,26 @@
     <li><strong>Ignore battery optimizations</strong> - only requested if you explicitly tap a
     button in Settings asking to make the reminder more reliable on phones with aggressive
     battery management. It does not run in the background otherwise.</li>
+    <li><strong>Health Connect (read/write weight)</strong> - only requested if you tap "Connect
+    to Health Connect" in Settings. See below.</li>
   </ul>
+
+  <h2>Health Connect</h2>
+  <p>Measured can optionally connect to Health Connect, Android's on-device health data broker,
+  from Settings. This is off by default and nothing is requested unless you turn it on
+  yourself. When connected:</p>
+  <ul>
+    <li>If you turn on "Share logged weight automatically", every weight you log in Measured is
+    also written to Health Connect, so any other app you've separately granted read access to
+    (through Health Connect's own permission screen) can see it.</li>
+    <li>Tapping "Import weight readings now" reads recent weight entries already in Health
+    Connect - for example from a smart scale's own app - and fills in any day in Measured that
+    doesn't already have a weight logged, without overwriting a day you've entered by hand.</li>
+  </ul>
+  <p>Either direction can be turned off, and the underlying permission revoked, at any time from
+  Health Connect's own app permissions screen. As with everything else in this policy, none of
+  this involves Measured's own servers, because it doesn't have any - data moves directly
+  between Measured and Health Connect on your device.</p>
 
   <h2>Children's privacy</h2>
   <p>Measured is not directed at children and asks people to confirm they are 18 or older

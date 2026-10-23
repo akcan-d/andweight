@@ -72,15 +72,18 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.measured.app.BuildConfig
+import com.measured.app.PRIVACY_POLICY_URL
 import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.ThemeMode
+import com.measured.app.health.HealthConnectManager
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.common.WeightUnitPicker
 import com.measured.app.ui.theme.accentPaletteFor
+import com.measured.app.ui.theme.supportsDynamicColor
 import com.measured.app.ui.theme.themedFilterChipColors
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -89,7 +92,6 @@ import java.time.format.DateTimeFormatter
 
 private val timeFormatter12h = DateTimeFormatter.ofPattern("h:mm a")
 private val timeFormatter24h = DateTimeFormatter.ofPattern("HH:mm")
-private const val PRIVACY_POLICY_URL = "https://akcan-d.github.io/andweight/privacy-policy.html"
 private const val FEEDBACK_EMAIL = "andweight.app@gmail.com"
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -112,6 +114,7 @@ fun SettingsScreen(
     val isSupporter by viewModel.isSupporter.collectAsState()
     val accentTheme by viewModel.accentTheme.collectAsState()
     val highContrast by viewModel.highContrast.collectAsState()
+    val useDynamicColor by viewModel.useDynamicColor.collectAsState()
     val isWidgetThemeSynced by viewModel.isWidgetThemeSynced.collectAsState()
     val mealTimingMode by viewModel.mealTimingMode.collectAsState()
     val context = LocalContext.current
@@ -224,6 +227,16 @@ fun SettingsScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+        val healthConnectSyncEnabled by viewModel.healthConnectSyncEnabled.collectAsState()
+        HealthConnectSection(
+            healthConnectManager = viewModel.healthConnectManager,
+            syncEnabled = healthConnectSyncEnabled,
+            onSyncEnabledChange = viewModel::setHealthConnectSyncEnabled,
+            onImport = viewModel::importHealthConnectWeights,
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Check-in", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             InfoTooltipIcon(
@@ -261,11 +274,26 @@ fun SettingsScreen(
 
         Text("Color theme", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (supportsDynamicColor) {
+                FilterChip(
+                    selected = useDynamicColor,
+                    onClick = { viewModel.setUseDynamicColor(true) },
+                    label = { Text("Dynamic") },
+                    colors = themedFilterChipColors(),
+                )
+            }
             AccentTheme.entries.forEach { theme ->
                 val locked = theme.isSupporterOnly && !isSupporter
                 FilterChip(
-                    selected = accentTheme == theme,
-                    onClick = { if (locked) showSupporterLockedDialog = true else viewModel.setAccentTheme(theme) },
+                    selected = !useDynamicColor && accentTheme == theme,
+                    onClick = {
+                        if (locked) {
+                            showSupporterLockedDialog = true
+                        } else {
+                            viewModel.setUseDynamicColor(false)
+                            viewModel.setAccentTheme(theme)
+                        }
+                    },
                     label = { Text(theme.label) },
                     leadingIcon = if (locked) {
                         { Icon(Icons.Outlined.Lock, contentDescription = "Supporter only", modifier = Modifier.size(16.dp)) }
@@ -275,6 +303,14 @@ fun SettingsScreen(
                     colors = themedFilterChipColors(),
                 )
             }
+        }
+        if (useDynamicColor) {
+            Text(
+                "Colors are pulled from your wallpaper - high contrast and the app icon/widget sync " +
+                    "below use whichever theme is picked above instead, since those need a fixed palette.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         // Only shown when there's actually something to sync - the icon's real, persisted
         // component state is the source of truth for "current", not a separately-tracked value
@@ -649,6 +685,114 @@ private fun ReminderSection(
                 showTimePicker = false
             },
             onDismiss = { showTimePicker = false },
+        )
+    }
+}
+
+@Composable
+private fun HealthConnectSection(
+    healthConnectManager: HealthConnectManager,
+    syncEnabled: Boolean,
+    onSyncEnabledChange: (Boolean) -> Unit,
+    onImport: suspend () -> Int,
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var hasPermission by remember { mutableStateOf(false) }
+    var importedCount by remember { mutableStateOf<Int?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(healthConnectManager.requestPermissionsContract()) {
+        coroutineScope.launch { hasPermission = healthConnectManager.hasAllPermissions() }
+    }
+
+    // Permission can be revoked from Health Connect's own Settings page at any time, not just
+    // from inside Measured - so this is re-checked on every resume, the same way the battery-
+    // optimization warning above is.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(Unit) { hasPermission = healthConnectManager.hasAllPermissions() }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                coroutineScope.launch { hasPermission = healthConnectManager.hasAllPermissions() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Health Connect", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        InfoTooltipIcon(
+            title = "Health Connect",
+            text = "Android's on-device health data broker. Turning this on lets Measured share your " +
+                "logged weight with other apps you've granted access to, and pull in readings those " +
+                "apps write - a smart scale's own app, for instance. Nothing leaves your device and no " +
+                "account is needed. Permission is granted through Health Connect's own screen, not " +
+                "this app's, and can be revoked there at any time.",
+        )
+    }
+
+    when (healthConnectManager.availability) {
+        HealthConnectManager.Availability.UNSUPPORTED -> {
+            Text(
+                "Not available on this device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        HealthConnectManager.Availability.NEEDS_INSTALL_OR_UPDATE -> {
+            Text(
+                "Requires the Health Connect app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = {
+                try {
+                    context.startActivity(healthConnectManager.playStoreIntent())
+                } catch (_: ActivityNotFoundException) {
+                    Toast.makeText(context, "Couldn't open the Play Store", Toast.LENGTH_SHORT).show()
+                }
+            }) {
+                Text("Install Health Connect")
+            }
+        }
+        HealthConnectManager.Availability.AVAILABLE -> {
+            if (hasPermission) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = syncEnabled, onValueChange = onSyncEnabledChange, role = Role.Switch),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Share logged weight automatically")
+                    Switch(checked = syncEnabled, onCheckedChange = null)
+                }
+                TextButton(onClick = { coroutineScope.launch { importedCount = onImport() } }) {
+                    Text("Import weight readings now")
+                }
+            } else {
+                OutlinedButton(onClick = { permissionLauncher.launch(healthConnectManager.permissions) }) {
+                    Text("Connect to Health Connect")
+                }
+            }
+        }
+    }
+
+    importedCount?.let { count ->
+        AlertDialog(
+            onDismissRequest = { importedCount = null },
+            title = { Text("Import complete") },
+            text = {
+                Text(
+                    if (count == 0) {
+                        "No new readings to import - every day Health Connect has a weight for is already logged here."
+                    } else {
+                        "Imported $count new weight ${if (count == 1) "entry" else "entries"}."
+                    },
+                )
+            },
+            confirmButton = { TextButton(onClick = { importedCount = null }) { Text("OK") } },
         )
     }
 }

@@ -38,13 +38,19 @@ fun AndWeightApp(initialShortcutTarget: String? = null) {
     val themeMode by app.settingsRepository.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
     val accentTheme by app.settingsRepository.accentThemeFlow.collectAsState(initial = AccentTheme.SAGE)
     val highContrast by app.settingsRepository.highContrastFlow.collectAsState(initial = false)
+    val useDynamicColor by app.settingsRepository.useDynamicColorFlow.collectAsState(initial = false)
     val useDarkTheme = when (themeMode) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    AndWeightTheme(darkTheme = useDarkTheme, accentTheme = accentTheme, highContrast = highContrast) {
+    AndWeightTheme(
+        darkTheme = useDarkTheme,
+        accentTheme = accentTheme,
+        highContrast = highContrast,
+        useDynamicColor = useDynamicColor,
+    ) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val navController = rememberNavController()
 

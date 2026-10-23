@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.measured.app.AndWeightApplication
 import com.measured.app.data.AndWeightRepository
 import com.measured.app.data.SettingsRepository
+import com.measured.app.health.HealthConnectManager
 import com.measured.app.ui.journey.JourneyViewModel
 import com.measured.app.ui.journey.MilestoneUnlockViewModel
 import com.measured.app.ui.onboarding.OnboardingViewModel
@@ -29,7 +30,7 @@ object AppViewModelProvider {
         initializer { OnboardingViewModel(repository(), settingsRepository(), application()) }
         initializer { TodayViewModel(repository(), settingsRepository()) }
         initializer { JourneyViewModel(repository(), settingsRepository()) }
-        initializer { SettingsViewModel(settingsRepository(), repository(), application()) }
+        initializer { SettingsViewModel(settingsRepository(), repository(), healthConnectManager(), application()) }
         initializer { TipOfTheDayViewModel(settingsRepository()) }
         initializer { TipsViewModel(settingsRepository()) }
         initializer { EditProfileViewModel(repository()) }
@@ -48,6 +49,11 @@ private fun CreationExtras.repository(): AndWeightRepository {
 private fun CreationExtras.settingsRepository(): SettingsRepository {
     val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as AndWeightApplication
     return app.settingsRepository
+}
+
+private fun CreationExtras.healthConnectManager(): HealthConnectManager {
+    val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as AndWeightApplication
+    return app.healthConnectManager
 }
 
 private fun CreationExtras.application(): AndWeightApplication =

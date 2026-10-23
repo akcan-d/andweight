@@ -56,6 +56,8 @@ class SettingsRepository(private val context: Context) {
         val WIDGET_THEME_MODE = stringPreferencesKey("widget_theme_mode")
         val WIDGET_ACCENT_THEME = stringPreferencesKey("widget_accent_theme")
         val WIDGET_HIGH_CONTRAST = booleanPreferencesKey("widget_high_contrast")
+        val USE_DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
+        val HEALTH_CONNECT_SYNC_ENABLED = booleanPreferencesKey("health_connect_sync_enabled")
     }
 
     val tipsEnabledFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.TIPS_ENABLED] ?: true }
@@ -158,6 +160,30 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAccentTheme(theme: AccentTheme) {
         context.settingsDataStore.edit { it[Keys.ACCENT_THEME] = theme.name }
+    }
+
+    /** Material You "wallpaper colors" (Android 12+) instead of one of the app's own built-in
+     * palettes. Kept as its own flag rather than a new [AccentTheme] value, since the app icon
+     * and widget both need a fixed, pre-drawn palette to sync to (see [AppIconSwitcher]) and a
+     * per-device wallpaper-derived scheme has no fixed palette to draw an icon for - the
+     * underlying [accentThemeFlow] choice stays put as that fallback while this is on. */
+    val useDynamicColorFlow: Flow<Boolean> = context.settingsDataStore.data.map { it[Keys.USE_DYNAMIC_COLOR] ?: false }
+
+    suspend fun setUseDynamicColor(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.USE_DYNAMIC_COLOR] = enabled }
+    }
+
+    /** Whether the user has turned sync on from Settings - independent of whether Health
+     * Connect's own permission grant is actually in place (that can be revoked from outside the
+     * app at any time), so [com.measured.app.ui.settings.SettingsViewModel] always has something
+     * to re-check against rather than inferring "on" purely from a momentary permission check. */
+    val healthConnectSyncEnabledFlow: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[Keys.HEALTH_CONNECT_SYNC_ENABLED] ?: false }
+
+    suspend fun healthConnectSyncEnabledOnce(): Boolean = healthConnectSyncEnabledFlow.first()
+
+    suspend fun setHealthConnectSyncEnabled(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.HEALTH_CONNECT_SYNC_ENABLED] = enabled }
     }
 
     suspend fun getSupporterPromptShownCount(): Int =

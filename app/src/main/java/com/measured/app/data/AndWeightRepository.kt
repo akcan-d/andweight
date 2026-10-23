@@ -10,13 +10,18 @@ import com.measured.app.domain.TdeeEngine
 import com.measured.app.domain.TdeeState
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
+import com.measured.app.health.HealthConnectManager
 import com.measured.app.widget.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
-class AndWeightRepository(context: Context) {
+class AndWeightRepository(
+    context: Context,
+    private val settingsRepository: SettingsRepository,
+    private val healthConnectManager: HealthConnectManager,
+) {
 
     private val appContext = context.applicationContext
     private val db = AppDatabase.getInstance(context)
@@ -68,6 +73,18 @@ class AndWeightRepository(context: Context) {
     }
 
     suspend fun saveLog(date: LocalDate, weightKg: Double?, calories: Double?, intakeLevel: IntakeLevel?, wasExact: Boolean) {
+        persistLog(date, weightKg, calories, intakeLevel, wasExact)
+        // Mirrors into Health Connect so a smart scale's own app, or any other app the user has
+        // granted read access to, sees the same number - every path that logs a weight (manual
+        // entry, quick-pick, backup restore) goes through this one function, so this is the only
+        // place that needs to know about the sync setting. No-ops quietly if sync is off or
+        // permission was never granted - see HealthConnectManager.writeWeight.
+        if (weightKg != null && settingsRepository.healthConnectSyncEnabledOnce()) {
+            healthConnectManager.writeWeight(date, weightKg)
+        }
+    }
+
+    private suspend fun persistLog(date: LocalDate, weightKg: Double?, calories: Double?, intakeLevel: IntakeLevel?, wasExact: Boolean) {
         logDao.upsert(
             DailyLogEntity(
                 dateEpochDay = date.toEpochDayLong(),
@@ -78,6 +95,25 @@ class AndWeightRepository(context: Context) {
             ),
         )
         WidgetUpdater.refresh(appContext)
+    }
+
+    /** Fills in days that have no weight logged yet from whatever Health Connect has on file -
+     * a smart scale's own app, most likely. Deliberately only fills gaps rather than overwriting
+     * a day that's already been logged by hand, since a manual entry is at least as trustworthy
+     * as a synced one and shouldn't get silently replaced by it. Returns how many days were
+     * filled in, for a one-line confirmation in Settings. Writing straight to [persistLog] rather
+     * than [saveLog] skips mirroring the value right back to Health Connect, which is where it
+     * came from in the first place. */
+    suspend fun importHealthConnectWeights(): Int {
+        var importedCount = 0
+        for ((date, weightKg) in healthConnectManager.readRecentWeights()) {
+            val existing = getLogForDate(date)
+            if (existing?.weightKg == null) {
+                persistLog(date, weightKg, existing?.calories, existing?.intakeLevel, existing?.wasExactEntry ?: false)
+                importedCount++
+            }
+        }
+        return importedCount
     }
 
     /** Wipes the profile and every logged day - a deliberate full reset, not to be confused with

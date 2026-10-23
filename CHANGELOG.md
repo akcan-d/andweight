@@ -7,6 +7,15 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+### Added
+- Material You dynamic color - an optional "Dynamic" color theme that pulls from the phone's
+  wallpaper (Android 12+), alongside the existing named themes
+- Plateau detection - a calm, separate note on the Today screen when the most recent 3+ weeks
+  have shown essentially no net progress toward an active lose/gain goal
+- Health Connect integration (Settings) - optional, off by default: share logged weight
+  automatically with other apps via Health Connect, and/or manually import recent weight
+  readings (e.g. from a smart scale) into days that don't already have one logged
+
 ## [0.28.0] - 2026-10-23
 
 ### Added

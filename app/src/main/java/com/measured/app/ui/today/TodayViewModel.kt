@@ -15,6 +15,8 @@ import com.measured.app.domain.DailyLog
 import com.measured.app.domain.IntakeLevel
 import com.measured.app.domain.IntakeResolver
 import com.measured.app.domain.MealTimingMode
+import com.measured.app.domain.PlateauAssessment
+import com.measured.app.domain.PlateauDetector
 import com.measured.app.domain.SafetyLimits
 import com.measured.app.domain.TdeeEngine
 import com.measured.app.domain.TdeeState
@@ -83,6 +85,10 @@ class TodayViewModel(
 
     val confidence: StateFlow<ConfidenceAssessment?> = combine(profile, tdeeState, logs) { userProfile, state, logList ->
         if (userProfile == null || state == null) null else ConfidenceEvaluator.assess(userProfile, state, logList, actualToday)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val plateau: StateFlow<PlateauAssessment?> = combine(profile, tdeeState) { userProfile, state ->
+        if (userProfile == null || state == null) null else PlateauDetector.assess(userProfile, state)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The day the check-in card is currently showing - may differ from [actualToday] once the

@@ -78,6 +78,7 @@ import com.measured.app.domain.DailyLog
 import com.measured.app.domain.GoalDirection
 import com.measured.app.domain.IntakeLevel
 import com.measured.app.domain.Phrasing
+import com.measured.app.domain.PlateauAssessment
 import com.measured.app.domain.TdeeState
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
@@ -109,6 +110,7 @@ fun TodayScreen(
     val profile by viewModel.profile.collectAsState()
     val tdeeState by viewModel.tdeeState.collectAsState()
     val confidence by viewModel.confidence.collectAsState()
+    val plateau by viewModel.plateau.collectAsState()
     val isSupporter by viewModel.isSupporter.collectAsState()
 
     // Journey's "edit this day" action lands here exactly like a normal tab switch (see
@@ -151,6 +153,7 @@ fun TodayScreen(
                 profile,
                 tdeeState,
                 confidence,
+                plateau,
                 onEditProfile,
                 viewModel::saveGoalWeight,
                 isSupporter,
@@ -166,6 +169,7 @@ private fun StatusCard(
     profile: UserProfile?,
     tdeeState: TdeeState?,
     confidence: ConfidenceAssessment?,
+    plateau: PlateauAssessment?,
     onEditProfile: () -> Unit,
     onSaveGoalWeight: (Double) -> Unit,
     isSupporter: Boolean,
@@ -231,6 +235,10 @@ private fun StatusCard(
                 )
             }
 
+            if (plateau?.isPlateaued == true) {
+                PlateauNote(plateau.weeksFlat)
+            }
+
             // The exact kcal figure is a calculated detail, not the headline - the chip above
             // already says the thing that actually matters ("eat a bit less today"). The one
             // exception is the safety-floor case: when the target's been raised for safety, the
@@ -259,6 +267,48 @@ private fun StatusCard(
                 TdeeStatRow(tdeeState.currentTdee)
                 WeightTrendStatRow(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit)
             }
+        }
+    }
+}
+
+/** A calm, separate note from the main advice banner above - that banner is deliberately the only
+ * "what to eat today" message (see [CoachingAdvisor]), reacting to the most recent week alone, so
+ * a slow week there already gets a "progress has been slow" caution. This is about a longer
+ * pattern instead: [weeksFlat] consecutive weeks of near-zero net change despite logging, which is
+ * worth naming and reassuring about on its own rather than folding into that daily message. */
+@Composable
+private fun PlateauNote(weeksFlat: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.size(10.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "Looks like a plateau",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Text(
+                "Your weight's barely moved over the last $weeksFlat weeks despite keeping up with logging - " +
+                    "that's a completely normal part of the journey, not a sign something's wrong. Water " +
+                    "retention, muscle gain offsetting fat loss, and your body adjusting to a new calorie " +
+                    "level can all cause this. Stay consistent for another week or two before changing " +
+                    "anything - cutting further too soon can backfire.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
         }
     }
 }

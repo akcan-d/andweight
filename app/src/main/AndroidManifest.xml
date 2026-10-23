@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
 
     <application
         android:name=".AndWeightApplication"
@@ -19,7 +21,15 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.AndWeight" />
+            android:theme="@style/Theme.AndWeight">
+            <!-- Required by Health Connect for every client app, regardless of which record
+                 types it uses - lets a user reach this app's data-use explanation from Health
+                 Connect's own "App permissions" screen, not just from inside Measured itself.
+                 Handled in MainActivity.onCreate by jumping straight to the privacy policy. -->
+            <intent-filter>
+                <action android:name="androidx.health.connect.action.SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
 
         <!-- Three aliases for the same activity, each with its own launcher icon - exactly one
              enabled at a time (see AppIconSwitcher). The launcher intent-filter lives on these,

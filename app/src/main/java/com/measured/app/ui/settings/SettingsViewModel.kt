@@ -16,6 +16,7 @@ import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.ThemeMode
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeightUnit
+import com.measured.app.health.HealthConnectManager
 import com.measured.app.notifications.ReminderScheduler
 import com.measured.app.widget.WidgetUpdater
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,6 +30,7 @@ import java.time.temporal.ChronoUnit
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val repository: AndWeightRepository,
+    val healthConnectManager: HealthConnectManager,
     private val application: Application,
 ) : ViewModel() {
 
@@ -56,11 +58,17 @@ class SettingsViewModel(
     val highContrast: StateFlow<Boolean> = settingsRepository.highContrastFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val useDynamicColor: StateFlow<Boolean> = settingsRepository.useDynamicColorFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val isWidgetThemeSynced: StateFlow<Boolean> = settingsRepository.isWidgetThemeSyncedFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     val mealTimingMode: StateFlow<MealTimingMode> = settingsRepository.mealTimingModeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MealTimingMode.SAME_DAY)
+
+    val healthConnectSyncEnabled: StateFlow<Boolean> = settingsRepository.healthConnectSyncEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Set once erasing everything finishes, so navigation back to onboarding can happen from its
      * own effect rather than directly off this coroutine. */
@@ -126,9 +134,19 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.setHighContrast(enabled) }
     }
 
+    fun setUseDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setUseDynamicColor(enabled) }
+    }
+
     fun setMealTimingMode(mode: MealTimingMode) {
         viewModelScope.launch { settingsRepository.setMealTimingMode(mode) }
     }
+
+    fun setHealthConnectSyncEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setHealthConnectSyncEnabled(enabled) }
+    }
+
+    suspend fun importHealthConnectWeights(): Int = repository.importHealthConnectWeights()
 
     /** One-shot: makes the launcher icon match whatever theme is selected right now, then does
      * nothing further - it does not keep following future theme changes. Skips the restart if
