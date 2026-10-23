@@ -73,8 +73,7 @@ fun SupporterScreen(
         ) {
             item {
                 Text(
-                    "The core app is free, always - both Journey charts included. A cheap one-time " +
-                        "supporter unlock adds a few extra perks.",
+                    "The core app is free, always. A cheap one-time supporter unlock adds a few extra perks.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

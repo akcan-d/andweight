@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,20 +25,45 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
+import androidx.compose.material.icons.automirrored.outlined.StarHalf
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.AreaChart
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Celebration
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MilitaryTech
+import androidx.compose.material.icons.outlined.OfflineBolt
+import androidx.compose.material.icons.outlined.RocketLaunch
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.Whatshot
+import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -83,6 +109,7 @@ import com.measured.app.domain.HealthBenefit
 import com.measured.app.domain.Milestone
 import com.measured.app.domain.MilestoneCategory
 import com.measured.app.domain.UserProfile
+import com.measured.app.domain.WeekGrouping
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.SupporterOnlyDialog
@@ -121,7 +148,7 @@ private enum class ChartRange(val label: String) {
 private fun periodBounds(range: ChartRange, anchor: LocalDate, firstDayOfWeek: DayOfWeek): Pair<LocalDate, LocalDate>? =
     when (range) {
         ChartRange.WEEK -> {
-            val start = weekStart(anchor, firstDayOfWeek)
+            val start = WeekGrouping.weekStart(anchor, firstDayOfWeek)
             start to start.plusDays(6)
         }
         ChartRange.MONTH -> {
@@ -149,37 +176,56 @@ private fun periodTitle(range: ChartRange, start: LocalDate, end: LocalDate): St
     ChartRange.ALL -> "All time"
 }
 
-private fun weekStart(date: LocalDate, firstDayOfWeek: DayOfWeek): LocalDate {
-    val diff = (date.dayOfWeek.value - firstDayOfWeek.value + 7) % 7
-    return date.minusDays(diff.toLong())
+/** Every slot a period should show on the x-axis, including ones with no data - a Week always
+ * shows its full 7 days (even ones that haven't happened yet or were never logged), a Month shows
+ * every one of its calendar days, and a Year shows all 12 months, so the chart's shape reflects the
+ * calendar rather than just wherever data happens to exist. */
+private fun periodSlots(range: ChartRange, start: LocalDate, end: LocalDate): List<LocalDate> = when (range) {
+    ChartRange.WEEK -> (0..6).map { start.plusDays(it.toLong()) }
+    ChartRange.MONTH -> generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(end) }.toList()
+    ChartRange.YEAR -> (0..11).map { start.plusMonths(it.toLong()) }
+    ChartRange.ALL -> emptyList()
 }
 
-/** Month view averages its days into one point per calendar week, and Year view into one point
- * per calendar month - Week and All stay daily. A point's date is its sub-period's start, so
- * aggregated points still sort and plot left-to-right the same way daily ones do. Points with no
- * logged value in a sub-period simply don't produce a point, same as a day with nothing logged
- * today - this is for display, so it only ever sees sub-periods that have at least one entry. */
+/** Lines up [points] against every slot [range] should show within [bounds] - Week and Month stay
+ * daily, Year averages each month's days into one point. A slot with nothing logged still gets an
+ * entry (null value) rather than being skipped, so gaps show as actual gaps instead of silently
+ * compressing the axis. All has no bounds to fill slots against, so it stays exactly what was
+ * logged. */
 private fun aggregateForRange(
     points: List<Pair<LocalDate, Double>>,
     range: ChartRange,
-    firstDayOfWeek: DayOfWeek,
-): List<Pair<LocalDate, Double>> = when (range) {
-    ChartRange.MONTH -> points.groupBy { (date, _) -> weekStart(date, firstDayOfWeek) }
-        .toSortedMap()
-        .map { (start, group) -> start to group.map { it.second }.average() }
-    ChartRange.YEAR -> points.groupBy { (date, _) -> date.withDayOfMonth(1) }
-        .toSortedMap()
-        .map { (start, group) -> start to group.map { it.second }.average() }
-    ChartRange.WEEK, ChartRange.ALL -> points
+    bounds: Pair<LocalDate, LocalDate>?,
+): List<Pair<LocalDate, Double?>> {
+    if (range == ChartRange.ALL || bounds == null) return points.map { it.first to it.second }
+    val (start, end) = bounds
+    val slots = periodSlots(range, start, end)
+    return when (range) {
+        ChartRange.YEAR -> {
+            val byMonth = points.filter { !it.first.isBefore(start) && !it.first.isAfter(end) }
+                .groupBy { it.first.withDayOfMonth(1) }
+                .mapValues { (_, group) -> group.map { it.second }.average() }
+            slots.map { month -> month to byMonth[month] }
+        }
+        else -> {
+            val byDate = points.associate { it.first to it.second }
+            slots.map { date -> date to byDate[date] }
+        }
+    }
 }
 
-/** Per-point date labels for the chart's tap-to-reveal tooltip - "Oct 13" reads fine for a daily
- * point, but an aggregated weekly point needs "Week of Oct 13" to say what it actually represents,
- * and a monthly one just needs the month's name. */
+/** Per-point date labels for the chart's tap-to-reveal tooltip and axis ticks - a daily point
+ * (Week, Month, or All) just needs its own date, a monthly one (Year) just needs the month name. */
 private fun dateLabelFormatter(range: ChartRange): (LocalDate) -> String = when (range) {
-    ChartRange.MONTH -> { date -> "Week of ${date.format(shortDateFormatter)}" }
     ChartRange.YEAR -> { date -> date.format(DateTimeFormatter.ofPattern("MMMM")) }
-    ChartRange.WEEK, ChartRange.ALL -> { date -> date.format(shortDateFormatter) }
+    else -> { date -> date.format(shortDateFormatter) }
+}
+
+/** Compact per-slot labels for the row of ticks under the chart - only shown when there are few
+ * enough slots to not crowd (see [AxisTickRow]). */
+private fun axisTickFormatter(range: ChartRange): (LocalDate) -> String = when (range) {
+    ChartRange.YEAR -> { date -> date.format(DateTimeFormatter.ofPattern("MMM")) }
+    else -> { date -> date.format(DateTimeFormatter.ofPattern("d")) }
 }
 
 // Below this, a Week/Month/Year breakdown would mostly just show "All" three different ways -
@@ -201,6 +247,7 @@ fun JourneyScreen(
     val dataFillRate by viewModel.dataFillRate.collectAsState()
     val isSupporter by viewModel.isSupporter.collectAsState()
     var chartStyle by remember { mutableStateOf(ChartStyle.LINE) }
+    var chartSmoothed by remember { mutableStateOf(false) }
     var chartRange by remember { mutableStateOf(ChartRange.MONTH) }
     // Any date within the period currently shown - jumps back to today whenever the range type
     // itself changes, so switching from "last March" in Month view to Week view lands on the
@@ -208,6 +255,11 @@ fun JourneyScreen(
     var periodAnchor by remember { mutableStateOf(LocalDate.now()) }
     LaunchedEffect(chartRange) { periodAnchor = LocalDate.now() }
     var showSupporterLockedDialog by remember { mutableStateOf(false) }
+    // Bumped by a tap anywhere outside a chart's own data points, so an open tap-to-reveal
+    // tooltip clears instead of staying stuck open - taps that land on a point, a chip, or a
+    // button are consumed there first and never reach this, so scrolling and other controls are
+    // unaffected.
+    var tapClearSignal by remember { mutableStateOf(0) }
 
     if (showSupporterLockedDialog) {
         SupporterOnlyDialog(
@@ -221,7 +273,12 @@ fun JourneyScreen(
 
     val hasAnyData = logs.isNotEmpty()
 
-    Column(modifier = Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding())) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = contentPadding.calculateTopPadding())
+            .pointerInput(Unit) { detectTapGestures(onTap = { tapClearSignal++ }) },
+    ) {
         if (!hasAnyData) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -267,7 +324,9 @@ fun JourneyScreen(
 
             // One control bar above both charts rather than each card growing its own - date
             // range and chart style both apply to the weight and calorie trends together, since
-            // there's no reason to view them on different ranges or in different styles.
+            // there's no reason to view them on different ranges or in different styles. Style
+            // (and the supporter-only smoothing option) live behind a gear menu rather than their
+            // own row of icons, which otherwise crowded against the range chips on narrow phones.
             item {
                 ChartControlBar(
                     range = chartRange,
@@ -275,12 +334,14 @@ fun JourneyScreen(
                     onRangeChange = { chartRange = it },
                     style = chartStyle,
                     onStyleChange = { chartStyle = it },
+                    smoothed = chartSmoothed,
+                    onSmoothedChange = { chartSmoothed = it },
                     isSupporter = isSupporter,
                     onLockedTap = { showSupporterLockedDialog = true },
                 )
             }
 
-            val firstDayOfWeek = profile?.weightUnit?.firstDayOfWeek ?: DayOfWeek.MONDAY
+            val firstDayOfWeek = WeekGrouping.systemFirstDayOfWeek()
             val bounds = periodBounds(chartRange, periodAnchor, firstDayOfWeek)
             if (bounds != null) {
                 item {
@@ -295,25 +356,30 @@ fun JourneyScreen(
 
             val chartLogs = bounds?.let { (start, end) -> logs.filter { it.date >= start && it.date <= end } } ?: logs
             val effectiveChartStyle = if (isSupporter) chartStyle else ChartStyle.LINE
+            val effectiveSmoothed = isSupporter && chartSmoothed
 
             item {
                 WeightTrendCard(
                     logs = chartLogs,
                     profile = profile,
                     chartStyle = effectiveChartStyle,
+                    smoothed = effectiveSmoothed,
                     range = chartRange,
-                    firstDayOfWeek = firstDayOfWeek,
+                    bounds = bounds,
+                    tapClearSignal = tapClearSignal,
                 )
             }
 
-            // Everyone gets both trend charts now - a supporter perk is the chart style (see
-            // ChartStyleToggle), not seeing the calorie chart at all.
+            // Everyone gets both trend charts now - a supporter perk is the chart style and
+            // smoothing (see ChartOptionsMenu), not seeing the calorie chart at all.
             item {
                 CalorieTrendCard(
                     logs = chartLogs,
                     chartStyle = effectiveChartStyle,
+                    smoothed = effectiveSmoothed,
                     range = chartRange,
-                    firstDayOfWeek = firstDayOfWeek,
+                    bounds = bounds,
+                    tapClearSignal = tapClearSignal,
                 )
             }
 
@@ -555,30 +621,21 @@ private fun MilestonesMascot() {
     }
 }
 
-// Milestones are grouped by category rather than shown as one flat list, since each category can
-// now hold every rung ever reached (not just the latest) - the most recent rung in a category
-// shows as a full gold-accented card, with any earlier ones in that category tucked behind an
-// expandable row styled like a medal case (silver, then bronze, then plain for anything further
-// back) so the achievement history stays visible without the page turning into a long wall of
-// cards that all say roughly the same thing.
+// Milestones are grouped by category, each showing every rung ever reached in that category (not
+// just the latest) plus whatever's coming up next in it - rather than a separate "Up next" pile at
+// the bottom, since what's coming up in, say, Consistency belongs with the rest of that category's
+// story, not lumped in with every other category's next rung. The most recent reached rung shows
+// as a full gold-accented card; earlier ones in that category are tucked behind it - tapping the
+// gold card itself (not a separate text link) reveals them, styled like a medal case (silver, then
+// bronze, then plain for anything further back), with a small chevron on the card as the only hint
+// there's more, so the page doesn't turn into a long wall of cards that all say roughly the same
+// thing.
 @Composable
 private fun MilestonesSection(milestones: List<Milestone>) {
     if (milestones.isEmpty()) return
-    val achieved = milestones.filter { it.achieved }
-    val upNext = milestones.filter { !it.achieved }
 
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        if (achieved.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Unlocked", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                MilestoneCategory.entries.forEach { category ->
-                    val inCategory = achieved.filter { it.category == category }
-                    if (inCategory.isNotEmpty()) {
-                        AchievementTierGroup(inCategory)
-                    }
-                }
-            }
-        } else {
+        if (milestones.none { it.achieved }) {
             Text(
                 "Keep logging to earn your first milestone.",
                 style = MaterialTheme.typography.bodySmall,
@@ -586,17 +643,26 @@ private fun MilestonesSection(milestones: List<Milestone>) {
             )
         }
 
-        if (upNext.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "Up next",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                AchievementGrid(upNext)
+        MilestoneCategory.entries.forEach { category ->
+            val inCategory = milestones.filter { it.category == category }
+            if (inCategory.isNotEmpty()) {
+                MilestoneCategorySection(category, inCategory)
             }
         }
+    }
+}
+
+@Composable
+private fun MilestoneCategorySection(category: MilestoneCategory, inCategory: List<Milestone>) {
+    val achieved = inCategory.filter { it.achieved }
+    val upNext = inCategory.firstOrNull { !it.achieved }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(category.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        if (achieved.isNotEmpty()) {
+            AchievementTierGroup(achieved)
+        }
+        upNext?.let { AchievementCard(it, modifier = Modifier.fillMaxWidth()) }
     }
 }
 
@@ -609,33 +675,18 @@ private fun AchievementTierGroup(achievedInCategory: List<Milestone>) {
     val earlier = achievedInCategory.dropLast(1).asReversed()
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AchievementCard(latest, tier = AchievementTier.GOLD, modifier = Modifier.fillMaxWidth())
-        if (earlier.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded }
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (expanded) "Hide earlier milestones" else "+${earlier.size} earlier in this category",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Icon(
-                    if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (expanded) {
-                AchievementGrid(
-                    earlier,
-                    tierFor = { index -> if (index == 0) AchievementTier.SILVER else if (index == 1) AchievementTier.BRONZE else AchievementTier.NONE },
-                )
-            }
+        AchievementCard(
+            latest,
+            tier = AchievementTier.GOLD,
+            expandState = if (earlier.isNotEmpty()) expanded else null,
+            onClick = if (earlier.isNotEmpty()) { { expanded = !expanded } } else null,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (expanded && earlier.isNotEmpty()) {
+            AchievementGrid(
+                earlier,
+                tierFor = { index -> if (index == 0) AchievementTier.SILVER else if (index == 1) AchievementTier.BRONZE else AchievementTier.NONE },
+            )
         }
     }
 }
@@ -667,12 +718,20 @@ private enum class AchievementTier(val ringColor: Color?) {
 private val ACHIEVEMENT_CARD_HEIGHT = 148.dp
 
 @Composable
-private fun AchievementCard(milestone: Milestone, tier: AchievementTier = AchievementTier.NONE, modifier: Modifier = Modifier) {
+private fun AchievementCard(
+    milestone: Milestone,
+    tier: AchievementTier = AchievementTier.NONE,
+    /** null = no "more underneath" indicator; true/false = expanded/collapsed, with the card
+     * itself as the tap target to toggle it (see [AchievementTierGroup]). */
+    expandState: Boolean? = null,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
     val badgeColor = if (milestone.achieved) categoryContainerColor(milestone.category) else MaterialTheme.colorScheme.surfaceVariant
     val badgeContentColor = if (milestone.achieved) categoryContentColor(milestone.category) else MaterialTheme.colorScheme.onSurfaceVariant
 
     Card(
-        modifier = modifier.height(ACHIEVEMENT_CARD_HEIGHT),
+        modifier = modifier.height(ACHIEVEMENT_CARD_HEIGHT).let { if (onClick != null) it.clickable(onClick = onClick) else it },
         colors = CardDefaults.cardColors(
             containerColor = if (milestone.achieved) {
                 MaterialTheme.colorScheme.surface
@@ -681,52 +740,110 @@ private fun AchievementCard(milestone: Milestone, tier: AchievementTier = Achiev
             },
         ),
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(badgeColor)
-                    .let { if (tier.ringColor != null) it.border(2.dp, tier.ringColor, CircleShape) else it },
-                contentAlignment = Alignment.Center,
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Icon(
-                    categoryIcon(milestone.category),
-                    contentDescription = null,
-                    tint = badgeContentColor,
-                    modifier = Modifier.size(24.dp),
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(badgeColor)
+                        .let { if (tier.ringColor != null) it.border(2.dp, tier.ringColor, CircleShape) else it },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        milestoneIcon(milestone),
+                        contentDescription = null,
+                        tint = badgeContentColor,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    milestone.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (milestone.achieved) "Unlocked" else (milestone.hint ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (milestone.achieved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                milestone.title,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                if (milestone.achieved) "Unlocked" else (milestone.hint ?: ""),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (milestone.achieved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            expandState?.let { expanded ->
+                Icon(
+                    if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (expanded) "Hide earlier milestones in this category" else "Show earlier milestones in this category",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
+            }
         }
     }
 }
 
-private fun categoryIcon(category: MilestoneCategory): ImageVector = when (category) {
-    MilestoneCategory.TIME -> Icons.Outlined.Schedule
-    MilestoneCategory.STREAK -> Icons.Outlined.LocalFireDepartment
-    MilestoneCategory.PROGRESS -> Icons.Outlined.Flag
-    MilestoneCategory.AMOUNT -> Icons.Outlined.MonitorWeight
+/** A distinct icon per specific milestone rung (not just one icon per broad category) - threshold
+ * values are parsed back out of [Milestone.id], which already embeds them (see
+ * [com.measured.app.domain.JourneyMilestones]), rather than keeping a second parallel list that
+ * could drift out of sync with the thresholds that actually define each milestone. */
+private fun milestoneIcon(milestone: Milestone): ImageVector {
+    val id = milestone.id
+    return when (milestone.category) {
+        MilestoneCategory.TIME -> when (id.removePrefix("time_").toLongOrNull()) {
+            1L -> Icons.Outlined.RocketLaunch
+            7L -> Icons.Outlined.CalendarToday
+            14L -> Icons.Outlined.DateRange
+            30L -> Icons.Outlined.CalendarMonth
+            90L -> Icons.Outlined.Timeline
+            180L -> Icons.Outlined.Insights
+            365L -> Icons.Outlined.Celebration
+            else -> Icons.Outlined.Schedule
+        }
+        MilestoneCategory.STREAK -> when (id.removePrefix("streak_").toIntOrNull()) {
+            3 -> Icons.Outlined.Bolt
+            7 -> Icons.Outlined.LocalFireDepartment
+            14 -> Icons.Outlined.Whatshot
+            30 -> Icons.Outlined.OfflineBolt
+            60 -> Icons.Outlined.AutoAwesome
+            100 -> Icons.Outlined.MilitaryTech
+            else -> Icons.Outlined.LocalFireDepartment
+        }
+        MilestoneCategory.PROGRESS -> when (id.removePrefix("progress_").toDoubleOrNull()) {
+            0.10 -> Icons.AutoMirrored.Outlined.TrendingUp
+            0.25 -> Icons.Outlined.Flag
+            0.50 -> Icons.AutoMirrored.Outlined.StarHalf
+            0.75 -> Icons.Outlined.Star
+            1.00 -> Icons.Outlined.WorkspacePremium
+            else -> Icons.Outlined.Flag
+        }
+        MilestoneCategory.AMOUNT -> when (id.removePrefix("amount_").substringBefore('_').toDoubleOrNull()) {
+            0.5 -> Icons.Outlined.Spa
+            1.0 -> Icons.AutoMirrored.Outlined.DirectionsWalk
+            2.0 -> Icons.AutoMirrored.Outlined.DirectionsRun
+            5.0 -> Icons.Outlined.FitnessCenter
+            10.0 -> Icons.Outlined.Insights
+            20.0 -> Icons.Outlined.MilitaryTech
+            50.0 -> Icons.Outlined.WorkspacePremium
+            100.0 -> Icons.Outlined.EmojiEvents
+            200.0 -> Icons.Outlined.Celebration
+            500.0 -> Icons.Outlined.AutoAwesome
+            else -> Icons.Outlined.MonitorWeight
+        }
+    }
 }
 
 @Composable
@@ -845,9 +962,11 @@ private fun ResearchFactRow(fact: HealthBenefit, expanded: Boolean, onToggle: ()
     }
 }
 
-/** One control bar above both trend cards - date range and chart style apply to the weight and
- * calorie trends together, since there's no reason to view them on different ranges or in
- * different styles. */
+/** Date range is the only thing left in the main control row now - chart style and line
+ * smoothing moved into a small gear menu (see [ChartOptionsMenu]) once a growing list of
+ * per-chart options started crowding this row badly enough to overlap on narrow phones. Both
+ * still apply to the weight and calorie trends together, since there's no reason to view them on
+ * different ranges or in different styles. */
 @Composable
 private fun ChartControlBar(
     range: ChartRange,
@@ -855,6 +974,8 @@ private fun ChartControlBar(
     onRangeChange: (ChartRange) -> Unit,
     style: ChartStyle,
     onStyleChange: (ChartStyle) -> Unit,
+    smoothed: Boolean,
+    onSmoothedChange: (Boolean) -> Unit,
     isSupporter: Boolean,
     onLockedTap: () -> Unit,
 ) {
@@ -863,11 +984,8 @@ private fun ChartControlBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Scrollable and weighted rather than a plain Row - 4 range chips plus 3 style icons
-        // don't reliably fit a phone's width in one unconstrained row, which pushed (and on
-        // narrow screens, clipped) the style toggle off the visible edge entirely. Weighting
-        // this side measures the toggle at its own fixed size first and gives the chips whatever
-        // space is left, scrolling instead of overflowing.
+        // Scrollable and weighted rather than a plain Row, so a long run of range chips on a
+        // narrow phone scrolls instead of overflowing past the gear icon.
         Row(
             modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -881,7 +999,7 @@ private fun ChartControlBar(
                 )
             }
         }
-        ChartStyleToggle(style, onStyleChange, isSupporter, onLockedTap)
+        ChartOptionsMenu(style, onStyleChange, smoothed, onSmoothedChange, isSupporter, onLockedTap)
     }
 }
 
@@ -914,8 +1032,10 @@ private fun WeightTrendCard(
     logs: List<DailyLog>,
     profile: UserProfile?,
     chartStyle: ChartStyle,
+    smoothed: Boolean,
     range: ChartRange,
-    firstDayOfWeek: DayOfWeek,
+    bounds: Pair<LocalDate, LocalDate>?,
+    tapClearSignal: Int,
 ) {
     val rawPoints = logs.filter { it.weightKg != null }.sortedBy { it.date }
         .map { it.date to it.weightKg!! }
@@ -928,10 +1048,10 @@ private fun WeightTrendCard(
 
             val unit = profile?.weightUnit
             val aggregated = unit?.let {
-                aggregateForRange(rawPoints, range, firstDayOfWeek).map { (date, kg) -> date to it.fromKg(kg) }
+                aggregateForRange(rawPoints, range, bounds).map { (date, kg) -> date to kg?.let(it::fromKg) }
             } ?: emptyList()
 
-            if (aggregated.size < 2 || unit == null) {
+            if (unit == null || aggregated.count { it.second != null } < 2) {
                 Text(
                     "A few more days of data needed.",
                     style = MaterialTheme.typography.bodySmall,
@@ -942,28 +1062,27 @@ private fun WeightTrendCard(
 
             val dates = aggregated.map { it.first }
             val weights = aggregated.map { it.second }
+            val nonNullWeights = weights.filterNotNull()
             val goalWeight = unit.fromKg(profile.goalWeightKg)
             val unitLabel = unit.name.lowercase()
-            val labelFormatter = dateLabelFormatter(range)
 
             TrendChartCanvas(
                 dates = dates,
                 values = weights,
                 style = chartStyle,
+                smoothed = smoothed,
                 color = lineColor,
                 axisStep = 1.0,
                 goalValue = goalWeight,
                 goalColor = goalColor,
                 valueFormatter = { "${oneDecimal(it)} $unitLabel" },
-                dateLabelFormatter = labelFormatter,
-                contentDescription = "Weight trend chart, from ${oneDecimal(weights.first())} to " +
-                    "${oneDecimal(weights.last())} $unitLabel, goal ${oneDecimal(goalWeight)} $unitLabel",
+                dateLabelFormatter = dateLabelFormatter(range),
+                tapClearSignal = tapClearSignal,
+                contentDescription = "Weight trend chart, from ${oneDecimal(nonNullWeights.first())} to " +
+                    "${oneDecimal(nonNullWeights.last())} $unitLabel, goal ${oneDecimal(goalWeight)} $unitLabel",
             )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(labelFormatter(dates.first()), style = MaterialTheme.typography.bodySmall)
-                Text(labelFormatter(dates.last()), style = MaterialTheme.typography.bodySmall)
-            }
+            AxisTickRow(dates, range)
             Text(
                 "- - - goal (${oneDecimal(goalWeight)} $unitLabel)",
                 style = MaterialTheme.typography.bodySmall,
@@ -974,7 +1093,14 @@ private fun WeightTrendCard(
 }
 
 @Composable
-private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle, range: ChartRange, firstDayOfWeek: DayOfWeek) {
+private fun CalorieTrendCard(
+    logs: List<DailyLog>,
+    chartStyle: ChartStyle,
+    smoothed: Boolean,
+    range: ChartRange,
+    bounds: Pair<LocalDate, LocalDate>?,
+    tapClearSignal: Int,
+) {
     val rawPoints = logs.filter { it.calories != null }.sortedBy { it.date }
         .map { it.date to it.calories!! }
     val lineColor = MaterialTheme.colorScheme.secondary
@@ -992,9 +1118,9 @@ private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle, range
                 )
             }
 
-            val aggregated = aggregateForRange(rawPoints, range, firstDayOfWeek)
+            val aggregated = aggregateForRange(rawPoints, range, bounds)
 
-            if (aggregated.size < 2) {
+            if (aggregated.count { it.second != null } < 2) {
                 Text(
                     "A few more days of data needed.",
                     style = MaterialTheme.typography.bodySmall,
@@ -1005,53 +1131,92 @@ private fun CalorieTrendCard(logs: List<DailyLog>, chartStyle: ChartStyle, range
 
             val dates = aggregated.map { it.first }
             val calories = aggregated.map { it.second }
-            val labelFormatter = dateLabelFormatter(range)
+            val nonNullCalories = calories.filterNotNull()
 
             TrendChartCanvas(
                 dates = dates,
                 values = calories,
                 style = chartStyle,
+                smoothed = smoothed,
                 color = lineColor,
-                axisStep = 50.0,
+                axisStep = 200.0,
+                forceMinZero = true,
                 valueFormatter = { "${it.toInt()} kcal" },
-                dateLabelFormatter = labelFormatter,
+                dateLabelFormatter = dateLabelFormatter(range),
+                tapClearSignal = tapClearSignal,
                 contentDescription =
-                    "Calorie trend chart, from ${calories.first().toInt()} to ${calories.last().toInt()} calories",
+                    "Calorie trend chart, from ${nonNullCalories.first().toInt()} to ${nonNullCalories.last().toInt()} calories",
             )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(labelFormatter(dates.first()), style = MaterialTheme.typography.bodySmall)
-                Text(labelFormatter(dates.last()), style = MaterialTheme.typography.bodySmall)
-            }
+            AxisTickRow(dates, range)
         }
     }
 }
 
-/** Shared drawing + interaction for both trend charts - line/bar/area rendering, an optional
- * dashed goal line, and tap-to-reveal-value (tapping a bar/point shows its date and exact value,
- * tapping it again hides it). Pulled out of the two trend cards since they differed only in
- * their data, color, and value formatting, not in how the chart itself behaves. */
+/** Compact per-slot labels under the chart - one per day/month when there are few enough to not
+ * crowd (a Week's 7 days, a Year's 12 months), falling back to just the period's first and last
+ * date otherwise (a Month's 28-31 days, or All's unbounded daily history). */
+@Composable
+private fun AxisTickRow(dates: List<LocalDate>, range: ChartRange) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        if (dates.size <= 12) {
+            val tickFormatter = axisTickFormatter(range)
+            dates.forEach { d ->
+                Text(tickFormatter(d), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            val labelFormatter = dateLabelFormatter(range)
+            Text(labelFormatter(dates.first()), style = MaterialTheme.typography.bodySmall)
+            Text(labelFormatter(dates.last()), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** Shared drawing + interaction for both trend charts - line/bar/area rendering (with optional
+ * smoothing on line/area), an optional dashed goal line, and tap-to-reveal-value (tapping a
+ * bar/point shows its date and exact value; tapping it again, or anywhere else on screen, hides
+ * it - see [tapClearSignal]). Pulled out of the two trend cards since they differed only in their
+ * data, color, and value formatting, not in how the chart itself behaves.
+ *
+ * [values] can hold nulls for a slot with nothing logged (an empty day in Week/Month, or an empty
+ * month in Year) - the line/area breaks across a gap instead of connecting through it, and a bar
+ * chart simply has no bar there. A lone logged value surrounded by gaps gets a small dot instead
+ * of vanishing silently, since there's no line or bar to draw it through. */
 @Composable
 private fun TrendChartCanvas(
     dates: List<LocalDate>,
-    values: List<Double>,
+    values: List<Double?>,
     style: ChartStyle,
+    smoothed: Boolean,
     color: Color,
     axisStep: Double,
     valueFormatter: (Double) -> String,
     contentDescription: String,
+    tapClearSignal: Int,
+    forceMinZero: Boolean = false,
     goalValue: Double? = null,
     goalColor: Color = Color.Unspecified,
     dateLabelFormatter: (LocalDate) -> String = { it.format(shortDateFormatter) },
 ) {
     var selectedIndex by remember(dates) { mutableStateOf<Int?>(null) }
-    val dataMin = minOf(values.min(), goalValue ?: values.min())
-    val dataMax = maxOf(values.max(), goalValue ?: values.max())
+    LaunchedEffect(tapClearSignal) { selectedIndex = null }
+
+    val nonNullValues = values.filterNotNull()
     // Rounded outward to the nearest step rather than the exact data extremes, so a point
     // sitting right at the top or bottom of the chart has a little breathing room instead of
-    // touching the edge - e.g. an actual range of 1929-4501 becomes an axis of 1900-4550.
-    val (minValue, maxValue) = niceAxisBounds(dataMin, dataMax, axisStep)
-    val range = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
+    // touching the edge - e.g. an actual range of 1929-4501 becomes an axis of 1900-4550. The
+    // calorie chart instead pins its floor to zero (forceMinZero) - a calorie count has a real
+    // zero, unlike weight, so there's no reason the axis should ever imply otherwise.
+    val (minValue, maxValue) = if (forceMinZero) {
+        0.0 to niceMaxOnly(maxOf(nonNullValues.max(), goalValue ?: nonNullValues.max()), axisStep)
+    } else {
+        val dataMin = minOf(nonNullValues.min(), goalValue ?: nonNullValues.min())
+        val dataMax = maxOf(nonNullValues.max(), goalValue ?: nonNullValues.max())
+        niceAxisBounds(dataMin, dataMax, axisStep)
+    }
+    val valueRange = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
+    val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+    val runs = remember(values) { nonNullRuns(values) }
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Canvas(
@@ -1067,7 +1232,9 @@ private fun TrendChartCanvas(
                         } else {
                             (offset.x / size.width * (dates.size - 1)).roundToInt().coerceIn(0, dates.size - 1)
                         }
-                        selectedIndex = if (selectedIndex == tapped) null else tapped
+                        if (values[tapped] != null) {
+                            selectedIndex = if (selectedIndex == tapped) null else tapped
+                        }
                     }
                 },
         ) {
@@ -1076,7 +1243,12 @@ private fun TrendChartCanvas(
             fun xFor(index: Int): Float =
                 if (dates.size == 1) chartWidth / 2f else chartWidth * index / (dates.size - 1).toFloat()
             fun yFor(value: Double): Float =
-                (chartHeight - ((value - minValue) / range * chartHeight)).toFloat()
+                (chartHeight - ((value - minValue) / valueRange * chartHeight)).toFloat()
+
+            listOf(1f / 3f, 2f / 3f).forEach { f ->
+                val y = chartHeight * (1f - f)
+                drawLine(color = gridColor, start = Offset(0f, y), end = Offset(chartWidth, y), strokeWidth = 1.5f)
+            }
 
             goalValue?.let { goal ->
                 val goalY = yFor(goal)
@@ -1093,6 +1265,7 @@ private fun TrendChartCanvas(
                 ChartStyle.BAR -> {
                     val barWidth = (chartWidth / values.size) * 0.6f
                     values.forEachIndexed { i, value ->
+                        if (value == null) return@forEachIndexed
                         val x = xFor(i)
                         drawRect(
                             color = color,
@@ -1102,32 +1275,33 @@ private fun TrendChartCanvas(
                     }
                 }
                 ChartStyle.AREA -> {
-                    val fillPath = Path().apply {
-                        moveTo(xFor(0), chartHeight)
-                        values.forEachIndexed { i, value -> lineTo(xFor(i), yFor(value)) }
-                        lineTo(xFor(values.size - 1), chartHeight)
-                        close()
-                    }
-                    drawPath(fillPath, color = color.copy(alpha = 0.25f))
-                    for (i in 0 until values.size - 1) {
-                        drawLine(
-                            color = color,
-                            start = Offset(xFor(i), yFor(values[i])),
-                            end = Offset(xFor(i + 1), yFor(values[i + 1])),
-                            strokeWidth = 4f,
-                        )
+                    runs.forEach { run ->
+                        val points = run.map { i -> Offset(xFor(i), yFor(values[i]!!)) }
+                        if (points.size == 1) {
+                            drawCircle(color = color, radius = 4f, center = points[0])
+                            return@forEach
+                        }
+                        val linePath = if (smoothed) smoothPathThrough(points) else straightPathThrough(points)
+                        val fillPath = Path().apply {
+                            addPath(linePath)
+                            lineTo(points.last().x, chartHeight)
+                            lineTo(points.first().x, chartHeight)
+                            close()
+                        }
+                        drawPath(fillPath, color = color.copy(alpha = 0.25f))
+                        drawPath(linePath, color = color, style = Stroke(width = 4f, cap = StrokeCap.Round))
                     }
                 }
                 ChartStyle.LINE -> {
-                    for (i in 0 until values.size - 1) {
-                        drawLine(
-                            color = color,
-                            start = Offset(xFor(i), yFor(values[i])),
-                            end = Offset(xFor(i + 1), yFor(values[i + 1])),
-                            strokeWidth = 4f,
-                        )
+                    runs.forEach { run ->
+                        val points = run.map { i -> Offset(xFor(i), yFor(values[i]!!)) }
+                        if (points.size == 1) {
+                            drawCircle(color = color, radius = 4f, center = points[0])
+                        } else {
+                            val path = if (smoothed) smoothPathThrough(points) else straightPathThrough(points)
+                            drawPath(path, color = color, style = Stroke(width = 4f, cap = StrokeCap.Round))
+                        }
                     }
-                    values.forEachIndexed { i, value -> drawCircle(color = color, radius = 5f, center = Offset(xFor(i), yFor(value))) }
                 }
             }
 
@@ -1140,14 +1314,24 @@ private fun TrendChartCanvas(
                     strokeWidth = 2f,
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f),
                 )
-                drawCircle(color = color, radius = 7f, center = Offset(x, yFor(values[i])))
+                drawCircle(color = color, radius = 7f, center = Offset(x, yFor(values[i]!!)))
             }
         }
-        AxisLabel(valueFormatter(maxValue), Alignment.TopStart)
-        AxisLabel(valueFormatter(minValue), Alignment.BottomStart)
+
+        // Four labels (max down to min) spread evenly down the chart's fixed height, matching
+        // the two internal gridlines above - clearer than just the top/bottom extremes alone.
+        Column(
+            modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp).align(Alignment.CenterStart),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            listOf(1.0, 2.0 / 3.0, 1.0 / 3.0, 0.0).forEach { f ->
+                AxisLabel(valueFormatter(minValue + (maxValue - minValue) * f))
+            }
+        }
+
         selectedIndex?.let { i ->
             Text(
-                "${dateLabelFormatter(dates[i])}: ${valueFormatter(values[i])}",
+                "${dateLabelFormatter(dates[i])}: ${valueFormatter(values[i]!!)}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
@@ -1159,62 +1343,97 @@ private fun TrendChartCanvas(
     }
 }
 
-/** A compact 3-way style switch shared by both trend cards - picking one applies to both charts
- * at once, since there's no reason to view them differently. Bar and area are a supporter perk,
- * shown the same way as a locked color theme in Settings: still visible and tappable, but with a
- * small lock badge instead of actually switching, rather than disappearing outright (so the perk
- * is discoverable, not just absent). */
+/** Chart style and line smoothing both apply to the weight and calorie trends together, tucked
+ * behind one gear icon rather than a row of their own icons - open to everyone, so the perks stay
+ * discoverable, with supporter-only options shown locked (a small lock icon, still tappable to
+ * explain itself) rather than hidden outright. */
 @Composable
-private fun ChartStyleToggle(
-    selected: ChartStyle,
-    onChange: (ChartStyle) -> Unit,
+private fun ChartOptionsMenu(
+    style: ChartStyle,
+    onStyleChange: (ChartStyle) -> Unit,
+    smoothed: Boolean,
+    onSmoothedChange: (Boolean) -> Unit,
     isSupporter: Boolean,
     onLockedTap: () -> Unit,
 ) {
-    @Composable
-    fun StyleIcon(style: ChartStyle, icon: ImageVector, locked: Boolean) {
-        Box {
-            IconButton(onClick = { if (!locked) onChange(style) else onLockedTap() }) {
-                Icon(
-                    icon,
-                    contentDescription = if (locked) "${style.label} chart - supporters only" else "${style.label} chart",
-                    tint = if (selected == style) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (locked) {
-                Icon(
-                    Icons.Outlined.Lock,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = 6.dp, end = 6.dp)
-                        .size(12.dp)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape)
-                        .padding(1.dp),
-                )
-            }
-        }
-    }
+    var expanded by remember { mutableStateOf(false) }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        StyleIcon(ChartStyle.LINE, Icons.AutoMirrored.Outlined.ShowChart, locked = false)
-        StyleIcon(ChartStyle.BAR, Icons.Outlined.BarChart, locked = !isSupporter)
-        StyleIcon(ChartStyle.AREA, Icons.Outlined.AreaChart, locked = !isSupporter)
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Outlined.Settings, contentDescription = "Chart options")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            ChartOptionsHeader("Style")
+            ChartStyle.entries.forEach { option ->
+                val locked = option != ChartStyle.LINE && !isSupporter
+                ChartOptionMenuItem(
+                    label = option.label,
+                    icon = styleIcon(option),
+                    selected = style == option,
+                    locked = locked,
+                    onClick = {
+                        expanded = false
+                        if (locked) onLockedTap() else onStyleChange(option)
+                    },
+                )
+            }
+            HorizontalDivider()
+            ChartOptionsHeader("Line")
+            ChartOptionMenuItem(
+                label = "Smoothed",
+                icon = Icons.AutoMirrored.Outlined.ShowChart,
+                selected = smoothed,
+                locked = !isSupporter,
+                onClick = {
+                    expanded = false
+                    if (!isSupporter) onLockedTap() else onSmoothedChange(!smoothed)
+                },
+            )
+        }
     }
 }
 
-/** A small value label pinned to a corner of a chart's Box, with a translucent backing so it
- * stays readable regardless of what the chart itself drew underneath it - the minimal way to
- * show what range a chart spans without adding gridlines or a full axis. */
 @Composable
-private fun BoxScope.AxisLabel(text: String, alignment: Alignment) {
+private fun ChartOptionsHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+@Composable
+private fun ChartOptionMenuItem(label: String, icon: ImageVector, selected: Boolean, locked: Boolean, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        leadingIcon = { Icon(icon, contentDescription = null) },
+        trailingIcon = {
+            if (locked) {
+                Icon(Icons.Outlined.Lock, contentDescription = "Supporters only", modifier = Modifier.size(16.dp))
+            } else if (selected) {
+                Icon(Icons.Outlined.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary)
+            }
+        },
+        onClick = onClick,
+    )
+}
+
+private fun styleIcon(style: ChartStyle): ImageVector = when (style) {
+    ChartStyle.LINE -> Icons.AutoMirrored.Outlined.ShowChart
+    ChartStyle.BAR -> Icons.Outlined.BarChart
+    ChartStyle.AREA -> Icons.Outlined.AreaChart
+}
+
+/** A small value label with a translucent backing so it stays readable regardless of what the
+ * chart itself drew underneath it. */
+@Composable
+private fun AxisLabel(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier
-            .align(alignment)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), MaterialTheme.shapes.extraSmall)
             .padding(horizontal = 4.dp, vertical = 1.dp),
     )
@@ -1237,4 +1456,50 @@ private fun niceAxisBounds(dataMin: Double, dataMax: Double, step: Double): Pair
     if (lo >= dataMin) lo -= step
     if (hi <= dataMax) hi += step
     return lo to hi
+}
+
+/** Same outward-rounding as [niceAxisBounds], but for an axis whose floor is pinned elsewhere
+ * (the calorie chart's zero) rather than derived from the data - only the top needs rounding. */
+private fun niceMaxOnly(dataMax: Double, step: Double): Double {
+    var hi = ceil(dataMax / step) * step
+    if (hi <= dataMax) hi += step
+    return hi
+}
+
+/** The index ranges of consecutive non-null values in [values] - a run is where the chart can
+ * actually draw a connected line/area; a null breaks it into a new run. */
+private fun nonNullRuns(values: List<Double?>): List<IntRange> {
+    val runs = mutableListOf<IntRange>()
+    var start = -1
+    values.forEachIndexed { i, v ->
+        if (v != null) {
+            if (start == -1) start = i
+        } else if (start != -1) {
+            runs += start..(i - 1)
+            start = -1
+        }
+    }
+    if (start != -1) runs += start..values.lastIndex
+    return runs
+}
+
+private fun straightPathThrough(points: List<Offset>): Path = Path().apply {
+    points.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
+}
+
+/** A lightweight smoothed curve through [points] - each segment is a quadratic Bezier from one
+ * point to the midpoint of the next, using the point itself as the control, rather than a full
+ * Catmull-Rom spline. Simpler to compute and, for a day-to-day trend line, visually close enough
+ * to not be worth the extra math. */
+private fun smoothPathThrough(points: List<Offset>): Path {
+    val path = Path()
+    if (points.isEmpty()) return path
+    path.moveTo(points[0].x, points[0].y)
+    for (i in 0 until points.size - 1) {
+        val p0 = points[i]
+        val p1 = points[i + 1]
+        path.quadraticTo(p0.x, p0.y, (p0.x + p1.x) / 2f, (p0.y + p1.y) / 2f)
+    }
+    path.lineTo(points.last().x, points.last().y)
+    return path
 }
