@@ -10,7 +10,8 @@ import androidx.glance.appwidget.provideContent
 
 /** How much weight has moved toward the goal so far, in the person's own unit. */
 class WeightLostWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE))
+    // Exact rather than a handful of fixed breakpoints - see MinimalWidgetContent for why.
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val theme = WidgetTheme.resolve(context)

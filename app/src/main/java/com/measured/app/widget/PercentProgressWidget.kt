@@ -10,7 +10,8 @@ import androidx.glance.appwidget.provideContent
 
 /** What percent of the way to the goal the person has come. */
 class PercentProgressWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE))
+    // Exact rather than a handful of fixed breakpoints - see MinimalWidgetContent for why.
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val theme = WidgetTheme.resolve(context)

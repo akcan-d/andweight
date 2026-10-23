@@ -5,7 +5,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
@@ -29,19 +28,15 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import com.measured.app.MainActivity
 
-/** The three sizes every minimal widget declares via `SizeMode.Responsive`. [SIZE_LARGE] is the
- * only one the widget's own min/max size (see its *_widget_info.xml) actually allows any more -
- * a 1x1 placement and shrinking below the 2x2 default both read as too cramped to be worth
- * supporting, so the widget no longer offers a size smaller than [SIZE_LARGE] at all.
- * [SIZE_SMALL]/[SIZE_MEDIUM] stay as a defensive fallback for a launcher that ignores the min/max
- * size and reports something smaller anyway, rather than being deleted outright. */
-val SIZE_SMALL = DpSize(40.dp, 40.dp)
-val SIZE_MEDIUM = DpSize(140.dp, 40.dp)
-val SIZE_LARGE = DpSize(140.dp, 140.dp)
-
 /** Shared visual for every minimal widget: a ring with its number drawn inside, and - once
  * there's room - a short label next to or below it. Deliberately no card background of any
- * kind, so it reads as a small floating gauge on the home screen rather than another panel. */
+ * kind, so it reads as a small floating gauge on the home screen rather than another panel.
+ *
+ * Uses the widget's actual placed size (`SizeMode.Exact` on each widget class) rather than
+ * picking from a few fixed breakpoints - different launchers give a "2x2" placement very
+ * different real dimensions (some well over 140dp a side), and a ring fixed to one dp size
+ * just left most of a bigger placement as blank margin. Scaling the ring to a fraction of
+ * whatever space is actually there fills it correctly regardless of the launcher's own grid. */
 @Composable
 fun MinimalWidgetContent(stat: WidgetStat?, scheme: ColorScheme) {
     Box(
@@ -63,15 +58,18 @@ fun MinimalWidgetContent(stat: WidgetStat?, scheme: ColorScheme) {
         }
 
         val size = LocalSize.current
-        // At SIZE_LARGE the ring used to stay fixed at 64dp inside a 110dp box, leaving most of
-        // the placed widget as blank margin - sized up here to fill the space, leaving room only
-        // for the label underneath.
-        val ringDiameterDp = if (size == SIZE_LARGE) 108.dp else 32.dp
+        val shortestSide = minOf(size.width, size.height)
+        val wide = size.width > size.height * 1.3f
+        // The label only has room to show once the ring itself isn't already eating the whole
+        // placement - below that, a label would just get clipped or force an overflow.
+        val hasRoomForLabel = shortestSide >= 64.dp
+
+        val ringDiameterDp = (shortestSide * (if (hasRoomForLabel) 0.62f else 0.9f)).coerceIn(24.dp, 220.dp)
         val ringBitmap = ring(ringDiameterDp, stat, scheme)
 
-        when (size) {
-            SIZE_SMALL -> RingImage(ringBitmap, ringDiameterDp)
-            SIZE_MEDIUM -> Row(verticalAlignment = Alignment.CenterVertically) {
+        when {
+            !hasRoomForLabel -> RingImage(ringBitmap, ringDiameterDp)
+            wide -> Row(verticalAlignment = Alignment.CenterVertically) {
                 RingImage(ringBitmap, ringDiameterDp)
                 Spacer(GlanceModifier.width(8.dp))
                 WidgetLabel(stat.label)
