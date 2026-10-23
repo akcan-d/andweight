@@ -7,6 +7,8 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-23
+
 ### Added
 - Material You dynamic color - an optional "Dynamic" color theme that pulls from the phone's
   wallpaper (Android 12+), alongside the existing named themes
@@ -15,6 +17,11 @@ can still include a behavior change, not just new features.
 - Health Connect integration (Settings) - optional, off by default: share logged weight
   automatically with other apps via Health Connect, and/or manually import recent weight
   readings (e.g. from a smart scale) into days that don't already have one logged
+
+### Changed
+- Health Connect import now checks for days where a reading conflicts with a weight already
+  logged here, and asks whether to keep what's logged or overwrite it with Health Connect's
+  value, instead of always silently skipping those days
 
 ## [0.28.0] - 2026-10-23
 
