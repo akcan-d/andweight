@@ -33,8 +33,8 @@ import com.measured.app.domain.GoalDirection
 import com.measured.app.domain.PaceGuidance
 import com.measured.app.domain.PaceOption
 import com.measured.app.domain.Sex
-import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
+import com.measured.app.ui.common.WeightUnitPicker
 import com.measured.app.ui.theme.themedFilterChipColors
 import kotlinx.coroutines.launch
 
@@ -76,26 +76,7 @@ fun OnboardingScreen(
             )
 
             Text("Units", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    colors = themedFilterChipColors(),
-                    selected = state.weightUnit == WeightUnit.KG,
-                    onClick = { viewModel.onWeightUnitChange(WeightUnit.KG) },
-                    label = { Text("Metric (kg, cm)") },
-                )
-                FilterChip(
-                    colors = themedFilterChipColors(),
-                    selected = state.weightUnit == WeightUnit.LB,
-                    onClick = { viewModel.onWeightUnitChange(WeightUnit.LB) },
-                    label = { Text("Imperial (lb, ft/in)") },
-                )
-                FilterChip(
-                    colors = themedFilterChipColors(),
-                    selected = state.weightUnit == WeightUnit.ST,
-                    onClick = { viewModel.onWeightUnitChange(WeightUnit.ST) },
-                    label = { Text("Stones (st, ft/in)") },
-                )
-            }
+            WeightUnitPicker(selected = state.weightUnit, onChange = viewModel::onWeightUnitChange)
 
             OutlinedTextField(
                 value = state.startWeightText,

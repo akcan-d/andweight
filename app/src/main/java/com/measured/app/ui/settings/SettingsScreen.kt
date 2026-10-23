@@ -76,10 +76,10 @@ import com.measured.app.domain.AccentTheme
 import com.measured.app.domain.BackupSerializer
 import com.measured.app.domain.MealTimingMode
 import com.measured.app.domain.ThemeMode
-import com.measured.app.domain.WeightUnit
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.InfoTooltipIcon
 import com.measured.app.ui.common.SupporterOnlyDialog
+import com.measured.app.ui.common.WeightUnitPicker
 import com.measured.app.ui.theme.accentPaletteFor
 import com.measured.app.ui.theme.themedFilterChipColors
 import kotlinx.coroutines.launch
@@ -218,23 +218,8 @@ fun SettingsScreen(
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         Text("Units", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            WeightUnit.entries.forEach { unit ->
-                FilterChip(
-                    selected = profile?.weightUnit == unit,
-                    onClick = { viewModel.setWeightUnit(unit) },
-                    label = {
-                        Text(
-                            when (unit) {
-                                WeightUnit.KG -> "Metric (kg, cm)"
-                                WeightUnit.LB -> "Imperial (lb, ft/in)"
-                                WeightUnit.ST -> "Stones (st, ft/in)"
-                            },
-                        )
-                    },
-                    colors = themedFilterChipColors(),
-                )
-            }
+        profile?.weightUnit?.let { unit ->
+            WeightUnitPicker(selected = unit, onChange = viewModel::setWeightUnit)
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
