@@ -7,6 +7,14 @@
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
     <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
 
+    <!-- Required for Health Connect integration to work at all - without this, package-visibility
+         restrictions (Android 11+) keep this app from resolving or being resolved by the Health
+         Connect provider: getSdkStatus() can misreport availability, and the permission-request
+         intent can silently fail to launch anything. -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <application
         android:name=".AndWeightApplication"
         android:allowBackup="true"
@@ -25,11 +33,60 @@
             <!-- Required by Health Connect for every client app, regardless of which record
                  types it uses - lets a user reach this app's data-use explanation from Health
                  Connect's own "App permissions" screen, not just from inside Measured itself.
-                 Handled in MainActivity.onCreate by jumping straight to the privacy policy. -->
+                 This is the pre-Android 14 action string (Health Connect as a separate app);
+                 Android 14+ uses the differently-named activity-alias below instead, since that
+                 path requires a signature permission this shared activity can't carry directly.
+                 Handled in MainActivity.onCreate by jumping straight to the privacy policy. Left
+                 unrestricted (no android:permission) since this can be reached from an ordinary
+                 link tap, not just from Health Connect itself. -->
             <intent-filter>
-                <action android:name="androidx.health.connect.action.SHOW_PERMISSIONS_RATIONALE" />
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
         </activity>
+
+        <!-- Android 14+ equivalent of the rationale intent-filter above - same handling in
+             MainActivity.onCreate, reached through a separate alias (rather than another
+             intent-filter directly on MainActivity) because this path is gated by a signature
+             permission that only Health Connect itself holds, and that restriction must not leak
+             onto MainActivity's normal, unrestricted launcher-alias entry points. -->
+        <activity-alias
+            android:name=".HealthConnectRationaleAlias"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Lets Health Connect launch straight into this app when the user starts the connection
+             from Health Connect's own "compatible apps" list rather than from inside Measured -
+             without this, Health Connect has no registered entry point into the app and may not
+             list it as integrated at all. There's no separate onboarding flow to show; this just
+             opens the app normally; MainActivity.onCreate needs no special handling for either
+             action. Pre-Android 14 (Health Connect as a separate app) and Android 14+ (built into
+             the platform) each require their own alias with their own signature permission, same
+             reasoning as the rationale alias above. -->
+        <activity-alias
+            android:name=".HealthConnectOnboardingAlias"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:permission="com.google.android.apps.healthdata.permission.START_ONBOARDING">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_ONBOARDING" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".HealthConnectOnboardingAliasV14"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:permission="android.permission.health.START_ONBOARDING">
+            <intent-filter>
+                <action android:name="android.health.connect.action.SHOW_ONBOARDING" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- Three aliases for the same activity, each with its own launcher icon - exactly one
              enabled at a time (see AppIconSwitcher). The launcher intent-filter lives on these,

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Tonality
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -122,6 +123,17 @@ fun SettingsScreen(
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Share cards always draw white text, so this needs to be the "deep, rich" light-mode primary
+    // regardless of the system's actual dark/light state (see ShareImageRenderer) - under Dynamic
+    // color that has to come from the wallpaper-derived scheme itself, not the named accentTheme,
+    // which is just a dormant fallback while Dynamic is active and would render a color nothing
+    // else on screen actually shows.
+    val shareBackgroundColor = if (useDynamicColor && supportsDynamicColor) {
+        dynamicLightColorScheme(context).primary.toArgb()
+    } else {
+        accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb()
+    }
+
     LaunchedEffect(viewModel.didEraseData) {
         if (viewModel.didEraseData) onDataErased()
     }
@@ -165,14 +177,14 @@ fun SettingsScreen(
         pendingShareSummary?.let { summary ->
             ShareDesignPickerDialog(
                 summary = summary,
-                backgroundColor = accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb(),
+                backgroundColor = shareBackgroundColor,
                 isSupporter = isSupporter,
                 onDesignSelected = { design ->
                     pendingShareSummary = null
                     val bitmap = ShareImageRenderer.render(
                         context,
                         summary,
-                        accentPaletteFor(accentTheme, darkTheme = false).primary.toArgb(),
+                        shareBackgroundColor,
                         design,
                     )
                     ShareImageRenderer.share(context, bitmap)
@@ -308,8 +320,11 @@ fun SettingsScreen(
         }
         // Only shown when there's actually something to sync - the icon's real, persisted
         // component state is the source of truth for "current", not a separately-tracked value
-        // that could drift out of sync with it.
-        if (!AppIconSwitcher.isAlreadyApplied(context, accentTheme)) {
+        // that could drift out of sync with it. Hidden entirely under Dynamic color: there's no
+        // launcher-icon asset for a wallpaper-derived palette, so this would otherwise silently
+        // apply whatever named theme is still sitting in accentTheme (a dormant fallback value,
+        // not what's actually on screen) the moment it's tapped.
+        if (!useDynamicColor && !AppIconSwitcher.isAlreadyApplied(context, accentTheme)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = viewModel::syncIconToTheme) {
                     Text("Sync app icon")
@@ -325,8 +340,8 @@ fun SettingsScreen(
         // Widgets are a supporter perk (see below), so there's nothing to sync for anyone else.
         // Hidden once the widget theme already matches, same as "Sync app icon" above - not
         // gated on whether a widget is actually placed, since tapping it with none placed is a
-        // harmless no-op.
-        if (isSupporter && !isWidgetThemeSynced) {
+        // harmless no-op. Also hidden under Dynamic color for the same reason "Sync app icon" is.
+        if (isSupporter && !useDynamicColor && !isWidgetThemeSynced) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = viewModel::syncWidgetTheme) {
                     Text("Sync widget theme")

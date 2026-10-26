@@ -3,7 +3,6 @@ package com.measured.app.health
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -58,20 +57,18 @@ class HealthConnectManager(context: Context) {
     fun playStoreIntent(): Intent =
         Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$HEALTH_CONNECT_PACKAGE"))
 
-    /** Deep-links straight to this app's own permission toggles inside Health Connect - not
-     * Play Store distribution, but a real Android/Health Connect quirk: once the user has
-     * dismissed or declined the system permission dialog twice, Health Connect permanently
-     * stops showing it again for this app, with nothing [requestPermissionsContract] can do to
-     * bring it back (this is documented, intended behavior, not a bug). The officially
-     * recommended fallback is sending them straight to the settings screen where they can grant
-     * it by hand instead. */
-    fun settingsIntent(): Intent =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            Intent("android.health.connect.action.MANAGE_HEALTH_PERMISSIONS")
-                .putExtra(Intent.EXTRA_PACKAGE_NAME, appContext.packageName)
-        } else {
-            Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
-        }
+    /** Opens Health Connect's own home screen - not Play Store distribution, but a real
+     * Android/Health Connect quirk: once the user has dismissed or declined the system permission
+     * dialog twice, Health Connect permanently stops showing it again for this app, with nothing
+     * [requestPermissionsContract] can do to bring it back (this is documented, intended
+     * behavior, not a bug). There is no public, safe way for a third-party app to deep-link
+     * straight to its own toggle inside Health Connect's "app permissions" list - the raw
+     * platform intent for that (`android.health.connect.action.MANAGE_HEALTH_PERMISSIONS`) is
+     * gated behind `GRANT_RUNTIME_PERMISSIONS`, a privileged permission only the OS itself can
+     * hold, and crashes with a SecurityException for anyone else who tries it. This opens the
+     * general Health Connect screen instead, where the user can navigate to "App permissions" and
+     * grant it by hand. */
+    fun settingsIntent(): Intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
 
     /** Writes today's logged weight into Health Connect so any other app the user has granted
      * read access to (or a future smart scale) can see it. Quietly no-ops without permission -
