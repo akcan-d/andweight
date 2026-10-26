@@ -94,7 +94,7 @@ import java.time.format.DateTimeFormatter
 
 private val timeFormatter12h = DateTimeFormatter.ofPattern("h:mm a")
 private val timeFormatter24h = DateTimeFormatter.ofPattern("HH:mm")
-private const val FEEDBACK_EMAIL = "andweight.app@gmail.com"
+private const val FEEDBACK_EMAIL = "measuredapp.support@gmail.com"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
