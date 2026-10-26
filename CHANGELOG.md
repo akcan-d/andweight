@@ -7,6 +7,24 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-26
+
+### Fixed
+- Health Connect: the manifest was missing a required `<queries>` declaration for package
+  visibility, which could silently keep the app from being recognized by Health Connect at all
+  (the likely cause of "Connect" doing nothing and Measured not appearing in Health Connect's own
+  app list); the permissions-rationale intent-filter used an action string that matched neither
+  of the two real ones Health Connect actually sends; added the onboarding entry points Health
+  Connect uses to launch directly into an app from its own "connect an app" list, which were
+  missing entirely
+- Health Connect: the "Open Health Connect settings" fallback link in Settings could crash the
+  app (it used a platform intent gated behind a permission only the OS itself can hold) - now uses
+  the public API meant for apps to call
+- Share progress, "Sync app icon", and "Sync widget theme" all kept using the last-selected named
+  color theme even after switching to Dynamic color, rendering or silently applying a theme that
+  was no longer what's actually on screen - the sync buttons now hide while Dynamic is active, and
+  Share progress now reflects the live dynamic colors
+
 ## [0.30.0] - 2026-10-26
 
 ### Added
