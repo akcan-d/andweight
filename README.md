@@ -118,10 +118,10 @@ rather than caching it. The app also declares an activity that responds to Healt
 `SHOW_PERMISSIONS_RATIONALE` intent (required of every client app, regardless of which record
 types it uses) - handled in `MainActivity` by opening this same privacy policy and finishing.
 
-The project currently pins `androidx.health.connect:connect-client` to the `1.1.0-alpha07`
-pre-release, not the `1.1.0` stable release, because stable requires `compileSdk 36` and AGP
-8.9.1+ - a larger upgrade than this feature on its own warranted. Worth revisiting next time the
-project's compileSdk/AGP get bumped for other reasons.
+The project uses the stable `androidx.health.connect:connect-client:1.1.0` release, which needs
+`compileSdk 36` and AGP 8.9.1+. Stable requires every written record to carry `Metadata`, so
+weights mirrored into Health Connect are tagged `Metadata.manualEntry()` (they're typed in by
+hand, not measured by a device).
 
 ## Project structure
 
@@ -152,7 +152,7 @@ device.
 2. `File > Open`, select this folder, and let Gradle sync (first sync downloads the Gradle
    distribution and Android SDK components it needs - this can take a few minutes).
 3. Create a device to run it on: `Tools > Device Manager > Create Device` (any recent phone
-   profile, API 34 is a safe default), or plug in an Android phone with USB debugging enabled.
+   profile, API 36 matches the app's target SDK), or plug in an Android phone with USB debugging enabled.
 4. Click the green Run button (`Shift+F10`), pick your device, and the app installs and launches.
 
 No API keys, accounts, or backend setup are required - it should run immediately.
@@ -161,6 +161,54 @@ No API keys, accounts, or backend setup are required - it should run immediately
 
 `View > Tool Windows > Gradle`, then `Measured > app > Tasks > verification > test`, or from a
 terminal: `./gradlew test` (macOS/Linux) or `gradlew.bat test` (Windows).
+
+## Releasing to Google Play
+
+The app targets API 36 (`targetSdk`/`compileSdk` in `app/build.gradle.kts`), which is what Play
+requires for new apps and updates from August 31, 2026. Play raises this roughly once a year, so
+check [the current requirement](https://developer.android.com/google/play/requirements/target-sdk)
+before each release.
+
+Play takes an Android App Bundle (`.aab`), not an APK, and uses Play App Signing: Google holds the
+key that signs what users install, and you sign each upload with your own **upload key**.
+
+1. **Create the upload key (once).** Either use Android Studio's
+   `Build > Generate Signed App Bundle or APK > Android App Bundle > Create new...`, or from a
+   terminal (on Windows, `keytool` is in `C:\Program Files\Android\Android Studio\jbr\bin\`):
+
+   ```
+   keytool -genkeypair -v -keystore measured-upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+   Keep the `.jks` file **outside this repo** and back it up together with its passwords (e.g. a
+   password manager). If it's lost, Play can reset the upload key, but only after a support
+   request and a waiting period.
+
+2. **Point the build at it.** Create `keystore.properties` in the project root (gitignored):
+
+   ```
+   storeFile=C:/Users/you/keys/measured-upload.jks
+   storePassword=...
+   keyAlias=upload
+   keyPassword=...
+   ```
+
+   Use an absolute path with forward slashes. Relative paths resolve against `app/`, not the
+   project root.
+
+3. **Build the bundle.** `gradlew.bat bundleRelease` (Windows) or `./gradlew bundleRelease`, or
+   use the Android Studio wizard. The signed bundle is at
+   `app/build/outputs/bundle/release/app-release.aab`. Raise `versionCode` before every upload,
+   because Play rejects a version code it has already seen.
+
+4. **Upload** it to a testing track in Play Console and opt in to Play App Signing when asked.
+
+The store listing text (title, descriptions, contact details) is drafted in
+[`store/play-listing.md`](store/play-listing.md).
+
+APKs signed with any earlier local testing key can't be updated in place by the Play build
+(Android refuses an update signed with a different key). Export a backup in Settings first,
+uninstall, install from Play, then restore.
 
 ## Safety note
 

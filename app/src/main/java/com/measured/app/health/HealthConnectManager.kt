@@ -7,6 +7,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Mass
@@ -85,6 +86,7 @@ class HealthConnectManager(context: Context) {
                     time = time,
                     zoneOffset = zoneId.rules.getOffset(time),
                     weight = Mass.kilograms(weightKg),
+                    metadata = Metadata.manualEntry(),
                 ),
             ),
         )
