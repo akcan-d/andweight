@@ -31,3 +31,16 @@ jobs:
           name: test-results
           path: app/build/reports/tests/testDebugUnitTest
           retention-days: 7
+
+  # The iOS port's pure-Swift business logic (ios/MeasuredCore) - no Apple frameworks, so it runs on
+  # Linux and doesn't need a (slower, pricier) macOS runner.
+  ios-core:
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run MeasuredCore tests
+        working-directory: ios/MeasuredCore
+        run: swift test

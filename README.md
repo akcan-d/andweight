@@ -146,6 +146,14 @@ app/src/main/java/com/measured/app/
 There's no backend and no login - everything lives in a local Room (SQLite) database on the
 device.
 
+### iOS port
+
+`ios/` holds an in-progress iOS (SwiftUI) port, built piece by piece. So far it contains
+`ios/MeasuredCore`, a Swift package porting everything in `domain/` above, with its unit tests
+ported too. Backup files use the same format on both platforms. See [`ios/README.md`](ios/README.md)
+for the roadmap, what doesn't carry over (dynamic color; Health Connect becomes HealthKit), and how to
+run it on an iPhone.
+
 ## Opening the project (Android Studio on Windows)
 
 1. Install [Android Studio](https://developer.android.com/studio) if you haven't already.

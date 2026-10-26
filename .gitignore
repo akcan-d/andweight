@@ -17,3 +17,10 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+
+# Swift / Xcode (iOS port)
+.build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcuserstate
