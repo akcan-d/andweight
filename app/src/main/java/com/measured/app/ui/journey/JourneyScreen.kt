@@ -1,5 +1,6 @@
 package com.measured.app.ui.journey
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -726,6 +727,12 @@ private fun AchievementCard(
                 MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
             },
         ),
+        // High contrast and the wallpaper-derived dynamic theme can both legitimately land on a
+        // surface color identical to the screen background (high contrast's whole point is a flat
+        // two-tone look; dynamic color is at the mercy of whatever the wallpaper algorithm picks) -
+        // without its own outline, a card like this one (no edge-hugging content to hint at its
+        // bounds the way a title-and-chevron row would) would just disappear into the background.
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -1058,7 +1065,6 @@ private fun WeightTrendCard(
                 style = chartStyle,
                 smoothed = smoothed,
                 color = lineColor,
-                axisStep = 1.0,
                 goalValue = goalWeight,
                 goalColor = goalColor,
                 unitLabel = unitLabel,
@@ -1127,7 +1133,6 @@ private fun CalorieTrendCard(
                 style = chartStyle,
                 smoothed = smoothed,
                 color = lineColor,
-                axisStep = 200.0,
                 forceMinZero = true,
                 unitLabel = "kcal",
                 valueFormatter = { "${it.toInt()} kcal" },
@@ -1182,7 +1187,6 @@ private fun TrendChartCanvas(
     style: ChartStyle,
     smoothed: Boolean,
     color: Color,
-    axisStep: Double,
     unitLabel: String,
     valueFormatter: (Double) -> String,
     tickFormatter: (Double) -> String,
@@ -1197,25 +1201,23 @@ private fun TrendChartCanvas(
     LaunchedEffect(tapClearSignal) { selectedIndex = null }
 
     val nonNullValues = values.filterNotNull()
-    // Rounded outward to the nearest step rather than the exact data extremes, so a point
-    // sitting right at the top or bottom of the chart has a little breathing room instead of
-    // touching the edge - e.g. an actual range of 1929-4501 becomes an axis of 1900-4550. The
-    // calorie chart instead pins its floor to zero (forceMinZero) - a calorie count has a real
-    // zero, unlike weight, so there's no reason the axis should ever imply otherwise.
-    val (minValue, maxValue) = if (forceMinZero) {
-        0.0 to niceMaxOnly(maxOf(nonNullValues.max(), goalValue ?: nonNullValues.max()), axisStep)
-    } else {
-        val dataMin = minOf(nonNullValues.min(), goalValue ?: nonNullValues.min())
-        val dataMax = maxOf(nonNullValues.max(), goalValue ?: nonNullValues.max())
-        niceAxisBounds(dataMin, dataMax, axisStep)
-    }
-    val valueRange = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
+    // The calorie chart pins its floor to zero (forceMinZero) - a calorie count has a real zero,
+    // unlike weight, so there's no reason the axis should ever imply otherwise.
+    val dataMin = if (forceMinZero) 0.0 else minOf(nonNullValues.min(), goalValue ?: nonNullValues.min())
+    val dataMax = maxOf(nonNullValues.max(), goalValue ?: nonNullValues.max())
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
     val runs = remember(values) { nonNullRuns(values) }
     // Round, evenly-spaced numbers (not raw fractions of the range, which routinely land on
-    // something like 123.33) - these double as both the gridlines drawn in the canvas and the
-    // labels in the gutter beside it, so the two always line up.
-    val ticks = remember(minValue, maxValue) { niceTickValues(minValue, maxValue) }
+    // something like 123.33) that double as both the gridlines/gutter labels AND the chart's
+    // actual plotted bounds (minValue/maxValue below) - computed together rather than in two
+    // separate passes, so the topmost/bottommost labeled tick always sits exactly at the edge of
+    // the chart and nothing drawn can ever appear above or below it. A point sitting right at the
+    // data extreme still gets a little breathing room, since the outward rounding to the nearest
+    // tick step rarely lands exactly on it.
+    val ticks = remember(dataMin, dataMax, forceMinZero) { niceAxisTicks(dataMin, dataMax, pinMinAtZero = forceMinZero) }
+    val minValue = ticks.first()
+    val maxValue = ticks.last()
+    val valueRange = (maxValue - minValue).let { if (it < 0.01) 1.0 else it }
 
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         // A dedicated gutter to the left of the plotted area, rather than labels floating over
@@ -1441,34 +1443,19 @@ fun oneDecimal(value: Double): String {
     return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
 }
 
-/** Rounds a data range outward to the nearest multiple of [step], so chart axis bounds sit a
- * little past the actual min/max instead of right on top of them - and if a value already lands
- * exactly on a multiple (no rounding would occur), pushes out one more step so there's always at
- * least a sliver of visible headroom. */
-private fun niceAxisBounds(dataMin: Double, dataMax: Double, step: Double): Pair<Double, Double> {
-    var lo = floor(dataMin / step) * step
-    var hi = ceil(dataMax / step) * step
-    if (lo >= dataMin) lo -= step
-    if (hi <= dataMax) hi += step
-    return lo to hi
-}
-
-/** Same outward-rounding as [niceAxisBounds], but for an axis whose floor is pinned elsewhere
- * (the calorie chart's zero) rather than derived from the data - only the top needs rounding. */
-private fun niceMaxOnly(dataMax: Double, step: Double): Double {
-    var hi = ceil(dataMax / step) * step
-    if (hi <= dataMax) hi += step
-    return hi
-}
-
-/** A small, evenly-spaced set of round numbers (1, 2, or 5 times a power of ten) spanning
- * [minValue]..[maxValue], for axis tick labels - rather than literal fractions of the range,
- * which routinely land on an ugly number like 123.33 even when the axis bounds themselves are
- * round. [targetCount] is a rough guide, not a guarantee - the actual count depends on how evenly
- * the chosen step divides the range. */
-private fun niceTickValues(minValue: Double, maxValue: Double, targetCount: Int = 4): List<Double> {
-    val range = maxValue - minValue
-    if (range <= 0.0) return listOf(minValue)
+/** A small, evenly-spaced set of round numbers (1, 2, or 5 times a power of ten) that both label
+ * the axis and define its plotted range - [minValue] is the first tick, [maxValue] the last -
+ * rather than picking a "nice" display step and a padded data range independently, which could
+ * disagree and leave the real data drawn past the topmost (or below the bottommost) label. The
+ * chosen step is rounded outward from [dataMin]/[dataMax] by at least one full step, so there's
+ * always a sliver of headroom and a point sitting right at the data extreme never touches the
+ * chart's edge. [pinMinAtZero] skips that outward rounding on the low end (the calorie chart's
+ * floor - a calorie count has a real zero, unlike weight). [targetCount] is a rough guide for how
+ * many ticks to aim for, not a guarantee - the actual count depends on how evenly the chosen step
+ * divides the range. */
+private fun niceAxisTicks(dataMin: Double, dataMax: Double, pinMinAtZero: Boolean, targetCount: Int = 4): List<Double> {
+    val effectiveMin = if (pinMinAtZero) 0.0 else dataMin
+    val range = (dataMax - effectiveMin).let { if (it <= 0.0) 1.0 else it }
     val rawStep = range / (targetCount - 1)
     val magnitude = 10.0.pow(floor(log10(rawStep)))
     val residual = rawStep / magnitude
@@ -1479,13 +1466,19 @@ private fun niceTickValues(minValue: Double, maxValue: Double, targetCount: Int 
         else -> 10.0
     }
     val step = niceResidual * magnitude
+    val lo = if (pinMinAtZero) {
+        0.0
+    } else {
+        (floor(dataMin / step) * step).let { if (it >= dataMin) it - step else it }
+    }
+    val hi = (ceil(dataMax / step) * step).let { if (it <= dataMax) it + step else it }
     val ticks = mutableListOf<Double>()
-    var v = ceil(minValue / step) * step
-    while (v <= maxValue + step * 0.001) {
+    var v = lo
+    while (v <= hi + step * 0.001) {
         ticks += v
         v += step
     }
-    return ticks.ifEmpty { listOf(minValue, maxValue) }
+    return ticks.ifEmpty { listOf(lo, hi) }
 }
 
 /** The index ranges of consecutive non-null values in [values] - a run is where the chart can
