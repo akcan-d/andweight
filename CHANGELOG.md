@@ -7,6 +7,38 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-26
+
+### Added
+- Health Connect: "Open Health Connect settings" fallback link, for when its own permission
+  dialog won't show again (it permanently stops offering it after two declines) - deep-links
+  straight to Measured's permission toggles inside Health Connect
+
+### Changed
+- Widgets: fixed a mismatch where the launcher could reserve more grid space than the widget was
+  actually allowed to render into, leaving part of the reserved area blank; widgets now fill
+  whatever space a launcher grants instead of being capped below it
+- Widgets now show a real preview image in the picker instead of the bare app icon, for launchers
+  that don't support the newer live-preview mechanism
+- Chart options gear icon on the Journey tab now uses the app's muted icon tint instead of the
+  bright default that made it stand out
+- Today's/Yesterday's meals toggle in Settings now lists Today's (the default) first
+- Dynamic color: dropped the explanatory paragraph shown while it's selected; the High contrast
+  toggle (which has no effect under a wallpaper-derived scheme) now hides itself while Dynamic is
+  active instead of sitting there inert
+- Fixed several leftover copy issues: the supporter prompt still mentioned an "extra chart" (the
+  calorie chart has been free for everyone for a while); the daily reminder notification always
+  said "yesterday's meals" regardless of your actual Meal Timing setting; the Supporter screen's
+  perk list was missing the smoothed-line chart option
+- Chart axis bounds and tick labels are now computed together, so the highest/lowest labeled tick
+  is always exactly at the edge of the chart - previously the two could disagree enough that data
+  was drawn above the topmost gridline into unlabeled space
+
+### Fixed
+- Milestone achievement cards could become invisible under High contrast mode and some Dynamic
+  color wallpapers, where surface and background can legitimately end up visually identical -
+  added a border so the card edge is always visible regardless of theme
+
 ## [0.29.0] - 2026-10-23
 
 ### Added
