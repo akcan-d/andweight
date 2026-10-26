@@ -7,9 +7,10 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// Local-only signing config for release builds. The keystore itself (and this properties file)
-// are gitignored - this is a throwaway testing key, not the eventual Play Store upload key.
-// If the file is missing (e.g. CI), release builds simply stay unsigned.
+// Local-only signing config for release builds, pointing at the Play Store upload key (see
+// "Releasing to Google Play" in README.md). The keystore itself and this properties file are
+// gitignored and must never be committed. If the file is missing (e.g. CI), release builds
+// simply stay unsigned.
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -19,12 +20,12 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.measured.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.measured.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 31
         versionName = "0.31.0"
 
@@ -116,7 +117,7 @@ dependencies {
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
 
-    implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+    implementation("androidx.health.connect:connect-client:1.1.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.13")
