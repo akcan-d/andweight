@@ -306,14 +306,6 @@ fun SettingsScreen(
                 )
             }
         }
-        if (useDynamicColor) {
-            Text(
-                "Colors are pulled from your wallpaper - high contrast and the app icon/widget sync " +
-                    "below use whichever theme is picked above instead, since those need a fixed palette.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
         // Only shown when there's actually something to sync - the icon's real, persisted
         // component state is the source of truth for "current", not a separately-tracked value
         // that could drift out of sync with it.
@@ -348,18 +340,23 @@ fun SettingsScreen(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .toggleable(value = highContrast, onValueChange = viewModel::setHighContrast, role = Role.Switch),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.Tonality, contentDescription = null)
-                Text("High contrast")
+        // Has no effect under the dynamic (wallpaper-derived) theme - AndWeightTheme only ever
+        // applies it to the named accent palettes - so the switch itself disappears rather than
+        // sitting there doing nothing while dynamic color is selected.
+        if (!useDynamicColor) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = highContrast, onValueChange = viewModel::setHighContrast, role = Role.Switch),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Outlined.Tonality, contentDescription = null)
+                    Text("High contrast")
+                }
+                Switch(checked = highContrast, onCheckedChange = null)
             }
-            Switch(checked = highContrast, onCheckedChange = null)
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

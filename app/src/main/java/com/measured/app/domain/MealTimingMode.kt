@@ -10,6 +10,6 @@ package com.measured.app.domain
  * and what it's actually asking for.
  */
 enum class MealTimingMode(val label: String) {
-    PREVIOUS_DAY("Yesterday's meals"),
     SAME_DAY("Today's meals"),
+    PREVIOUS_DAY("Yesterday's meals"),
 }

@@ -300,8 +300,8 @@ private fun SupporterPromptPopup(viewModel: SupporterPromptViewModel) {
         text = {
             Text(
                 "If it's been useful, a cheap one-time supporter unlock adds a couple of extra " +
-                    "color themes and an extra chart - entirely optional, and you can always find " +
-                    "it later under Settings.",
+                    "color themes and a few extra chart styles - entirely optional, and you can " +
+                    "always find it later under Settings.",
             )
         },
         confirmButton = {

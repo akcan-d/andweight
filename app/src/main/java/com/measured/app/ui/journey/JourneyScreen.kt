@@ -1366,7 +1366,11 @@ private fun ChartOptionsMenu(
 
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Outlined.Settings, contentDescription = "Chart options")
+            Icon(
+                Icons.Outlined.Settings,
+                contentDescription = "Chart options",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             ChartOptionsHeader("Style")

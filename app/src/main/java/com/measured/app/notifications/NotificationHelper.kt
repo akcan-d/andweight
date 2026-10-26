@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.measured.app.MainActivity
 import com.measured.app.R
+import com.measured.app.domain.MealTimingMode
 
 private const val CHANNEL_ID = "daily_reminder"
 private const val NOTIFICATION_ID = 1
@@ -37,7 +38,7 @@ object NotificationHelper {
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
     }
 
-    fun showReminder(context: Context) {
+    fun showReminder(context: Context, mealTimingMode: MealTimingMode) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ActivityCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
@@ -58,7 +59,11 @@ object NotificationHelper {
             .setSmallIcon(R.drawable.ic_notification)
             .setLargeIcon(brandedLargeIcon())
             .setContentTitle("Time for your check-in")
-            .setContentText("Log today's weight or yesterday's meals to keep your estimate accurate.")
+            .setContentText(
+                "Log today's weight or " +
+                    "${if (mealTimingMode == MealTimingMode.SAME_DAY) "today's" else "yesterday's"} " +
+                    "meals to keep your estimate accurate.",
+            )
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

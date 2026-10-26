@@ -31,7 +31,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     val todayLog = app.repository.getLogForDate(today)
                     val mealLog = if (mealDate == today) todayLog else app.repository.getLogForDate(mealDate)
                     if (!CheckInStatus.isComplete(todayLog, mealLog)) {
-                        NotificationHelper.showReminder(context)
+                        NotificationHelper.showReminder(context, mode)
                     }
                     val (hour, minute) = app.settingsRepository.getReminderTimeOnce()
                     ReminderScheduler.schedule(context, hour, minute)
