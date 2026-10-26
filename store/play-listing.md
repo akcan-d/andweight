@@ -5,11 +5,11 @@ Limits: app name 30 chars, short description 80, full description 4000.
 
 ## App name
 
-Measured: TDEE & Weight Log
+Measured: Easy Weight Tracker
 
 ## Short description
 
-Find your real maintenance calories from a 2-minute daily weigh-in.
+Track your weight and find your real maintenance calories in 2 minutes a day.
 
 ## Full description
 
@@ -33,7 +33,6 @@ UNDERSTAND YOUR PROGRESS
 • Weekly history and trend charts
 • Plateau detection that tells a real stall apart from a quiet week
 • Milestones that mark your progress along the way
-• A home-screen widget showing your progress at a glance
 • Optional daily reminders
 
 YOUR DATA STAYS YOURS
@@ -45,12 +44,19 @@ YOUR DATA STAYS YOURS
 
 Measured is a tracking tool, not medical advice. If you have a health condition or are planning a major change to your diet, talk to a doctor first.
 
+SUPPORT DEVELOPMENT
+Everything above is free, with no time limit. An optional one-time Supporter upgrade adds a few extras:
+• Extra color themes
+• Bar, area and smoothed-line chart styles
+• A choice of share-card designs
+• Home-screen widgets
+
 ## Category and tags
 
 - Category: Health & Fitness
-- Tags to consider: Weight tracker, Calorie counter, Diet & nutrition
+- Tags to consider: Weight tracker, Diet & nutrition, Fitness tracking
 
 ## Contact details
 
-- Email: andweight.app@gmail.com
+- Email: measuredapp.support@gmail.com
 - Privacy policy: https://akcan-d.github.io/andweight/privacy-policy.html
