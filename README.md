@@ -204,7 +204,9 @@ key that signs what users install, and you sign each upload with your own **uplo
 4. **Upload** it to a testing track in Play Console and opt in to Play App Signing when asked.
 
 The store listing text (title, descriptions, contact details) is drafted in
-[`store/play-listing.md`](store/play-listing.md).
+[`store/play-listing.md`](store/play-listing.md). The listing's 512 px icon and 1024x500 feature graphic are in `store/graphics/`,
+rendered from the launcher glyph and the app's fonts by `node store/render-graphics.js "$PWD"`
+(run from the repo root; needs Playwright with Chromium).
 
 APKs signed with any earlier local testing key can't be updated in place by the Play build
 (Android refuses an update signed with a different key). Export a backup in Settings first,
