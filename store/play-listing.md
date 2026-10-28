@@ -54,7 +54,7 @@ Everything above is free, with no time limit. An optional one-time Supporter upg
 ## Category and tags
 
 - Category: Health & Fitness
-- Tags to consider: Weight tracker, Diet & nutrition, Fitness tracking
+- Tags: Weight loss, Dieting, Health & fitness
 
 ## Contact details
 
