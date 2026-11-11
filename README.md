@@ -137,7 +137,7 @@ app/src/main/java/com/measured/app/
                    onboarding/ first-run setup (weight, goal, optional sex/height/age)
                    tutorial/   first-launch walkthrough
                    today/      the daily check-in + current-status dashboard
-                   journey/    milestones, research, and daily/weekly history
+                   journey/    milestones, research, and calendar/weekly history
                    settings/   preferences, edit profile, backup/restore, tips
                    tips/       the tips list screen
                    nav/        navigation graph + bottom nav

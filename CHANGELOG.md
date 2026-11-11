@@ -11,6 +11,9 @@ can still include a behavior change, not just new features.
 - Milestones' "up next" cards now show a thin progress ring around their icon for how close that
   specific rung is, and the Journey check-in rate card shows a matching small ring next to its
   percentage
+- History's "Daily" view is now a calendar grid - month navigation, a filled dot per logged day
+  (full vs. partial), and a detail panel for whichever day is selected - instead of a scrolling,
+  collapsible list of every day ever logged
 
 ### Changed
 - Tightened spacing app-wide - smaller screen margins, less gap between cards, and less padding
