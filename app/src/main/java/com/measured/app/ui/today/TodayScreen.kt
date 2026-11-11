@@ -136,12 +136,12 @@ fun TodayScreen(
 
     LazyColumn(
         contentPadding = PaddingValues(
-            start = 20.dp,
-            end = 20.dp,
-            top = contentPadding.calculateTopPadding() + 20.dp,
-            bottom = contentPadding.calculateBottomPadding() + 20.dp,
+            start = 16.dp,
+            end = 16.dp,
+            top = contentPadding.calculateTopPadding() + 16.dp,
+            bottom = contentPadding.calculateBottomPadding() + 16.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Always the same order - the check-in card used to jump to the top whenever the
         // selected day still needed input, which read as the whole screen lurching around.
@@ -178,7 +178,7 @@ private fun StatusCard(
     var showDetails by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (profile == null || tdeeState == null) {
                 CircularProgressIndicator()
                 return@Column
@@ -728,8 +728,8 @@ private fun CheckInCard(viewModel: TodayViewModel, profile: UserProfile?) {
     }
     Card(modifier = Modifier.fillMaxWidth().then(borderModifier)) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             DayPager(viewModel)
 

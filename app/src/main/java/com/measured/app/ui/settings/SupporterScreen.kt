@@ -64,12 +64,12 @@ fun SupporterScreen(
     ) { topBarPadding ->
         LazyColumn(
             contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = topBarPadding.calculateTopPadding() + 12.dp,
-                bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                start = 16.dp,
+                end = 16.dp,
+                top = topBarPadding.calculateTopPadding() + 8.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
                 Text(
@@ -114,7 +114,7 @@ fun SupporterScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(12.dp)
                             .toggleable(value = isSupporter, onValueChange = viewModel::setSupporter, role = Role.Switch),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,

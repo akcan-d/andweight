@@ -148,12 +148,12 @@ fun SettingsScreen(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(
-                start = 20.dp,
-                end = 20.dp,
-                top = contentPadding.calculateTopPadding() + 20.dp,
-                bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                start = 16.dp,
+                end = 16.dp,
+                top = contentPadding.calculateTopPadding() + 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Every other section here has its own heading - these two buttons were the one thing
         // that didn't, which read as adrift rather than intentional.

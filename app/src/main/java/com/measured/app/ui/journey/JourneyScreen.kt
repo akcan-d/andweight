@@ -298,12 +298,12 @@ fun JourneyScreen(
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = 12.dp,
-                bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                start = 16.dp,
+                end = 16.dp,
+                top = 8.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (milestones.isNotEmpty()) {
                 item { MilestonesEntryCard(milestones, onClick = onShowMilestones) }
@@ -443,7 +443,7 @@ private fun JourneyEntryCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -491,10 +491,10 @@ fun MilestonesScreen(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = topBarPadding.calculateTopPadding() + 12.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = topBarPadding.calculateTopPadding() + 8.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 16.dp,
                 ),
         ) {
             MilestonesSection(milestones)
@@ -530,10 +530,10 @@ fun ResearchScreen(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = topBarPadding.calculateTopPadding() + 12.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = topBarPadding.calculateTopPadding() + 8.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 16.dp,
                 ),
         ) {
             HealthBenefitsSection(benefits)
@@ -545,7 +545,7 @@ fun ResearchScreen(
 private fun MilestonesMascot() {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(26.dp),
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -636,7 +636,7 @@ private fun MilestonesMascot() {
 private fun MilestonesSection(milestones: List<Milestone>) {
     if (milestones.isEmpty()) return
 
-    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (milestones.none { it.achieved }) {
             Text(
                 "Keep logging to earn your first milestone.",
@@ -859,7 +859,7 @@ private fun categoryContentColor(category: MilestoneCategory): Color = when (cat
 private fun DataFillRateCard(fillRate: DataFillRateResult) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -923,7 +923,7 @@ private fun HealthBenefitsSection(benefits: List<HealthBenefit>) {
 @Composable
 private fun ResearchFactRow(fact: HealthBenefit, expanded: Boolean, onToggle: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(
                     Icons.Outlined.CheckCircle,
@@ -1036,7 +1036,7 @@ private fun WeightTrendCard(
     val goalColor = MaterialTheme.colorScheme.tertiary
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Weight trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
             val unit = profile?.weightUnit
@@ -1100,7 +1100,7 @@ private fun CalorieTrendCard(
     val lineColor = MaterialTheme.colorScheme.secondary
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Calorie trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 InfoTooltipIcon(

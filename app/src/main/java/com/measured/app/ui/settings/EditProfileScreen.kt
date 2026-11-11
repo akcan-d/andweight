@@ -72,12 +72,12 @@ fun EditProfileScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = topBarPadding.calculateTopPadding() + 12.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = topBarPadding.calculateTopPadding() + 8.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 16.dp,
                 ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Units", style = MaterialTheme.typography.labelLarge)
             WeightUnitPicker(selected = state.weightUnit, onChange = viewModel::onWeightUnitChange)

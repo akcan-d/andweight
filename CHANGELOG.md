@@ -7,6 +7,10 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+### Changed
+- Tightened spacing app-wide - smaller screen margins, less gap between cards, and less padding
+  inside cards - for a denser, less whitespace-heavy layout
+
 ## [0.31.0] - 2026-10-26
 
 ### Fixed

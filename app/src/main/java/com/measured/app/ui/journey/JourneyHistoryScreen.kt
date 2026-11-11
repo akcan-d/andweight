@@ -101,12 +101,12 @@ fun JourneyHistoryScreen(
     ) { topBarPadding ->
         LazyColumn(
             contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = topBarPadding.calculateTopPadding() + 12.dp,
-                bottom = contentPadding.calculateBottomPadding() + 20.dp,
+                start = 16.dp,
+                end = 16.dp,
+                top = topBarPadding.calculateTopPadding() + 8.dp,
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
                 Row(
@@ -294,7 +294,7 @@ private fun calendarWeekSummaries(logs: List<DailyLog>, firstDayOfWeek: DayOfWee
 private fun WeekCard(week: CalendarWeekSummary, profile: UserProfile?) {
     val unit = profile?.weightUnit
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 "${week.startDate.format(dateFormatter)} - ${week.endDate.format(dateFormatter)}",
                 style = MaterialTheme.typography.titleSmall,
