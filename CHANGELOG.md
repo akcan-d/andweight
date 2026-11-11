@@ -7,6 +7,11 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+### Fixed
+- History's Edit button no longer jumps to the Status tab - tapping it now opens an inline
+  weight/meal edit form right there in the calendar's detail panel, so fixing up several days in
+  a row doesn't mean leaving History each time
+
 ## [0.32.0] - 2026-11-11
 
 ### Added

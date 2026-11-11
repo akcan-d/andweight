@@ -101,8 +101,6 @@ private val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
 fun TodayScreen(
     contentPadding: PaddingValues,
     onEditProfile: () -> Unit,
-    initialDate: LocalDate? = null,
-    onInitialDateConsumed: () -> Unit = {},
     initialShortcutTarget: String? = null,
     onInitialShortcutTargetConsumed: () -> Unit = {},
     viewModel: TodayViewModel = viewModel(factory = AppViewModelProvider.Factory),
@@ -112,16 +110,6 @@ fun TodayScreen(
     val confidence by viewModel.confidence.collectAsState()
     val plateau by viewModel.plateau.collectAsState()
     val isSupporter by viewModel.isSupporter.collectAsState()
-
-    // Journey's "edit this day" action lands here exactly like a normal tab switch (see
-    // MainScreen) - this just jumps the day picker to the requested date once, rather than
-    // treating it as a separate screen the person needs to back out of.
-    LaunchedEffect(initialDate) {
-        if (initialDate != null) {
-            viewModel.jumpToDate(initialDate)
-            onInitialDateConsumed()
-        }
-    }
 
     // The "Log weight"/"Log meal" app shortcuts land here the same way - force the relevant
     // section open for editing even if today's already been fully logged, since the whole point

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronLeft
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -30,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,9 +48,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.measured.app.domain.DailyLog
+import com.measured.app.domain.IntakeLevel
 import com.measured.app.domain.Phrasing
 import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeekGrouping
@@ -78,7 +83,6 @@ private enum class JourneyViewMode(val label: String) {
 @Composable
 fun JourneyHistoryScreen(
     contentPadding: PaddingValues,
-    onEditDay: (LocalDate) -> Unit,
     onBack: () -> Unit,
     viewModel: JourneyViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
@@ -157,7 +161,10 @@ fun JourneyHistoryScreen(
                             logsByDate = logsByDate,
                             selectedDate = selectedDate,
                             today = today,
-                            onDayClick = { selectedDate = it },
+                            onDayClick = {
+                                selectedDate = it
+                                viewModel.cancelEditing()
+                            },
                         )
                     }
                     item {
@@ -168,7 +175,7 @@ fun JourneyHistoryScreen(
                             date = selectedDate,
                             log = logsByDate[selectedDate],
                             profile = profile,
-                            onEdit = { onEditDay(selectedDate) },
+                            viewModel = viewModel,
                             onDelete = { viewModel.deleteLog(selectedDate) },
                         )
                     }
@@ -325,30 +332,36 @@ private fun LegendDot(color: Color, label: String) {
 }
 
 @Composable
-private fun SelectedDayDetail(date: LocalDate, log: DailyLog?, profile: UserProfile?, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun SelectedDayDetail(date: LocalDate, log: DailyLog?, profile: UserProfile?, viewModel: JourneyViewModel, onDelete: () -> Unit) {
     var showDeleteConfirm by remember(date) { mutableStateOf(false) }
     val unit = profile?.weightUnit
+    val isEditing = viewModel.editingDate == date
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(date.format(dateFormatter), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit this day")
-                    }
-                    if (log != null) {
-                        IconButton(onClick = { showDeleteConfirm = true }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Delete this day", tint = MaterialTheme.colorScheme.error)
+                if (!isEditing) {
+                    Row {
+                        IconButton(onClick = { viewModel.startEditing(date) }) {
+                            Icon(Icons.Outlined.Edit, contentDescription = "Edit this day")
+                        }
+                        if (log != null) {
+                            IconButton(onClick = { showDeleteConfirm = true }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = "Delete this day", tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                 }
             }
-            if (log == null) {
+
+            if (isEditing) {
+                InlineDayEditForm(unit = unit?.name?.lowercase() ?: "kg", viewModel = viewModel)
+            } else if (log == null) {
                 Text(
                     "No entry logged for this day.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -386,6 +399,62 @@ private fun SelectedDayDetail(date: LocalDate, log: DailyLog?, profile: UserProf
                 }
             },
         )
+    }
+}
+
+/** Both fields together, saved in one combined write (see [JourneyViewModel.saveEditedDay]) -
+ * editing a past day from the calendar is usually a single correction pass, unlike Today's
+ * separate per-field forms for a day that's still actively being logged. */
+@Composable
+private fun InlineDayEditForm(unit: String, viewModel: JourneyViewModel) {
+    val weightState = viewModel.weightEditState
+    val mealState = viewModel.mealEditState
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = weightState.text,
+            onValueChange = viewModel::onWeightEditTextChange,
+            label = { Text("Weight ($unit)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        weightState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+
+        if (!mealState.useExact) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                IntakeLevel.entries.forEach { level ->
+                    FilterChip(
+                        selected = mealState.selectedIntake == level,
+                        onClick = { viewModel.onMealIntakeSelected(level) },
+                        label = { Text(level.label) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = themedFilterChipColors(),
+                    )
+                }
+            }
+            TextButton(onClick = viewModel::onMealToggleExact) {
+                Text("Enter exact calories")
+            }
+        } else {
+            OutlinedTextField(
+                value = mealState.exactCaloriesText,
+                onValueChange = viewModel::onMealExactCaloriesChange,
+                label = { Text("Calories eaten that day") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextButton(onClick = viewModel::onMealToggleExact) {
+                Text("Use quick pick")
+            }
+        }
+        mealState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = viewModel::saveEditedDay) { Text("Save") }
+            TextButton(onClick = viewModel::cancelEditing) { Text("Cancel") }
+        }
     }
 }
 

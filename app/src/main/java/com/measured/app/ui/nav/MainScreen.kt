@@ -101,12 +101,7 @@ fun MainScreen(onDataErased: () -> Unit, initialShortcutTarget: String? = null) 
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
 
-    // Set by Journey's "edit this day" action and consumed by the Status tab the moment it's
-    // composed after the switch - a plain nav argument would fight with the pager's own state
-    // retention, so the date travels alongside navigation rather than inside it.
-    var pendingEditDate by remember { mutableStateOf<LocalDate?>(null) }
-
-    // Same reasoning, for the "Log weight"/"Log meal" app shortcuts (see MainActivity /
+    // For the "Log weight"/"Log meal" app shortcuts (see MainActivity /
     // res/xml/shortcuts.xml) - "weight" or "meal", consumed once by the Status tab, which is
     // already page 0 so no tab switch is needed to get there.
     var pendingShortcutTarget by remember { mutableStateOf(initialShortcutTarget) }
@@ -193,8 +188,6 @@ fun MainScreen(onDataErased: () -> Unit, initialShortcutTarget: String? = null) 
                         TAB_STATUS -> TodayScreen(
                             contentPadding = padding,
                             onEditProfile = { navController.navigate(SETTINGS_EDIT_PROFILE_ROUTE) },
-                            initialDate = pendingEditDate,
-                            onInitialDateConsumed = { pendingEditDate = null },
                             initialShortcutTarget = pendingShortcutTarget,
                             onInitialShortcutTargetConsumed = { pendingShortcutTarget = null },
                         )
@@ -240,10 +233,6 @@ fun MainScreen(onDataErased: () -> Unit, initialShortcutTarget: String? = null) 
             composable(JOURNEY_HISTORY_ROUTE) {
                 JourneyHistoryScreen(
                     contentPadding = padding,
-                    onEditDay = { date ->
-                        pendingEditDate = date
-                        goToTab(TAB_STATUS)
-                    },
                     onBack = { navController.popBackStack() },
                 )
             }
