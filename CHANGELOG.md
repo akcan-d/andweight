@@ -7,6 +7,8 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-11
+
 ### Changed
 - Compacted the Status tab's hero card - the time estimate and target date now share one line,
   current and goal weight are combined into a single row (with a tap-for-explanation icon),
