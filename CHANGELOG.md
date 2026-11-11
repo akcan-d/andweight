@@ -7,6 +7,8 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-11
+
 ### Added
 - Milestones' "up next" cards now show a thin progress ring around their icon for how close that
   specific rung is, and the Journey check-in rate card shows a matching small ring next to its
