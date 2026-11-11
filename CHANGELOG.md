@@ -7,6 +7,11 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+### Added
+- Milestones' "up next" cards now show a thin progress ring around their icon for how close that
+  specific rung is, and the Journey check-in rate card shows a matching small ring next to its
+  percentage
+
 ### Changed
 - Tightened spacing app-wide - smaller screen margins, less gap between cards, and less padding
   inside cards - for a denser, less whitespace-heavy layout

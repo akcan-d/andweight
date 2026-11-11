@@ -25,6 +25,11 @@ data class Milestone(
     val achieved: Boolean,
     /** Only set when [achieved] is false - a short "how much further" hint. */
     val hint: String? = null,
+    /** Only set when [achieved] is false - how close this specific rung is (0f-1f), for the
+     * progress ring drawn around its card's icon. Relative to this rung's own threshold, not the
+     * overall goal, so it always starts near-empty right after the previous rung in the same
+     * category was reached. */
+    val progress: Float? = null,
 )
 
 /**
@@ -123,6 +128,7 @@ object JourneyMilestones {
                 title,
                 achieved = false,
                 hint = "${dayWord(remaining)} to go",
+                progress = (daysSinceStart.toFloat() / threshold).coerceIn(0f, 1f),
             )
         }
         return result
@@ -143,6 +149,7 @@ object JourneyMilestones {
                 title,
                 achieved = false,
                 hint = "${dayWord(remaining.toLong())} more in a row",
+                progress = (longestStreak.toFloat() / threshold).coerceIn(0f, 1f),
             )
         }
         return result
@@ -164,6 +171,7 @@ object JourneyMilestones {
                 title,
                 achieved = false,
                 hint = "$remainingPercent% to go",
+                progress = (ratio / threshold).toFloat().coerceIn(0f, 1f),
             )
         }
         return result
@@ -204,6 +212,7 @@ object JourneyMilestones {
                 titleFor(thresholdKg),
                 achieved = false,
                 hint = "${formatForUnit(remainingInUnit)} $unitLabel to go",
+                progress = (movedKg / thresholdKg).toFloat().coerceIn(0f, 1f),
             )
         }
         return result

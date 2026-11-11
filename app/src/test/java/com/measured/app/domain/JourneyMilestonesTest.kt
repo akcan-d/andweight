@@ -163,6 +163,29 @@ class JourneyMilestonesTest {
     }
 
     @Test
+    fun `next-rung progress is relative to that rung's own threshold, achieved rungs carry none`() {
+        val logs = logsOverDays(8) // day 1 through day 8 logged
+        val today = referenceDate.plusDays(7) // 8 days since first log, inclusive
+        val timeMilestones = JourneyMilestones.compute(loseProfile, stateWith(99.0), logs, today)
+            .filter { it.category == MilestoneCategory.TIME }
+
+        assertTrue(timeMilestones.filter { it.achieved }.all { it.progress == null })
+        val nextTime = timeMilestones.first { !it.achieved } // "Two weeks in" (14 days), 8/14 so far
+        assertEquals(8f / 14f, nextTime.progress!!, 0.001f)
+
+        // Started at 100, goal 80 (20kg needed), currently at 90 -> halfway there (0.5), with the
+        // next rung at 0.75 - progress toward that next rung is 0.5 / 0.75, not 0.5 / 1.0.
+        val progressMilestones = JourneyMilestones.compute(
+            loseProfile,
+            stateWith(currentWeightKg = 90.0, earliestKg = 100.0),
+            logsOverDays(3),
+            referenceDate.plusDays(2),
+        ).filter { it.category == MilestoneCategory.PROGRESS }
+        val nextProgress = progressMilestones.first { !it.achieved }
+        assertEquals(0.5f / 0.75f, nextProgress.progress!!, 0.001f)
+    }
+
+    @Test
     fun `no logs yet means no time or streak milestones are computed`() {
         val milestones = JourneyMilestones.compute(loseProfile, stateWith(100.0), emptyList(), referenceDate)
         assertNull(milestones.firstOrNull { it.category == MilestoneCategory.TIME })

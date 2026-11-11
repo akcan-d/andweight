@@ -112,6 +112,7 @@ import com.measured.app.domain.UserProfile
 import com.measured.app.domain.WeekGrouping
 import com.measured.app.ui.AppViewModelProvider
 import com.measured.app.ui.common.InfoTooltipIcon
+import com.measured.app.ui.common.ProgressRingIcon
 import com.measured.app.ui.common.SupporterOnlyDialog
 import com.measured.app.ui.theme.themedFilterChipColors
 import java.time.DayOfWeek
@@ -740,19 +741,36 @@ private fun AchievementCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(badgeColor),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        milestoneIcon(milestone),
-                        contentDescription = null,
-                        tint = badgeContentColor,
-                        modifier = Modifier.size(24.dp),
+                val badge: @Composable () -> Unit = {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(badgeColor),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            milestoneIcon(milestone),
+                            contentDescription = null,
+                            tint = badgeContentColor,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+                // Not-yet-reached rungs get a thin progress ring around the badge, showing how
+                // close this specific rung is (not the overall goal) - an "up next" card otherwise
+                // looked identical whether it was one day away or just unlocked, which hid exactly
+                // the thing someone checking in on their progress most wants to see at a glance.
+                if (milestone.progress != null) {
+                    ProgressRingIcon(
+                        progress = milestone.progress,
+                        diameter = 58.dp,
+                        strokeWidth = 3.dp,
+                        ringColor = MaterialTheme.colorScheme.primary,
+                        content = badge,
                     )
+                } else {
+                    badge()
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -864,11 +882,20 @@ private fun DataFillRateCard(fillRate: DataFillRateResult) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Check-in rate", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "${fillRate.percent}% (${fillRate.loggedDays}/${fillRate.totalDays})",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProgressRingIcon(
+                    progress = fillRate.percent / 100f,
+                    diameter = 22.dp,
+                    strokeWidth = 3.dp,
+                    ringColor = MaterialTheme.colorScheme.primary,
+                    content = {},
+                )
+                Text(
+                    "${fillRate.percent}% (${fillRate.loggedDays}/${fillRate.totalDays})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
     }
 }
