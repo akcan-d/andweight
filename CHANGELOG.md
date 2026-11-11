@@ -7,6 +7,13 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+### Changed
+- Compacted the Status tab's hero card - the time estimate and target date now share one line,
+  current and goal weight are combined into a single row (with a tap-for-explanation icon),
+  "Show details" is now a small chevron on that row instead of its own full-width button, and the
+  stat chips (To go/Percent/So far) share a row with the ring/bar display toggle instead of each
+  having their own
+
 ### Fixed
 - History's Edit button no longer jumps to the Status tab - tapping it now opens an inline
   weight/meal edit form right there in the calendar's detail panel, so fixing up several days in

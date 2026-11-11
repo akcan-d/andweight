@@ -24,6 +24,8 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.DonutLarge
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LinearScale
 import androidx.compose.material.icons.outlined.Lock
@@ -179,7 +181,7 @@ private fun StatusCard(
                 }
             }
 
-            HeroSection(profile, tdeeState, onSaveGoalWeight, isSupporter, onSetSupporter)
+            HeroSection(profile, tdeeState, onSaveGoalWeight, isSupporter, onSetSupporter, showDetails) { showDetails = !showDetails }
 
             HorizontalDivider()
 
@@ -239,12 +241,6 @@ private fun StatusCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = { showDetails = !showDetails }) {
-                    Text(if (showDetails) "Hide details" else "Show details")
-                }
             }
 
             if (showDetails) {
@@ -319,6 +315,8 @@ private fun HeroSection(
     onSaveGoalWeight: (Double) -> Unit,
     isSupporter: Boolean,
     onSetSupporter: (Boolean) -> Unit,
+    showDetails: Boolean,
+    onToggleDetails: () -> Unit,
 ) {
     var heroStat by remember { mutableStateOf(HeroStat.REMAINING) }
     var displayStyle by remember { mutableStateOf(HeroDisplayStyle.RING) }
@@ -384,22 +382,24 @@ private fun HeroSection(
                 }
 
                 // Which stat the ring/bar's center number shows, and which shape it's drawn as,
-                // are two unrelated choices - they used to share one crowded row, which read as
-                // one confusing control and made the display-style icons easy to miss entirely.
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
-                    HeroStat.entries.forEach { stat ->
-                        FilterChip(
-                            selected = heroStat == stat,
-                            onClick = { heroStat = stat },
-                            label = { Text(stat.chipLabel, style = MaterialTheme.typography.labelSmall) },
-                            colors = themedFilterChipColors(),
-                        )
-                    }
-                }
+                // are two unrelated choices, but both are compact enough to share one row -
+                // chips on the left, display style on the right - rather than each claiming its
+                // own line.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        HeroStat.entries.forEach { stat ->
+                            FilterChip(
+                                selected = heroStat == stat,
+                                onClick = { heroStat = stat },
+                                label = { Text(stat.chipLabel, style = MaterialTheme.typography.labelSmall) },
+                                colors = themedFilterChipColors(),
+                            )
+                        }
+                    }
                     HeroDisplayStyleToggle(
                         selected = effectiveStyle,
                         isSupporter = isSupporter,
@@ -411,34 +411,21 @@ private fun HeroSection(
                 val daysToGoal = tdeeState.goalDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }?.coerceAtLeast(0) ?: 0
                 val countdown = Phrasing.goalCountdown(daysToGoal)
                 val countdownText = if (countdown.isApproximate) "~${countdown.amount}" else "${countdown.amount}"
+                val targetSuffix = tdeeState.goalDate?.let { " · ${Phrasing.formatTargetDate(it)}" }.orEmpty()
 
-                // The hero display alone only shows one reading of progress - pairing it with a
-                // rough time estimate gives a fuller picture without needing a second ring/bar.
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    MiniStat(value = countdownText, label = "${countdown.unitLabel} to go")
-                }
-
-                tdeeState.goalDate?.let {
-                    Text(
-                        "Target: ${Phrasing.formatTargetDate(it)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                // One line for the time estimate and target date together - these used to be a
+                // big centered number-and-label plus a separate line below it, which cost three
+                // lines for what's ultimately one fact ("about this long, landing on this date").
+                Text(
+                    "$countdownText ${countdown.unitLabel} to go$targetSuffix",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
-        // Previously only visible under Show details - the number someone most wants to check at
-        // a glance shouldn't need an extra tap, regardless of which goal state the ring above is in.
-        Text(
-            "Current weight: ${oneDecimal(profile.weightUnit.fromKg(tdeeState.currentWeightKg))} ${profile.weightUnit.name.lowercase()}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        GoalWeightRow(profile, onSaveGoalWeight)
+        WeightSummaryRow(profile, tdeeState.currentWeightKg, onSaveGoalWeight, showDetails, onToggleDetails)
     }
 }
 
@@ -488,25 +475,52 @@ private fun HeroDisplayStyleToggle(
     }
 }
 
-/** A one-number quick edit for the goal weight, right where it's displayed - previously the only
- * way to change it was the full Edit Profile screen. [UserProfile.goalDirection] is derived from
- * how the saved value compares to the current weight, so lose/maintain/gain updates on its own. */
+/** Current weight, an arrow, and goal weight on one line - previously two separate lines ("Current
+ * weight: ..." and "Goal: ...") for what's really one fact someone glances at together. The pencil
+ * is a one-number quick edit for the goal, right where it's displayed, rather than requiring a trip
+ * to the full Edit Profile screen; [UserProfile.goalDirection] is derived from how the saved value
+ * compares to the current weight, so lose/maintain/gain updates on its own. The trailing
+ * chevron folds in the "Show details" toggle that used to be its own full-width row below. */
 @Composable
-private fun GoalWeightRow(profile: UserProfile, onSaveGoalWeight: (Double) -> Unit) {
+private fun WeightSummaryRow(
+    profile: UserProfile,
+    currentWeightKg: Double,
+    onSaveGoalWeight: (Double) -> Unit,
+    showDetails: Boolean,
+    onToggleDetails: () -> Unit,
+) {
     var showDialog by remember { mutableStateOf(false) }
     val unit = profile.weightUnit
 
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            "Goal: ${oneDecimal(unit.fromKg(profile.goalWeightKg))} ${unit.name.lowercase()}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        IconButton(onClick = { showDialog = true }, modifier = Modifier.size(28.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "${oneDecimal(unit.fromKg(currentWeightKg))} → ${oneDecimal(unit.fromKg(profile.goalWeightKg))} ${unit.name.lowercase()}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            InfoTooltipIcon(
+                title = "Current and goal weight",
+                text = "The first number is your most recently logged weight; the second is the goal weight " +
+                    "you set during onboarding. Tap the pencil to change your goal.",
+            )
+            IconButton(onClick = { showDialog = true }, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    Icons.Outlined.Edit,
+                    contentDescription = "Edit goal weight",
+                    modifier = Modifier.size(15.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        IconButton(onClick = onToggleDetails, modifier = Modifier.size(28.dp)) {
             Icon(
-                Icons.Outlined.Edit,
-                contentDescription = "Edit goal weight",
-                modifier = Modifier.size(15.dp),
+                if (showDetails) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                contentDescription = if (showDetails) "Hide details" else "Show details",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -639,14 +653,6 @@ private fun ProgressBarDisplay(progress: Float, value: String, label: String) {
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun MiniStat(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
