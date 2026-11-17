@@ -183,6 +183,18 @@ private fun StatusCard(
 
             HeroSection(profile, tdeeState, onSaveGoalWeight, isSupporter, onSetSupporter, showDetails) { showDetails = !showDetails }
 
+            // Right under the chevron that toggles it, not after the advice banner and plateau
+            // note below - those can push the chevron and the details it reveals far enough
+            // apart that toggling it looked like it did nothing.
+            if (showDetails) {
+                if (!tdeeState.recommendedCaloriesFloorApplied) {
+                    StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
+                }
+                StatRow("Starting weight", "${oneDecimal(unit.fromKg(profile.startWeightKg))} ${unit.name.lowercase()}")
+                TdeeStatRow(tdeeState.currentTdee)
+                WeightTrendStatRow(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit)
+            }
+
             HorizontalDivider()
 
             val advice = CoachingAdvisor.advise(profile, tdeeState)
@@ -208,7 +220,7 @@ private fun StatusCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(CircleShape)
+                    .clip(MaterialTheme.shapes.medium)
                     .background(adviceContainer)
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.Center,
@@ -241,15 +253,6 @@ private fun StatusCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
-            }
-
-            if (showDetails) {
-                if (!tdeeState.recommendedCaloriesFloorApplied) {
-                    StatRow("Today's target", "${tdeeState.recommendedCalories.roundToInt()} kcal")
-                }
-                StatRow("Starting weight", "${oneDecimal(unit.fromKg(profile.startWeightKg))} ${unit.name.lowercase()}")
-                TdeeStatRow(tdeeState.currentTdee)
-                WeightTrendStatRow(tdeeState.currentWeightKg - tdeeState.earliestKnownWeightKg, unit)
             }
         }
     }
@@ -285,11 +288,9 @@ private fun PlateauNote(weeksFlat: Int) {
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Text(
-                "Your weight's barely moved over the last $weeksFlat weeks despite keeping up with logging - " +
-                    "that's a completely normal part of the journey, not a sign something's wrong. Water " +
-                    "retention, muscle gain offsetting fat loss, and your body adjusting to a new calorie " +
-                    "level can all cause this. Stay consistent for another week or two before changing " +
-                    "anything - cutting further too soon can backfire.",
+                "Your weight's barely moved in $weeksFlat weeks despite consistent logging. That's normal " +
+                    "(water, muscle, or your body adjusting), not a sign something's wrong. Give it another " +
+                    "week or two before changing anything.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
@@ -498,15 +499,18 @@ private fun WeightSummaryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            // Explicit "Now"/"Goal" labels rather than a bare "X -> Y" - without them, which
+            // number was which wasn't actually obvious at a glance.
             Text(
-                "${oneDecimal(unit.fromKg(currentWeightKg))} → ${oneDecimal(unit.fromKg(profile.goalWeightKg))} ${unit.name.lowercase()}",
+                "Now: ${oneDecimal(unit.fromKg(currentWeightKg))} → Goal: ${oneDecimal(unit.fromKg(profile.goalWeightKg))} ${unit.name.lowercase()}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
             )
             InfoTooltipIcon(
                 title = "Current and goal weight",
-                text = "The first number is your most recently logged weight; the second is the goal weight " +
-                    "you set during onboarding. Tap the pencil to change your goal.",
+                text = "\"Now\" is an average of your real logged weights from the last 7 days, not just the " +
+                    "single most recent one - a single day can be noisy (water, timing, etc.), so this smooths " +
+                    "that out. \"Goal\" is the weight you set during onboarding - tap the pencil to change it.",
             )
             IconButton(onClick = { showDialog = true }, modifier = Modifier.size(28.dp)) {
                 Icon(

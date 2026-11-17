@@ -71,6 +71,21 @@ class TdeeEngineTest {
     }
 
     @Test
+    fun `current weight smooths over the trailing week of real entries, not just the newest one`() {
+        // One new, possibly-noisy reading two days into week 5 - forward-filling that single
+        // number across the rest of the week (as the per-week TDEE averaging deliberately still
+        // does, for the energy-balance math) would let it dominate "current weight" on its own.
+        // It should instead be averaged in with whatever real entries are still inside the
+        // trailing 7-day window - here, the tail of week 4.
+        val logs = buildLogs() + DailyLog(startDate.plusDays(29), weightKg = 112.0, calories = null)
+        val today = startDate.plusDays(29)
+        val state = TdeeEngine.compute(profile, logs, today)
+
+        val expected = (week4Weight.subList(2, 7) + listOf(112.0)).average()
+        assertEquals(expected, state.currentWeightKg, 1e-9)
+    }
+
+    @Test
     fun `a fully skipped week carries the previous state forward unchanged`() {
         val logs = buildLogs() // 4 weeks of real data, then nothing for week 5
         val today = startDate.plusDays(34) // one full week later, no entries logged

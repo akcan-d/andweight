@@ -7,6 +7,19 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+### Changed
+- "Current weight" (Status card, goal distance/date, milestones) is now a plain average of real
+  logged weights from the trailing 7 days, not just the single most recent entry - a noisy single
+  day can no longer swing it on its own
+- The Status card's "Now"/"Goal" weight row is now labeled explicitly instead of a bare number
+  pair, and its tooltip explains the new averaging
+- Shortened the plateau note's text
+- The advice banner and the plateau note now use the same corner radius
+
+### Fixed
+- Expanding "Show details" on the Status card now reveals the extra rows directly below the
+  toggle instead of far below, past the advice banner and plateau note
+
 ## [0.33.0] - 2026-11-11
 
 ### Changed

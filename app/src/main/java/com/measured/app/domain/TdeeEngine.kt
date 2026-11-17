@@ -158,7 +158,20 @@ object TdeeEngine {
             if (hasCalories) lastKnownAvgCalories = avgCalories!!
         }
 
-        val currentWeight = lastKnownAvgWeight
+        // A plain average of whatever *real* weigh-ins fall in the trailing week, not
+        // [lastKnownAvgWeight] - that value is forward-filled per calendar week for the TDEE
+        // energy-balance math above (correct for that purpose, and left untouched), but it
+        // collapses to a single reading whenever this week has only one entry so far, which is
+        // exactly the noisy case "current weight" should be smoothing away from. Falls back to
+        // [lastKnownAvgWeight] when nothing real falls in the window (e.g. no logs at all, or a
+        // fully skipped week), so behavior is unchanged whenever there's nothing fresher to
+        // average - including both cases this test suite already pins.
+        val recentRealWeights = logs.filter { it.weightKg != null && it.date in today.minusDays(6)..today }
+        val currentWeight = if (recentRealWeights.isNotEmpty()) {
+            recentRealWeights.sumOf { it.weightKg!! } / recentRealWeights.size
+        } else {
+            lastKnownAvgWeight
+        }
         val currentTdee = finalizedTdees.lastOrNull() ?: initialGuess
 
         // The weekly rate is a percentage of body weight, so it's re-derived against *current*
