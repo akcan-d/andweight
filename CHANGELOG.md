@@ -7,6 +7,8 @@ can still include a behavior change, not just new features.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-17
+
 ### Changed
 - "Current weight" (Status card, goal distance/date, milestones) is now a plain average of real
   logged weights from the trailing 7 days, not just the single most recent entry - a noisy single
